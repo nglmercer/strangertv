@@ -1,0 +1,45 @@
+services:
+  stranger:
+    build: .
+    ports:
+      - "8787:8787"
+    environment:
+      NODE_ENV: production
+      PORT: "8787"
+      TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:-file:/data/local.db}
+      TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}
+      ADMIN_KEY: ${ADMIN_KEY:-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8787}
+      APP_URL: ${APP_URL:-http://localhost:8787}
+      TURN_SECRET: ${TURN_SECRET:-}
+      TURN_URLS: ${TURN_URLS:-}
+      EMAIL_WEBHOOK_URL: ${EMAIL_WEBHOOK_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-noreply@stranger.local}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      METRICS_PUBLIC: ${METRICS_PUBLIC:-0}
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_REPORTS_THRESHOLD: ${ALERT_REPORTS_THRESHOLD:-10}
+    volumes:
+      - stranger-data:/data
+    restart: unless-stopped
+
+  # Optional TURN: docker compose --profile turn up
+  coturn:
+    image: coturn/coturn:latest
+    network_mode: host
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --fingerprint
+      - --lt-cred-mech
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SECRET:-dev-turn-secret-change-me}
+      - --realm=${TURN_REALM:-localhost}
+      - --no-cli
+      - --no-multicast-peers
+    restart: unless-stopped
+    profiles: ["turn", "full"]
+
+volumes:
+  stranger-data:

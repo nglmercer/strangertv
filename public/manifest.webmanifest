@@ -1,0 +1,18 @@
+{
+  "name": "stranger",
+  "short_name": "stranger",
+  "description": "Anonymous live video matching. 18+ only.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#141414",
+  "theme_color": "#141414",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23141414' width='100' height='100'/><text y='.9em' font-size='80' x='10'>✦</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
