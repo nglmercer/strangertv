@@ -1,0 +1,28 @@
+{
+  "name": "stranger-chat",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"tsx watch server/index.ts\"",
+    "build": "tsc -b && vite build",
+    "start": "tsx server/index.ts",
+    "check": "tsc -b --pretty false",
+    "test": "tsx --test server/matchmaking.test.ts server/auth.test.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "latest",
+    "@libsql/client": "latest",
+    "hono": "latest",
+    "preact": "latest",
+    "vite": "^8.0.0",
+    "ws": "latest",
+    "tsx": "latest",
+    "concurrently": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "@preact/preset-vite": "latest",
+    "@types/node": "latest",
+    "@types/ws": "latest"
+  }
+}

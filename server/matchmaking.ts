@@ -1,0 +1,239 @@
+import type { Gender, MatchPreferences, ServerMessage } from '../shared/types'
+
+export type SocketLike = {
+  send: (message: string) => void
+  readyState: number
+}
+
+export type QueuePeer = {
+  socket: SocketLike
+  preferences: MatchPreferences
+  userId?: number
+  sessionKey: string
+  joinedAt: number
+  lastBeat: number
+}
+
+export type Room = {
+  id: string
+  a: SocketLike
+  b: SocketLike
+  aUserId?: number
+  bUserId?: number
+  createdAt: number
+}
+
+const waiting: QueuePeer[] = []
+const partners = new Map<SocketLike, SocketLike>()
+const roomsBySocket = new Map<SocketLike, Room>()
+const peerMeta = new Map<SocketLike, QueuePeer>()
+const blockedPairs = new Set<string>() // "minId:maxId"
+
+export function blockPair(a: number, b: number) {
+  const key = a < b ? `${a}:${b}` : `${b}:${a}`
+  blockedPairs.add(key)
+}
+
+export function isBlockedPair(a?: number, b?: number) {
+  if (!a || !b) return false
+  const key = a < b ? `${a}:${b}` : `${b}:${a}`
+  return blockedPairs.has(key)
+}
+
+export function send(socket: SocketLike, message: ServerMessage) {
+  if (socket.readyState === 1) socket.send(JSON.stringify(message))
+}
+
+function genderOk(lookingFor: Gender, peerGender: Gender) {
+  if (lookingFor === 'any' || peerGender === 'any') return true
+  return lookingFor === peerGender
+}
+
+function countryOk(a: string, b: string) {
+  return a === 'any' || b === 'any' || a === b
+}
+
+function languageOk(a: string, b: string) {
+  return a === 'any' || b === 'any' || a === b
+}
+
+function interestScore(a: string[], b: string[]) {
+  if (!a.length || !b.length) return 0
+  const setB = new Set(b)
+  return a.filter((x) => setB.has(x)).length
+}
+
+function compatible(a: QueuePeer, b: QueuePeer) {
+  if (a.socket === b.socket) return false
+  if (isBlockedPair(a.userId, b.userId)) return false
+  const pa = a.preferences
+  const pb = b.preferences
+  if (!countryOk(pa.country, pb.country)) return false
+  if (!languageOk(pa.language, pb.language)) return false
+  if (!genderOk(pa.lookingFor, pb.gender)) return false
+  if (!genderOk(pb.lookingFor, pa.gender)) return false
+  return true
+}
+
+function score(a: QueuePeer, b: QueuePeer) {
+  return interestScore(a.preferences.interests, b.preferences.interests)
+}
+
+export function normalizePreferences(raw: unknown): MatchPreferences | null {
+  if (!raw || typeof raw !== 'object') return null
+  const p = raw as Record<string, unknown>
+  const country = typeof p.country === 'string' ? p.country.slice(0, 8) : 'any'
+  const language = typeof p.language === 'string' ? p.language.slice(0, 16) : 'any'
+  const genders: Gender[] = ['any', 'male', 'female', 'other']
+  const gender = genders.includes(p.gender as Gender) ? (p.gender as Gender) : 'any'
+  const lookingFor = genders.includes(p.lookingFor as Gender) ? (p.lookingFor as Gender) : 'any'
+  const interests = Array.isArray(p.interests)
+    ? p.interests.filter((x): x is string => typeof x === 'string').slice(0, 10)
+    : []
+  return { country, language, gender, lookingFor, interests }
+}
+
+export function removeFromQueue(socket: SocketLike) {
+  const idx = waiting.findIndex((p) => p.socket === socket)
+  if (idx >= 0) waiting.splice(idx, 1)
+}
+
+export function leaveRoom(socket: SocketLike, notifyPartner = true, reason?: string) {
+  const room = roomsBySocket.get(socket)
+  const partner = partners.get(socket)
+  if (partner) {
+    partners.delete(socket)
+    partners.delete(partner)
+    if (notifyPartner) send(partner, { type: 'room:peer-left', reason })
+  }
+  if (room) {
+    roomsBySocket.delete(room.a)
+    roomsBySocket.delete(room.b)
+  }
+  peerMeta.delete(socket)
+}
+
+export function fullRemove(socket: SocketLike) {
+  removeFromQueue(socket)
+  leaveRoom(socket, true, 'disconnect')
+}
+
+export function queueStats() {
+  return { waiting: waiting.length, online: partners.size + waiting.length }
+}
+
+export function broadcastStats() {
+  const stats = queueStats()
+  const msg: ServerMessage = { type: 'stats', online: stats.online, waiting: stats.waiting }
+  for (const peer of waiting) send(peer.socket, msg)
+  for (const socket of partners.keys()) send(socket, msg)
+}
+
+let roomSeq = 0
+function newRoomId() {
+  roomSeq += 1
+  return `room_${Date.now().toString(36)}_${roomSeq}`
+}
+
+export function joinQueue(
+  socket: SocketLike,
+  preferences: MatchPreferences,
+  opts: { userId?: number; sessionKey: string },
+) {
+  removeFromQueue(socket)
+  leaveRoom(socket, true, 'requeue')
+
+  const self: QueuePeer = {
+    socket,
+    preferences,
+    userId: opts.userId,
+    sessionKey: opts.sessionKey,
+    joinedAt: Date.now(),
+    lastBeat: Date.now(),
+  }
+  peerMeta.set(socket, self)
+
+  let bestIdx = -1
+  let bestScore = -1
+  for (let i = 0; i < waiting.length; i++) {
+    const candidate = waiting[i]!
+    if (!compatible(self, candidate)) continue
+    const s = score(self, candidate)
+    if (s > bestScore) {
+      bestScore = s
+      bestIdx = i
+    }
+  }
+
+  if (bestIdx >= 0) {
+    const partner = waiting.splice(bestIdx, 1)[0]!
+    const room: Room = {
+      id: newRoomId(),
+      a: socket,
+      b: partner.socket,
+      aUserId: self.userId,
+      bUserId: partner.userId,
+      createdAt: Date.now(),
+    }
+    partners.set(socket, partner.socket)
+    partners.set(partner.socket, socket)
+    roomsBySocket.set(socket, room)
+    roomsBySocket.set(partner.socket, room)
+    send(socket, {
+      type: 'room:matched',
+      roomId: room.id,
+      role: 'offerer',
+      peerCountry: partner.preferences.country,
+    })
+    send(partner.socket, {
+      type: 'room:matched',
+      roomId: room.id,
+      role: 'answerer',
+      peerCountry: preferences.country,
+    })
+    broadcastStats()
+    return
+  }
+
+  waiting.push(self)
+  send(socket, {
+    type: 'queue:waiting',
+    position: waiting.length,
+    online: queueStats().online,
+  })
+  broadcastStats()
+}
+
+export function heartbeat(socket: SocketLike) {
+  const meta = peerMeta.get(socket)
+  if (meta) meta.lastBeat = Date.now()
+  const inQueue = waiting.find((p) => p.socket === socket)
+  if (inQueue) inQueue.lastBeat = Date.now()
+}
+
+export function getPartner(socket: SocketLike) {
+  return partners.get(socket)
+}
+
+export function getRoom(socket: SocketLike) {
+  return roomsBySocket.get(socket)
+}
+
+export function getMeta(socket: SocketLike) {
+  return peerMeta.get(socket)
+}
+
+/** Drop queue entries that stopped heartbeating */
+export function purgeStale(maxAgeMs = 45_000) {
+  const now = Date.now()
+  for (let i = waiting.length - 1; i >= 0; i--) {
+    const peer = waiting[i]!
+    if (now - peer.lastBeat > maxAgeMs) {
+      waiting.splice(i, 1)
+      send(peer.socket, { type: 'error', code: 'queue_timeout', message: 'Queue timed out. Try again.' })
+      peerMeta.delete(peer.socket)
+    }
+  }
+}
+
+setInterval(() => purgeStale(), 15_000).unref?.()
