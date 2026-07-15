@@ -13,6 +13,7 @@ import { StaticPage, type PageId } from './StaticPages'
 
 type MediaSlice = {
   stream: MediaStream | null
+  streamVersion: number
   devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
   videoId: string
   audioId: string
@@ -49,6 +50,7 @@ export function AppModals({
   page,
   setPage,
   media,
+  prefsInitialTab,
   onBeginMatch,
   onReport,
   onDeviceChange,
@@ -79,6 +81,7 @@ export function AppModals({
   page: PageId
   setPage: (p: PageId) => void
   media: MediaSlice
+  prefsInitialTab?: 'match' | 'devices' | 'language'
   onBeginMatch: () => void
   onReport: (reason: ReportReason, detail: string) => void
   onDeviceChange: (kind: 'video' | 'audio', id: string) => void
@@ -92,6 +95,7 @@ export function AppModals({
           prefs={prefs}
           setPrefs={setPrefs}
           stream={media.stream}
+          streamVersion={media.streamVersion}
           ensureStream={media.ensureStream}
           devices={media.devices}
           videoId={media.videoId}
@@ -115,13 +119,15 @@ export function AppModals({
           devices={media.devices}
           videoId={media.videoId}
           audioId={media.audioId}
-          setVideoId={(id) => onDeviceChange('video', id)}
-          setAudioId={(id) => onDeviceChange('audio', id)}
+          onVideoChange={(id) => onDeviceChange('video', id)}
+          onAudioChange={(id) => onDeviceChange('audio', id)}
           errorCode={media.errorCode}
           acquiring={media.acquiring}
           ensureStream={media.ensureStream}
           refreshDevices={media.refreshDevices}
           stream={media.stream}
+          streamVersion={media.streamVersion}
+          initialTab={prefsInitialTab}
           onClose={() => {
             setPreferences(false)
             if (user) void authApi.savePreferences(prefs).catch(() => undefined)

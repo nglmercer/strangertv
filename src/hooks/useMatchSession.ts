@@ -295,6 +295,18 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     return s
   }, [media, webrtc])
 
+  /** Switch cam/mic and push new tracks into the peer connection. */
+  const changeDevice = useCallback(
+    async (kind: 'video' | 'audio', id: string) => {
+      const s = await media.switchDevice(kind, id)
+      setStreamTick((n) => n + 1)
+      if (localVideo.current) localVideo.current.srcObject = s
+      webrtc.replaceTracks(s)
+      return s
+    },
+    [media, webrtc],
+  )
+
   return {
     media,
     webrtc,
@@ -326,5 +338,6 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     next,
     sendChat,
     bumpStream,
+    changeDevice,
   }
 }

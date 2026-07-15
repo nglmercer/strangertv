@@ -313,12 +313,44 @@
   cursor: not-allowed;
 }
 
-.prefs-devices {
-  margin: 8px 0 4px;
+.prefs-preview {
+  margin-top: 0;
+  margin-bottom: 12px;
 }
 
-.prefs-preview {
-  margin-top: 8px;
+.prefs-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 14px;
+  padding: 3px;
+  background: #f0f0f0;
+  border-radius: 10px;
+}
+
+.prefs-tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 9px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+}
+
+.prefs-tab.on {
+  background: #fff;
+  color: #1a1a1a;
+  box-shadow: 0 1px 3px #0002;
+}
+
+.prefs-tab-panel {
+  min-height: 120px;
+}
+
+.prefs-modal .match.full {
+  margin-top: 16px;
 }
 
 .legal-body {

@@ -23,6 +23,7 @@ export function StartMatchModal({
   prefs,
   setPrefs,
   stream,
+  streamVersion,
   ensureStream,
   devices,
   videoId,
@@ -39,6 +40,7 @@ export function StartMatchModal({
   prefs: MatchPreferences
   setPrefs: (p: MatchPreferences) => void
   stream: MediaStream | null
+  streamVersion: number
   ensureStream: () => Promise<MediaStream>
   devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
   videoId: string
@@ -55,7 +57,6 @@ export function StartMatchModal({
   const [accepted, setAccepted] = useState(() => isTermsAccepted())
   const [step, setStep] = useState(() => getStartWizardStep())
   const [needStreamHint, setNeedStreamHint] = useState(false)
-  const skipDeviceReacq = useRef(true)
 
   const tryStream = () => {
     void ensureStream()
@@ -66,24 +67,20 @@ export function StartMatchModal({
   useEffect(() => {
     if (step < 1) return
     tryStream()
-    // Only when entering device step
+    // Only when entering device step — device picks go through onDeviceChange/switchDevice
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
-  // Re-acquire when user picks another device (not on first mount of step 1)
   useEffect(() => {
-    if (step !== 1) return
-    if (skipDeviceReacq.current) {
-      skipDeviceReacq.current = false
-      return
+    const el = videoRef.current
+    if (!el) return
+    if (stream) {
+      if (el.srcObject !== stream) el.srcObject = stream
+      void el.play().catch(() => undefined)
+    } else {
+      el.srcObject = null
     }
-    tryStream()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [videoId, audioId])
-
-  useEffect(() => {
-    if (videoRef.current && stream) videoRef.current.srcObject = stream
-  }, [stream])
+  }, [stream, streamVersion])
 
   const genderLabel = (g: Gender) =>
     g === 'male' ? t.male : g === 'female' ? t.female : g === 'other' ? t.other : t.any
@@ -91,7 +88,6 @@ export function StartMatchModal({
   const goDevices = () => {
     if (!accepted) return
     acceptTerms()
-    skipDeviceReacq.current = true
     setStep(1)
   }
 

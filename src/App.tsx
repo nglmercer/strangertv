@@ -34,6 +34,7 @@ export function App() {
 
   const [showStart, setShowStart] = useState(false)
   const [preferences, setPreferences] = useState(false)
+  const [prefsTab, setPrefsTab] = useState<'match' | 'devices' | 'language' | undefined>(undefined)
   const [auth, setAuth] = useState(false)
   const [resetTokenFromUrl, setResetTokenFromUrl] = useState('')
   const [settings, setSettings] = useState(false)
@@ -94,8 +95,11 @@ export function App() {
     if (profileNeeded) return
     if (canQuickStart()) {
       void session.beginMatch().then((ok) => {
-        // Camera busy / denied after first-time setup: open prefs so user can switch devices.
-        if (!ok) setPreferences(true)
+        // Camera busy / denied after first-time setup: open Devices tab.
+        if (!ok) {
+          setPrefsTab('devices')
+          setPreferences(true)
+        }
       })
       return
     }
@@ -116,9 +120,7 @@ export function App() {
 
   const onDeviceChange = useCallback(
     (kind: 'video' | 'audio', id: string) => {
-      if (kind === 'video') session.media.setVideoId(id)
-      else session.media.setAudioId(id)
-      void session.bumpStream()
+      void session.changeDevice(kind, id).catch(() => undefined)
     },
     [session],
   )
@@ -152,7 +154,10 @@ export function App() {
         waitingCount={session.waitingCount}
         signalOk={session.match.connected}
         user={user}
-        onPreferences={() => setPreferences(true)}
+        onPreferences={() => {
+          setPrefsTab(undefined)
+          setPreferences(true)
+        }}
         onSettings={() => setSettings(true)}
         onAuthClick={() => void onAuthClick()}
       />
@@ -209,7 +214,10 @@ export function App() {
           lookingLabel={lookingLabel}
           onStart={onStartClick}
           onStop={session.stop}
-          onOpenPrefs={() => setPreferences(true)}
+          onOpenPrefs={() => {
+            setPrefsTab('match')
+            setPreferences(true)
+          }}
           onToggleAutoNext={() => {
             const nextVal = !autoNext
             setAutoNext(nextVal)
@@ -249,7 +257,10 @@ export function App() {
         showStart={showStart}
         setShowStart={setShowStart}
         preferences={preferences}
-        setPreferences={setPreferences}
+        setPreferences={(v) => {
+          setPreferences(v)
+          if (!v) setPrefsTab(undefined)
+        }}
         auth={auth}
         setAuth={setAuth}
         resetTokenFromUrl={resetTokenFromUrl}
@@ -262,8 +273,10 @@ export function App() {
         setRateRoomId={session.setRateRoomId}
         page={page}
         setPage={setPage}
+        prefsInitialTab={prefsTab}
         media={{
           stream: session.media.streamRef.current,
+          streamVersion: session.media.streamVersion,
           devices: session.media.devices,
           videoId: session.media.videoId,
           audioId: session.media.audioId,
@@ -273,6 +286,8 @@ export function App() {
           ensureStream: async () => {
             const s = await session.media.ensureStream()
             session.setStreamTick((n) => n + 1)
+            if (session.localVideo.current) session.localVideo.current.srcObject = s
+            session.webrtc.replaceTracks(s)
             return s
           },
         }}
