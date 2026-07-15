@@ -36,7 +36,7 @@
     "@preact/preset-vite": "^2.10.0",
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.0",
-    "typescript": "^5.8.0"
+    "typescript": "^7.0.2"
   },
   "overrides": {
     "@babel/core": "^7.26.10",
