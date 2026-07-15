@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Changed
+- Modularized main web client: hooks (`useMatchSession`, `useSessionBootstrap`) + UI components (`TopBar`, `VideoStage`, `CallBar`, `ControlDeck`, `ChatPanel`, `AppFooter`, `AppModals`)
+
 ### Added
 - Gzip compression, `.dockerignore`, WS signal status in header
 - `useCallKeyboard` hook; admin underage open count

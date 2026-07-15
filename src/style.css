@@ -117,6 +117,11 @@ textarea {
   color: #ddd;
 }
 
+.stage-wrap {
+  position: relative;
+  background: #080808;
+}
+
 .stage {
   position: relative;
   background: #080808;
@@ -383,6 +388,10 @@ textarea {
   border-radius: 999px;
   border: 1px solid #333;
   max-width: calc(100% - 24px);
+}
+
+.stage-wrap .call-bar {
+  bottom: 18px;
 }
 
 .stage-error {
