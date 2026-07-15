@@ -1,0 +1,67 @@
+@media (max-width: 1100px) {
+  .deck {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .deck {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .stage {
+    height: auto;
+    padding: 8px 8px 56px;
+    min-height: 0;
+  }
+
+  .video-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: min(48vh, 360px) 180px;
+  }
+
+  .video {
+    min-height: 0;
+  }
+
+  .brand-mark {
+    transform: rotate(-1deg) scale(0.85);
+  }
+  .dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .deck-card {
+    height: 100px;
+    font-size: 16px;
+  }
+
+  .profile-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .profile-row label {
+    width: auto;
+  }
+
+  .selects {
+    width: 100%;
+  }
+
+  .online .stats {
+    display: none;
+  }
+
+  .call-bar {
+    bottom: 8px;
+    border-radius: 16px;
+  }
+
+  .footer {
+    font-size: 10px;
+  }
+}

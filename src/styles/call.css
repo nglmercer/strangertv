@@ -1,0 +1,25 @@
+.call-btn {
+  border: 0;
+  background: #2a2a2a;
+  color: #eee;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.call-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.call-btn.next-btn {
+  background: var(--green);
+  color: #053;
+  font-weight: 600;
+}
+
+.call-btn.danger {
+  background: #5a2a22;
+  color: #ffc9c0;
+}

@@ -1,0 +1,81 @@
+.topbar {
+  height: 58px;
+  background: var(--ink);
+  border-bottom: 1px solid #272727;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: relative;
+  z-index: 2;
+  gap: 12px;
+}
+
+.brand {
+  color: #fff;
+  text-decoration: none;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  white-space: nowrap;
+}
+
+.brand:first-letter {
+  color: var(--accent);
+}
+
+.online {
+  font: 11px 'DM Mono', monospace;
+  color: #aaa;
+  flex: 1;
+  text-align: center;
+}
+
+.online i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #5fc69e;
+  border-radius: 50%;
+  margin-right: 7px;
+}
+
+.online i.off {
+  background: #888;
+}
+
+.ws-ok {
+  color: #7dcea0;
+}
+
+.ws-bad {
+  color: #e8a090;
+}
+
+.stats {
+  opacity: 0.85;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sign {
+  background: var(--accent);
+  border: 0;
+  color: #fff;
+  border-radius: 4px;
+  padding: 9px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sign.ghost {
+  background: transparent;
+  border: 1px solid #444;
+  color: #ddd;
+}
