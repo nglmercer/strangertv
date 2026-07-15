@@ -38,5 +38,6 @@
 - [x] Call timer, shortcuts, ratings, admin report resolve, versioned health
 - [x] Rating uniqueness, underage alerts, long-wait UX, robots/security.txt
 - [x] Admin report filters, peer-left reasons, ICE preload, Docker public assets
+- [x] Compression, dockerignore, WS status, keyboard hook, underage admin stat
 - [ ] Live HTTPS host + real TURN + Turso in your cloud account (ops only)
 

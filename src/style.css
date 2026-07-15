@@ -78,6 +78,18 @@ textarea {
   margin-right: 7px;
 }
 
+.online i.off {
+  background: #888;
+}
+
+.ws-ok {
+  color: #7dcea0;
+}
+
+.ws-bad {
+  color: #e8a090;
+}
+
 .stats {
   opacity: 0.85;
 }

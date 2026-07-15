@@ -147,6 +147,15 @@
   grid-column: 1 / -1;
 }
 
+.stat-alert {
+  border-color: #c85343;
+  box-shadow: 0 0 0 1px #c8534366;
+}
+
+.stat-alert strong {
+  color: #ff8f7a;
+}
+
 .stat strong {
   display: block;
   font-size: 22px;

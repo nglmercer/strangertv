@@ -136,6 +136,8 @@ export const en = {
   peerLeftBlocked: 'You were blocked or the peer left after a report.',
   peerLeftNext: 'Peer skipped. Finding someone new…',
   peerLeftLeave: 'Peer ended the chat.',
+  wsConnected: 'signal ok',
+  wsDisconnected: 'signal off',
 }
 
 export type Messages = {

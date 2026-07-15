@@ -138,4 +138,6 @@ export const pt: Messages = {
   peerLeftBlocked: 'Você foi bloqueado ou a pessoa saiu após denúncia.',
   peerLeftNext: 'Pessoa pulou. Procurando outra…',
   peerLeftLeave: 'A pessoa encerrou o chat.',
+  wsConnected: 'sinal ok',
+  wsDisconnected: 'sem sinal',
 }

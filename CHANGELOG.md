@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- Gzip compression, `.dockerignore`, WS signal status in header
+- `useCallKeyboard` hook; admin underage open count
 - Admin report status filter (open/resolved/all); peer-left reason messages
 - ICE preload; Docker copies `public/`; `npm run test:all`
 - Version read from package.json in production

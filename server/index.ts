@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import type { Server as HttpServer } from 'node:http'
 import { join } from 'node:path'
 import { Hono } from 'hono'
+import { compress } from 'hono/compress'
 import { cors } from 'hono/cors'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { noteReport } from './alerts'
@@ -75,6 +76,7 @@ const serveStatic = createStaticHandler(distDir, publicDir)
 
 app.use('*', requestIdMiddleware)
 app.use('*', securityHeaders)
+app.use('*', compress())
 app.use(
   '/api/*',
   cors({
@@ -491,14 +493,25 @@ app.get('/api/admin/overview', async (c) => {
     } catch {
       /* ratings table may be missing on old DBs */
     }
+    let underageOpen = 0
+    try {
+      const u = await db.execute(
+        `SELECT COUNT(*) AS n FROM reports WHERE reason = 'underage' AND COALESCE(status, 'open') = 'open'`,
+      )
+      underageOpen = Number(u.rows[0]?.n ?? 0)
+    } catch {
+      /* ignore */
+    }
     return c.json({
       queue: stats,
       users: Number(users.rows[0]?.n ?? 0),
       reports: Number(reports.rows[0]?.n ?? 0),
       openReports,
+      underageOpen,
       activeBans: Number(bans.rows[0]?.n ?? 0),
       ratings,
       metrics: snapshot(),
+      version: APP_VERSION,
     })
   } catch (err) {
     logger.error('admin.overview_failed', { err: String(err) })

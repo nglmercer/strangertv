@@ -5,8 +5,10 @@ type Overview = {
   users: number
   reports: number
   openReports?: number
+  underageOpen?: number
   activeBans: number
   ratings?: { count: number; average: number | null }
+  version?: string
   metrics: {
     counters: Record<string, number>
     matchLatencyMs: { p50: number; p95: number; samples: number }
@@ -253,10 +255,20 @@ export function AdminApp() {
             </strong>
             <span>Avg rating ({overview.ratings?.count ?? 0})</span>
           </article>
+          <article class={`stat ${overview.underageOpen ? 'stat-alert' : ''}`}>
+            <strong>{overview.underageOpen ?? 0}</strong>
+            <span>Open underage</span>
+          </article>
           <article class="stat">
             <strong>{overview.metrics.memoryMb} MB</strong>
             <span>RSS</span>
           </article>
+          {overview.version && (
+            <article class="stat">
+              <strong>v{overview.version}</strong>
+              <span>Server</span>
+            </article>
+          )}
           <article class="stat wide">
             <strong>
               p50 {overview.metrics.matchLatencyMs.p50}ms · p95 {overview.metrics.matchLatencyMs.p95}ms

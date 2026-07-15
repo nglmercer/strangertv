@@ -7,6 +7,7 @@
     "dev": "concurrently -k \"vite\" \"tsx watch server/index.ts\"",
     "build": "tsc -b && vite build",
     "start": "tsx server/index.ts",
+    "start:prod": "NODE_ENV=production APP_VERSION=$npm_package_version tsx server/index.ts",
     "check": "tsc -b --pretty false",
     "test": "tsx --test server/auth.test.ts server/matchmaking.test.ts server/blocks.test.ts server/config.test.ts",
     "test:integration": "tsx --test server/api.integration.test.ts",

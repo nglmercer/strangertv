@@ -156,14 +156,15 @@ export function useMatchSocket(handlers: Handlers) {
     send({ type: 'block' })
   }, [send])
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Open signaling early for stats/heartbeat and connection indicator
+    ensureSocket()
+    return () => {
       stopHeartbeat()
       socket.current?.close()
       socket.current = null
-    },
-    [],
-  )
+    }
+  }, [ensureSocket])
 
   return { send, join, next, leave, report, block, connected, socket }
 }

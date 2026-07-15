@@ -138,4 +138,6 @@ export const es: Messages = {
   peerLeftBlocked: 'Te bloquearon o se fue tras un reporte.',
   peerLeftNext: 'Saltó. Buscando a alguien nuevo…',
   peerLeftLeave: 'Terminó el chat.',
+  wsConnected: 'señal ok',
+  wsDisconnected: 'sin señal',
 }

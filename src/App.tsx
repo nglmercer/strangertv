@@ -19,6 +19,7 @@ import { ReportModal } from './components/ReportModal'
 import { SettingsModal } from './components/SettingsModal'
 import { StartMatchModal } from './components/StartMatchModal'
 import { StaticPage, type PageId } from './components/StaticPages'
+import { useCallKeyboard } from './hooks/useCallKeyboard'
 import { useMatchSocket } from './hooks/useMatchSocket'
 import { useMedia } from './hooks/useMedia'
 import { useWebRTC } from './hooks/useWebRTC'
@@ -380,34 +381,16 @@ export function App() {
     if (endedRoom && duration >= 5) setRateRoomId(endedRoom)
   }
 
-  const stopRef = useRef(stop)
-  stopRef.current = stop
-  const nextRef = useRef(next)
-  nextRef.current = next
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
-      if (!findingRef.current && !matchedRef.current) return
-      const key = e.key.toLowerCase()
-      if (key === 'm') {
-        e.preventDefault()
-        media.setMutedTrack(!media.muted)
-      } else if (key === 'c') {
-        e.preventDefault()
-        media.setCameraTrack(!media.cameraOn)
-      } else if (key === 'n' && findingRef.current) {
-        e.preventDefault()
-        nextRef.current()
-      } else if (key === 'escape') {
-        e.preventDefault()
-        stopRef.current()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [media])
+  useCallKeyboard({
+    active: finding || matched,
+    muted: media.muted,
+    cameraOn: media.cameraOn,
+    setMuted: media.setMutedTrack,
+    setCamera: media.setCameraTrack,
+    onNext: next,
+    onStop: stop,
+    canNext: finding,
+  })
 
   const sendChat = (event: Event) => {
     event.preventDefault()
@@ -449,9 +432,13 @@ export function App() {
           ✦ {tr.brand}
         </a>
         <div class="online" aria-live="polite">
-          <i /> {tr.live}
+          <i class={match.connected ? 'on' : 'off'} /> {tr.live}
           <span class="stats">
             · {online} {tr.online} · {waitingCount} {tr.waiting}
+            {' · '}
+            <span class={match.connected ? 'ws-ok' : 'ws-bad'}>
+              {match.connected ? tr.wsConnected : tr.wsDisconnected}
+            </span>
           </span>
         </div>
         <div class="header-actions">
