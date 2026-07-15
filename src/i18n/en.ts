@@ -105,6 +105,10 @@ export const en = {
     good: 'Good connection',
     poor: 'Weak connection',
     failed: 'Connection failed',
+    /** Hover detail: live WebRTC stats (RTT / loss / bitrate). */
+    detail: '{label} · RTT {rtt} · loss {loss} · {bitrate}',
+    measuring: 'Measuring…',
+    na: '—',
   },
   position: 'Queue position',
   deleteAccount: 'Delete account',

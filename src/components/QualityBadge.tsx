@@ -1,18 +1,48 @@
-import type { Messages } from '../i18n'
+import { formatMessage, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
+import type { LinkStats } from '../utils/webrtcQuality'
 
-/** Compact signal icon; details appear on hover / focus. */
+function tierLabel(t: Messages, quality: Quality): string {
+  switch (quality) {
+    case 'good':
+      return t.quality.good
+    case 'poor':
+      return t.quality.poor
+    case 'failed':
+      return t.quality.failed
+    case 'connecting':
+      return t.quality.connecting
+    default:
+      return t.quality.connecting
+  }
+}
+
+function formatDetail(t: Messages, quality: Quality, stats: LinkStats | null | undefined): string {
+  const label = tierLabel(t, quality)
+  if (quality === 'connecting' || quality === 'failed' || quality === 'idle') {
+    return label
+  }
+  if (!stats || (stats.rttMs == null && stats.lossPct == null && stats.bitrateKbps == null)) {
+    return `${label} · ${t.quality.measuring}`
+  }
+  const rtt = stats.rttMs != null ? `${stats.rttMs}ms` : t.quality.na
+  const loss = stats.lossPct != null ? `${stats.lossPct.toFixed(1)}%` : t.quality.na
+  const bitrate = stats.bitrateKbps != null ? `${stats.bitrateKbps} kbps` : t.quality.na
+  return formatMessage(t.quality.detail, { label, rtt, loss, bitrate })
+}
+
+/** Compact signal icon from live WebRTC getStats(); details on hover/focus. */
 export function QualityBadge({
   quality,
-  label,
+  stats,
   t,
 }: {
   quality: Quality
-  label: string
+  stats?: LinkStats | null
   t: Messages
 }) {
   if (quality === 'idle') return null
-  const text = label || t.quality.connecting
+  const text = formatDetail(t, quality, stats)
 
   return (
     <span
@@ -23,7 +53,6 @@ export function QualityBadge({
       title={text}
     >
       <svg class="quality-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        {/* Signal bars */}
         <rect x="3" y="14" width="3.5" height="7" rx="1" fill="currentColor" opacity={quality === 'failed' ? 0.25 : 0.9} />
         <rect
           x="8.5"
@@ -53,12 +82,7 @@ export function QualityBadge({
           opacity={quality === 'good' ? 1 : 0.18}
         />
         {quality === 'failed' && (
-          <path
-            d="M4 4l16 16"
-            stroke="currentColor"
-            stroke-width="2.2"
-            stroke-linecap="round"
-          />
+          <path d="M4 4l16 16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
         )}
       </svg>
       <span class="quality-tip" role="tooltip">

@@ -143,17 +143,6 @@ export function App() {
           ? tr.other
           : tr.everyone
 
-  const qualityLabel =
-    session.webrtc.quality === 'good'
-      ? tr.quality.good
-      : session.webrtc.quality === 'poor'
-        ? tr.quality.poor
-        : session.webrtc.quality === 'failed'
-          ? tr.quality.failed
-          : session.webrtc.quality === 'connecting'
-            ? tr.quality.connecting
-            : ''
-
   return (
     <main class="app">
       <OfflineBanner label={tr.offline} />
@@ -177,7 +166,7 @@ export function App() {
           longWait={session.longWait}
           queuePos={session.queuePos}
           quality={session.webrtc.quality}
-          qualityLabel={qualityLabel}
+          linkStats={session.webrtc.linkStats}
           hasRemote={session.webrtc.hasRemote}
           peerCountry={session.peerCountry}
           callSeconds={session.callSeconds}

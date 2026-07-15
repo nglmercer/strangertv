@@ -2,6 +2,7 @@ import type { RefObject } from 'preact'
 import { countryLabel, interestLabel, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
 import { formatDuration } from '../utils/format'
+import type { LinkStats } from '../utils/webrtcQuality'
 import { QualityBadge } from './QualityBadge'
 
 export function VideoStage({
@@ -12,7 +13,7 @@ export function VideoStage({
   longWait,
   queuePos,
   quality,
-  qualityLabel,
+  linkStats,
   hasRemote,
   peerCountry,
   callSeconds,
@@ -28,7 +29,7 @@ export function VideoStage({
   longWait: boolean
   queuePos?: number
   quality: Quality
-  qualityLabel: string
+  linkStats?: LinkStats | null
   hasRemote: boolean
   peerCountry: string
   callSeconds: number
@@ -94,7 +95,7 @@ export function VideoStage({
               </div>
             </div>
           )}
-          {matched && <QualityBadge quality={quality} label={qualityLabel} t={t} />}
+          {matched && <QualityBadge quality={quality} stats={linkStats} t={t} />}
         </article>
 
         <article class={`video local ${hasLocalStream ? 'has-stream' : ''}`}>
