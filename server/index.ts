@@ -810,7 +810,28 @@ const httpServer = serve({ fetch: app.fetch, port }, (info) => {
   logger.info('server.listen', { port: info.port, static: distDir, env: config.nodeEnv })
 }) as HttpServer
 
+httpServer.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    logger.error('server.port_in_use', {
+      port,
+      hint: `Port ${port} is already taken (leftover dev server?). Free it with: npm run free-ports  (or: fuser -k ${port}/tcp)`,
+    })
+    process.exit(1)
+  }
+  logger.error('server.listen_error', { code: err.code, message: err.message })
+  process.exit(1)
+})
+
 const wss = new WebSocketServer({ server: httpServer, path: '/ws' })
+// Listen errors also surface on the WebSocketServer when it shares the HTTP server.
+wss.on('error', (err: Error) => {
+  const code = (err as NodeJS.ErrnoException).code
+  if (code === 'EADDRINUSE') {
+    // httpServer handler already logs + exits; avoid unhandled 'error' crash noise.
+    return
+  }
+  logger.error('ws.server_error', { message: err.message, code })
+})
 
 wss.on('connection', (ws, req) => {
   if (draining) {

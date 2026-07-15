@@ -18,6 +18,8 @@ Anonymous 1:1 **live video chat** with random matching, text chat, preferences, 
 npm install
 cp .env.example .env   # optional for local defaults
 npm run dev
+# if port 8787/5173 is already taken (EADDRINUSE):
+npm run free-ports   # or: npm run dev:fresh
 ```
 
 | Service | URL |
@@ -26,6 +28,10 @@ npm run dev
 | API + WebSocket | http://localhost:8787 |
 
 Open the SPA; it proxies API/WS to the backend in dev.
+
+**Runtime:** use **Node.js** for this project (`tsx`, `@hono/node-server`, `ws`).  
+`bun run dev` / `bun install` as a package runner is fine, but do **not** switch the server runtime to Bun — the stack targets Node.  
+`EADDRINUSE` means a leftover process still owns the port, not a Bun vs npm bug.
 
 ### Production (single process)
 
