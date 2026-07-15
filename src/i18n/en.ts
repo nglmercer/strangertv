@@ -148,6 +148,7 @@ export const en = {
   idleHint: 'Press Start to meet someone new.',
   localPreviewHint: 'Your camera will appear here',
   callControls: 'Call controls',
+  moreActions: 'More actions',
   signInToBlock: 'Sign in to block',
   deviceDefault: 'Default',
   resetToken: 'Reset token',

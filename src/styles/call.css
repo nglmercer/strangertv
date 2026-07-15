@@ -1,16 +1,80 @@
+/* In-call overlay: compact icon toolbar (state stays in App/session). */
+.call-bar {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  padding: 8px 10px;
+  background: #0a0a0acc;
+  border-radius: 999px;
+  border: 1px solid #ffffff18;
+  box-shadow: 0 8px 28px #0008;
+  max-width: calc(100% - 24px);
+  backdrop-filter: blur(10px);
+  opacity: 0.72;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.call-bar:hover,
+.call-bar:focus-within {
+  opacity: 1;
+  background: #0c0c0cee;
+}
+
+.stage-wrap .call-bar {
+  bottom: 18px;
+}
+
 .call-btn {
   border: 0;
-  background: #2a2a2a;
+  background: #2a2a2acc;
   color: #eee;
   border-radius: 999px;
   padding: 10px 14px;
   font-size: 12px;
   cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+
+.call-btn.icon {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.call-btn.icon:hover:not(:disabled) {
+  background: #3a3a3aee;
+  transform: translateY(-1px);
+}
+
+.call-btn.icon:focus-visible {
+  outline: 2px solid #57c9a1;
+  outline-offset: 2px;
+}
+
+.call-btn.icon.is-off {
+  background: #5a2a22cc;
+  color: #ffc9c0;
+}
+
+.call-btn.icon.is-active {
+  background: #3a4a44cc;
+  color: #9eecc8;
 }
 
 .call-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
+  transform: none;
 }
 
 .call-btn.next-btn {
@@ -19,7 +83,68 @@
   font-weight: 600;
 }
 
+.call-btn.next-btn:hover:not(:disabled) {
+  background: var(--green-dark);
+  color: #031;
+}
+
 .call-btn.danger {
-  background: #5a2a22;
+  background: #5a2a22cc;
   color: #ffc9c0;
+}
+
+.call-btn.danger:hover:not(:disabled) {
+  background: #7a3a30ee;
+}
+
+.call-more {
+  position: relative;
+}
+
+.call-more-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  min-width: 200px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #121212f2;
+  border: 1px solid #ffffff18;
+  box-shadow: 0 12px 36px #000a;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(12px);
+}
+
+.call-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #e8e8e8;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.call-menu-item:hover:not(:disabled) {
+  background: #ffffff12;
+}
+
+.call-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.call-menu-item.danger {
+  color: #ffc9c0;
+}
+
+.call-menu-item.danger:hover:not(:disabled) {
+  background: #5a2a2244;
 }

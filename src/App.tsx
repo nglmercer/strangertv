@@ -14,6 +14,11 @@ import { useCallKeyboard } from './hooks/useCallKeyboard'
 import { useMatchSession } from './hooks/useMatchSession'
 import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { detectLocale, t as translate } from './i18n'
+import {
+  applyUserToClient,
+  canQuickStart,
+  isAgeGateComplete,
+} from './utils/clientStorage'
 
 export function App() {
   const [locale, setLocale] = useState<Locale>(detectLocale)
@@ -27,9 +32,6 @@ export function App() {
   const [autoNext, setAutoNext] = useState(() => localStorage.getItem('stranger-auto-next') === '1')
   const [status, setStatus] = useState(() => translate(detectLocale()).ready)
 
-  const [profileNeeded, setProfileNeeded] = useState(
-    () => localStorage.getItem('stranger-profile-complete') !== 'true',
-  )
   const [showStart, setShowStart] = useState(false)
   const [preferences, setPreferences] = useState(false)
   const [auth, setAuth] = useState(false)
@@ -38,6 +40,28 @@ export function App() {
   const [reportOpen, setReportOpen] = useState(false)
   const [page, setPage] = useState<PageId>(null)
   const [user, setUser] = useState<PublicUser | null>(getStoredUser)
+  const [profileNeeded, setProfileNeeded] = useState(() => {
+    const stored = getStoredUser()
+    if (stored) {
+      const applied = applyUserToClient(stored)
+      return !applied.profileComplete
+    }
+    return !isAgeGateComplete()
+  })
+
+  const applyUser = useCallback((u: PublicUser | null) => {
+    setUser(u)
+    if (!u) {
+      setProfileNeeded(!isAgeGateComplete())
+      return
+    }
+    const applied = applyUserToClient(u)
+    setProfileNeeded(!applied.profileComplete)
+    if (applied.prefs) {
+      setPrefsState(applied.prefs)
+      savePrefs(applied.prefs)
+    }
+  }, [])
 
   const session = useMatchSession({
     tr,
@@ -47,7 +71,7 @@ export function App() {
   })
 
   const { appVersion } = useSessionBootstrap({
-    setUser,
+    setUser: applyUser,
     setAuth,
     setResetToken: setResetTokenFromUrl,
     setStatus,
@@ -68,6 +92,10 @@ export function App() {
 
   const onStartClick = () => {
     if (profileNeeded) return
+    if (canQuickStart()) {
+      void session.beginMatch()
+      return
+    }
     setShowStart(true)
   }
 
@@ -79,9 +107,9 @@ export function App() {
         /* ignore */
       }
       clearSession()
-      setUser(null)
+      applyUser(null)
     } else setAuth(true)
-  }, [user])
+  }, [user, applyUser])
 
   const onDeviceChange = useCallback(
     (kind: 'video' | 'audio', id: string) => {
@@ -223,7 +251,7 @@ export function App() {
         setPrefs={setPrefs}
         setLocale={setLocale}
         user={user}
-        setUser={setUser}
+        setUser={applyUser}
         profileNeeded={profileNeeded}
         setProfileNeeded={setProfileNeeded}
         showStart={showStart}

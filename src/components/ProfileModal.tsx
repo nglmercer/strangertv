@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks'
 import type { Messages } from '../i18n'
 import { isAdult } from '../utils/age'
+import { markAgeGateComplete } from '../utils/clientStorage'
 import { Modal } from './Modal'
 
 const months = [
@@ -29,8 +30,7 @@ export function ProfileModal({ t, onComplete }: { t: Messages; onComplete: () =>
       setError(t.mustBe18)
       return
     }
-    localStorage.setItem('stranger-birth-date', normalized)
-    localStorage.setItem('stranger-profile-complete', 'true')
+    markAgeGateComplete(normalized)
     onComplete()
   }
 

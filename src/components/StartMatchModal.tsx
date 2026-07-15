@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { COUNTRIES, INTERESTS, MATCH_LANGUAGES, type Gender, type MatchPreferences } from '../../shared/types'
 import { formatMessage, type Messages } from '../i18n'
+import {
+  acceptTerms,
+  getStartWizardStep,
+  isTermsAccepted,
+  markDevicesReady,
+  markMatchSetupComplete,
+} from '../utils/clientStorage'
 import { Modal } from './Modal'
 
 export function StartMatchModal({
@@ -31,15 +38,16 @@ export function StartMatchModal({
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [accepted, setAccepted] = useState(false)
-  const [step, setStep] = useState(0)
+  const [accepted, setAccepted] = useState(() => isTermsAccepted())
+  const [step, setStep] = useState(() => getStartWizardStep())
   const [err, setErr] = useState('')
 
   useEffect(() => {
+    if (step < 1) return
     void ensureStream()
       .then(() => setErr(''))
       .catch(() => setErr(t.cameraNeeded))
-  }, [])
+  }, [step])
 
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream
@@ -47,6 +55,22 @@ export function StartMatchModal({
 
   const genderLabel = (g: Gender) =>
     g === 'male' ? t.male : g === 'female' ? t.female : g === 'other' ? t.other : t.any
+
+  const goDevices = () => {
+    if (!accepted) return
+    acceptTerms()
+    setStep(1)
+  }
+
+  const goPrefs = () => {
+    markDevicesReady()
+    setStep(2)
+  }
+
+  const finish = () => {
+    markMatchSetupComplete()
+    onConfirm()
+  }
 
   return (
     <Modal onClose={onClose} className="modal start-modal" labelledBy="start-title">
@@ -63,7 +87,7 @@ export function StartMatchModal({
             <span>{t.acceptTerms}</span>
           </label>
           <p class="modal-copy">{t.mustBe18}</p>
-          <button class="match full" disabled={!accepted} onClick={() => setStep(1)}>
+          <button class="match full" disabled={!accepted} onClick={goDevices}>
             {t.nextBtn}
           </button>
         </>
@@ -98,7 +122,7 @@ export function StartMatchModal({
               ))}
             </select>
           </label>
-          <button class="match full" onClick={() => setStep(2)}>
+          <button class="match full" onClick={goPrefs}>
             {t.nextBtn}
           </button>
         </>
@@ -152,13 +176,7 @@ export function StartMatchModal({
               </button>
             ))}
           </div>
-          <button
-            class="match full"
-            onClick={() => {
-              localStorage.setItem('stranger-terms-accepted', 'true')
-              onConfirm()
-            }}
-          >
+          <button class="match full" onClick={finish}>
             {t.continueAnon}
           </button>
         </>

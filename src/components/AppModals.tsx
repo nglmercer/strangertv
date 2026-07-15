@@ -121,7 +121,6 @@ export function AppModals({
           }}
           onAuth={(u) => {
             setUser(u)
-            setProfileNeeded(false)
           }}
         />
       )}

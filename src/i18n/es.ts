@@ -150,6 +150,7 @@ export const es: Messages = {
   idleHint: 'Pulsa Empezar para conocer a alguien nuevo.',
   localPreviewHint: 'Tu cámara aparecerá aquí',
   callControls: 'Controles de llamada',
+  moreActions: 'Más acciones',
   signInToBlock: 'Inicia sesión para bloquear',
   deviceDefault: 'Predeterminado',
   resetToken: 'Token de restablecimiento',

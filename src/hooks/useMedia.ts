@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
+import { loadDeviceIds, saveAudioDeviceId, saveVideoDeviceId } from '../utils/clientStorage'
 
 export function useMedia() {
   const streamRef = useRef<MediaStream | null>(null)
@@ -6,11 +7,22 @@ export function useMedia() {
     video: [],
     audio: [],
   })
-  const [videoId, setVideoId] = useState('')
-  const [audioId, setAudioId] = useState('')
+  const initialDevices = loadDeviceIds()
+  const [videoId, setVideoIdState] = useState(initialDevices.videoId)
+  const [audioId, setAudioIdState] = useState(initialDevices.audioId)
   const [muted, setMuted] = useState(false)
   const [cameraOn, setCameraOn] = useState(true)
   const [error, setError] = useState('')
+
+  const setVideoId = useCallback((id: string) => {
+    setVideoIdState(id)
+    saveVideoDeviceId(id)
+  }, [])
+
+  const setAudioId = useCallback((id: string) => {
+    setAudioIdState(id)
+    saveAudioDeviceId(id)
+  }, [])
 
   const refreshDevices = useCallback(async () => {
     try {
@@ -44,10 +56,28 @@ export function useMedia() {
       await refreshDevices()
       return streamRef.current
     } catch {
+      // Fallback if a saved deviceId is gone
+      if (videoId || audioId) {
+        try {
+          streamRef.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+          streamRef.current.getAudioTracks().forEach((t) => {
+            t.enabled = !muted
+          })
+          streamRef.current.getVideoTracks().forEach((t) => {
+            t.enabled = cameraOn
+          })
+          setVideoId('')
+          setAudioId('')
+          await refreshDevices()
+          return streamRef.current
+        } catch {
+          /* fall through */
+        }
+      }
       setError('camera')
       throw new Error('camera')
     }
-  }, [videoId, audioId, muted, cameraOn, refreshDevices])
+  }, [videoId, audioId, muted, cameraOn, refreshDevices, setVideoId, setAudioId])
 
   const setMutedTrack = useCallback((value: boolean) => {
     setMuted(value)

@@ -2,6 +2,7 @@ import { useState } from 'preact/hooks'
 import { authApi, setSession, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
 import { isAdult } from '../utils/age'
+import { applyUserToClient, storageKeys } from '../utils/clientStorage'
 import { Modal } from './Modal'
 
 export function AuthModal({
@@ -21,7 +22,7 @@ export function AuthModal({
   )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [birthDate, setBirthDate] = useState(localStorage.getItem('stranger-birth-date') ?? '')
+  const [birthDate, setBirthDate] = useState(() => localStorage.getItem(storageKeys.birthDate) ?? '')
   const [resetToken, setResetToken] = useState(initialResetToken ?? '')
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
@@ -58,10 +59,7 @@ export function AuthModal({
         ? await authApi.register({ email, password, birthDate })
         : await authApi.login({ email, password })
       setSession(res.token, res.user)
-      if (res.user.birthDate) {
-        localStorage.setItem('stranger-birth-date', res.user.birthDate)
-        localStorage.setItem('stranger-profile-complete', 'true')
-      }
+      applyUserToClient(res.user)
       onAuth(res.user)
       onClose()
     } catch (e) {

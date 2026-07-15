@@ -256,27 +256,6 @@
   }
 }
 
-.call-bar {
-  position: absolute;
-  z-index: 6;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  padding: 8px;
-  background: #0c0c0cee;
-  border-radius: 999px;
-  border: 1px solid #333;
-  max-width: calc(100% - 24px);
-}
-
-.stage-wrap .call-bar {
-  bottom: 18px;
-}
-
 .stage-error {
   position: absolute;
   z-index: 6;
