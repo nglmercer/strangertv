@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'preact/hooks'
 import {
   COUNTRY_CODES,
   INTERESTS,
@@ -7,6 +8,8 @@ import {
   type MatchPreferences,
 } from '../../shared/types'
 import { countryLabel, interestLabel, matchLangLabel, type Messages } from '../i18n'
+import type { MediaErrorCode } from '../utils/mediaErrors'
+import { DevicePickers } from './DevicePickers'
 import { Modal } from './Modal'
 
 const genders: Gender[] = ['any', 'male', 'female', 'other']
@@ -17,6 +20,16 @@ export function PreferencesModal({
   locale,
   setPrefs,
   setLocale,
+  devices,
+  videoId,
+  audioId,
+  setVideoId,
+  setAudioId,
+  errorCode,
+  acquiring,
+  ensureStream,
+  refreshDevices,
+  stream,
   onClose,
 }: {
   t: Messages
@@ -24,8 +37,22 @@ export function PreferencesModal({
   locale: Locale
   setPrefs: (p: MatchPreferences) => void
   setLocale: (l: Locale) => void
+  devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
+  videoId: string
+  audioId: string
+  setVideoId: (id: string) => void
+  setAudioId: (id: string) => void
+  errorCode: MediaErrorCode | null
+  acquiring: boolean
+  ensureStream: () => Promise<MediaStream>
+  refreshDevices: () => Promise<void>
+  stream: MediaStream | null
   onClose: () => void
 }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [showDevices, setShowDevices] = useState(false)
+  const skipReacq = useRef(true)
+
   const genderLabel = (g: Gender) =>
     g === 'male' ? t.male : g === 'female' ? t.female : g === 'other' ? t.other : t.any
 
@@ -34,6 +61,32 @@ export function PreferencesModal({
     const interests = has ? prefs.interests.filter((x) => x !== tag) : [...prefs.interests, tag].slice(0, 5)
     setPrefs({ ...prefs, interests })
   }
+
+  const tryStream = () => {
+    void ensureStream().catch(() => undefined)
+  }
+
+  useEffect(() => {
+    if (!showDevices) return
+    skipReacq.current = true
+    tryStream()
+    void refreshDevices()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDevices])
+
+  useEffect(() => {
+    if (!showDevices) return
+    if (skipReacq.current) {
+      skipReacq.current = false
+      return
+    }
+    tryStream()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoId, audioId])
+
+  useEffect(() => {
+    if (videoRef.current && stream) videoRef.current.srcObject = stream
+  }, [stream, showDevices])
 
   return (
     <Modal onClose={onClose} labelledBy="prefs-title">
@@ -115,6 +168,33 @@ export function PreferencesModal({
           ))}
         </div>
       </fieldset>
+
+      <div class="prefs-devices">
+        <button type="button" class="switch" onClick={() => setShowDevices((v) => !v)}>
+          {t.mediaChangeDevices}
+        </button>
+        {showDevices && (
+          <>
+            <div class="preview-wrap prefs-preview">
+              <video ref={videoRef} autoplay playsinline muted class="preview-video" />
+              {!stream && <span class="preview-empty">{t.previewCam}</span>}
+            </div>
+            <DevicePickers
+              t={t}
+              devices={devices}
+              videoId={videoId}
+              audioId={audioId}
+              setVideoId={setVideoId}
+              setAudioId={setAudioId}
+              errorCode={errorCode}
+              acquiring={acquiring}
+              onRetry={tryStream}
+              onRefresh={() => void refreshDevices()}
+            />
+          </>
+        )}
+      </div>
+
       <button class="match full" onClick={onClose}>
         {t.save}
       </button>

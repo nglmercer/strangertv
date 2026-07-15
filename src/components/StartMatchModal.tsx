@@ -14,6 +14,8 @@ import {
   markDevicesReady,
   markMatchSetupComplete,
 } from '../utils/clientStorage'
+import type { MediaErrorCode } from '../utils/mediaErrors'
+import { DevicePickers } from './DevicePickers'
 import { Modal } from './Modal'
 
 export function StartMatchModal({
@@ -27,6 +29,9 @@ export function StartMatchModal({
   audioId,
   setVideoId,
   setAudioId,
+  errorCode,
+  acquiring,
+  refreshDevices,
   onConfirm,
   onClose,
 }: {
@@ -40,20 +45,41 @@ export function StartMatchModal({
   audioId: string
   setVideoId: (id: string) => void
   setAudioId: (id: string) => void
+  errorCode: MediaErrorCode | null
+  acquiring: boolean
+  refreshDevices: () => Promise<void>
   onConfirm: () => void
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [accepted, setAccepted] = useState(() => isTermsAccepted())
   const [step, setStep] = useState(() => getStartWizardStep())
-  const [err, setErr] = useState('')
+  const [needStreamHint, setNeedStreamHint] = useState(false)
+  const skipDeviceReacq = useRef(true)
+
+  const tryStream = () => {
+    void ensureStream()
+      .then(() => setNeedStreamHint(false))
+      .catch(() => undefined)
+  }
 
   useEffect(() => {
     if (step < 1) return
-    void ensureStream()
-      .then(() => setErr(''))
-      .catch(() => setErr(t.cameraNeeded))
+    tryStream()
+    // Only when entering device step
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
+
+  // Re-acquire when user picks another device (not on first mount of step 1)
+  useEffect(() => {
+    if (step !== 1) return
+    if (skipDeviceReacq.current) {
+      skipDeviceReacq.current = false
+      return
+    }
+    tryStream()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoId, audioId])
 
   useEffect(() => {
     if (videoRef.current && stream) videoRef.current.srcObject = stream
@@ -65,10 +91,16 @@ export function StartMatchModal({
   const goDevices = () => {
     if (!accepted) return
     acceptTerms()
+    skipDeviceReacq.current = true
     setStep(1)
   }
 
   const goPrefs = () => {
+    if (!stream) {
+      setNeedStreamHint(true)
+      tryStream()
+      return
+    }
     markDevicesReady()
     setStep(2)
   }
@@ -105,30 +137,20 @@ export function StartMatchModal({
             <video ref={videoRef} autoplay playsinline muted class="preview-video" />
             {!stream && <span class="preview-empty">{t.previewCam}</span>}
           </div>
-          {err && <p class="form-error">{err}</p>}
-          <label>
-            {t.deviceCam}
-            <select value={videoId} onChange={(e) => setVideoId(e.currentTarget.value)}>
-              <option value="">{t.deviceDefault}</option>
-              {devices.video.map((d) => (
-                <option value={d.deviceId} key={d.deviceId}>
-                  {d.label || d.deviceId.slice(0, 8)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            {t.deviceMic}
-            <select value={audioId} onChange={(e) => setAudioId(e.currentTarget.value)}>
-              <option value="">{t.deviceDefault}</option>
-              {devices.audio.map((d) => (
-                <option value={d.deviceId} key={d.deviceId}>
-                  {d.label || d.deviceId.slice(0, 8)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button class="match full" onClick={goPrefs}>
+          <DevicePickers
+            t={t}
+            devices={devices}
+            videoId={videoId}
+            audioId={audioId}
+            setVideoId={setVideoId}
+            setAudioId={setAudioId}
+            errorCode={errorCode}
+            acquiring={acquiring}
+            onRetry={tryStream}
+            onRefresh={() => void refreshDevices()}
+          />
+          {needStreamHint && !stream && <p class="form-error">{t.mediaNeedStream}</p>}
+          <button class="match full" onClick={goPrefs} disabled={acquiring}>
             {t.nextBtn}
           </button>
         </>

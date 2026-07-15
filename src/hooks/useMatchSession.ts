@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import type { MatchPreferences } from '../../shared/types'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
+import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
@@ -67,7 +68,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   const webrtcRef = useRef(webrtc)
   webrtcRef.current = webrtc
 
-  const beginMatchRef = useRef<() => Promise<void>>(async () => undefined)
+  const beginMatchRef = useRef<() => Promise<boolean>>(async () => false)
 
   const clearPeerUi = () => {
     setMatched(false)
@@ -224,7 +225,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     }
   }, [finding, streamTick, media.streamRef])
 
-  const beginMatch = useCallback(async () => {
+  const beginMatch = useCallback(async (): Promise<boolean> => {
     try {
       const stream = await media.ensureStream()
       setStreamTick((n) => n + 1)
@@ -234,9 +235,12 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       setMatched(false)
       onStatus(trRef.current.finding)
       match.join(prefsRef.current)
+      return true
     } catch {
-      onStatus(trRef.current.cameraNeeded)
+      const code = media.errorCode
+      onStatus(mediaErrorMessage(trRef.current, code))
       setFinding(false)
+      return false
     }
   }, [media, match, onStatus])
 

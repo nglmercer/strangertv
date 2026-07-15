@@ -93,7 +93,10 @@ export function App() {
   const onStartClick = () => {
     if (profileNeeded) return
     if (canQuickStart()) {
-      void session.beginMatch()
+      void session.beginMatch().then((ok) => {
+        // Camera busy / denied after first-time setup: open prefs so user can switch devices.
+        if (!ok) setPreferences(true)
+      })
       return
     }
     setShowStart(true)
@@ -275,6 +278,9 @@ export function App() {
           devices: session.media.devices,
           videoId: session.media.videoId,
           audioId: session.media.audioId,
+          errorCode: session.media.errorCode,
+          acquiring: session.media.acquiring,
+          refreshDevices: session.media.refreshDevices,
           ensureStream: async () => {
             const s = await session.media.ensureStream()
             session.setStreamTick((n) => n + 1)
@@ -282,7 +288,9 @@ export function App() {
           },
         }}
         onBeginMatch={() => {
-          void session.beginMatch().then(() => setShowStart(false))
+          void session.beginMatch().then((ok) => {
+            if (ok) setShowStart(false)
+          })
         }}
         onReport={onReport}
         onDeviceChange={onDeviceChange}

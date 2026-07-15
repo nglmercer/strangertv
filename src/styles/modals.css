@@ -269,6 +269,58 @@
   font-size: 13px;
 }
 
+.device-pickers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.media-error {
+  margin: 0 0 4px;
+}
+
+.media-help {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.device-btn {
+  border: 1px solid #ccc;
+  background: #f4f4f4;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: #222;
+}
+
+.device-btn.ghost {
+  background: transparent;
+}
+
+.device-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.prefs-devices {
+  margin: 8px 0 4px;
+}
+
+.prefs-preview {
+  margin-top: 8px;
+}
+
 .legal-body {
   white-space: pre-wrap;
   font-family: inherit;

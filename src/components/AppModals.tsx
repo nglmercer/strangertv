@@ -1,6 +1,7 @@
 import type { Locale, MatchPreferences, ReportReason } from '../../shared/types'
 import { authApi, socialApi, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
+import type { MediaErrorCode } from '../utils/mediaErrors'
 import { AuthModal } from './AuthModal'
 import { PreferencesModal } from './PreferencesModal'
 import { ProfileModal } from './ProfileModal'
@@ -16,6 +17,9 @@ type MediaSlice = {
   videoId: string
   audioId: string
   ensureStream: () => Promise<MediaStream>
+  errorCode: MediaErrorCode | null
+  acquiring: boolean
+  refreshDevices: () => Promise<void>
 }
 
 export function AppModals({
@@ -94,6 +98,9 @@ export function AppModals({
           audioId={media.audioId}
           setVideoId={(id) => onDeviceChange('video', id)}
           setAudioId={(id) => onDeviceChange('audio', id)}
+          errorCode={media.errorCode}
+          acquiring={media.acquiring}
+          refreshDevices={media.refreshDevices}
           onConfirm={onBeginMatch}
           onClose={() => setShowStart(false)}
         />
@@ -105,6 +112,16 @@ export function AppModals({
           locale={locale}
           setPrefs={setPrefs}
           setLocale={setLocale}
+          devices={media.devices}
+          videoId={media.videoId}
+          audioId={media.audioId}
+          setVideoId={(id) => onDeviceChange('video', id)}
+          setAudioId={(id) => onDeviceChange('audio', id)}
+          errorCode={media.errorCode}
+          acquiring={media.acquiring}
+          ensureStream={media.ensureStream}
+          refreshDevices={media.refreshDevices}
+          stream={media.stream}
           onClose={() => {
             setPreferences(false)
             if (user) void authApi.savePreferences(prefs).catch(() => undefined)
