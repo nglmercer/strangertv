@@ -30,6 +30,10 @@
   color: #aaa;
   flex: 1;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .online i {
@@ -38,23 +42,20 @@
   height: 7px;
   background: #5fc69e;
   border-radius: 50%;
-  margin-right: 7px;
+  flex-shrink: 0;
 }
 
 .online i.off {
   background: #888;
 }
 
-.ws-ok {
-  color: #7dcea0;
-}
-
-.ws-bad {
-  color: #e8a090;
-}
-
 .stats {
-  opacity: 0.85;
+  opacity: 0.9;
+}
+
+.stats-sep {
+  margin: 0 0.45em;
+  opacity: 0.55;
 }
 
 .header-actions {

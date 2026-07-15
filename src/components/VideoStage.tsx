@@ -2,6 +2,7 @@ import type { RefObject } from 'preact'
 import { countryLabel, interestLabel, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
 import { formatDuration } from '../utils/format'
+import { QualityBadge } from './QualityBadge'
 
 export function VideoStage({
   t,
@@ -36,22 +37,20 @@ export function VideoStage({
   remoteVideo: RefObject<HTMLVideoElement>
   hasLocalStream: boolean
 }) {
-  const finderSub = finding
+  const emptyTitle = finding ? status || t.searchingTitle : t.idleTitle
+  const emptyBody = finding
     ? longWait
       ? t.longWait
       : queuePos
         ? `${t.position} #${queuePos}`
-        : qualityLabel || t.searchingHint
-    : t.readySub
+        : t.searchingHint
+    : t.idleHint
 
-  const emptyTitle = finding ? status || t.searchingTitle : t.idleTitle
-  const emptyBody = finding ? t.searchingHint : t.idleHint
-
+  // Identity + timer only — quality lives in the hover badge (no duplicate text).
   const strangerMeta = [
     t.labelStranger,
-    peerCountry ? `${t.peerFrom} ${countryLabel(t, peerCountry)}` : '',
-    matched && callSeconds > 0 ? `${t.callTime} ${formatDuration(callSeconds)}` : '',
-    qualityLabel,
+    peerCountry ? countryLabel(t, peerCountry) : '',
+    matched && callSeconds > 0 ? formatDuration(callSeconds) : '',
   ]
     .filter(Boolean)
     .join(' · ')
@@ -83,10 +82,9 @@ export function VideoStage({
               </div>
             </div>
           )}
-          <span class="label">{strangerMeta}</span>
+          {strangerMeta && <span class="label">{strangerMeta}</span>}
           {sharedInterests.length > 0 && matched && (
             <div class="interest-badge" aria-label={t.sharedInterests}>
-              <small>{t.sharedInterests}</small>
               <div class="chips tight">
                 {sharedInterests.map((tag) => (
                   <span class="chip on" key={tag}>
@@ -96,11 +94,7 @@ export function VideoStage({
               </div>
             </div>
           )}
-          {matched && quality !== 'idle' && (
-            <span class={`quality-pill quality-${quality}`} aria-hidden="true">
-              {qualityLabel || t.quality.connecting}
-            </span>
-          )}
+          {matched && <QualityBadge quality={quality} label={qualityLabel} t={t} />}
         </article>
 
         <article class={`video local ${hasLocalStream ? 'has-stream' : ''}`}>

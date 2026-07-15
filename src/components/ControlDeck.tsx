@@ -24,25 +24,47 @@ export function ControlDeck({
   onOpenPrefs: () => void
   onToggleAutoNext: () => void
 }) {
+  const countryDisplay = prefs.country === 'any' ? '🌐' : prefs.country
+
   return (
     <div class="deck">
-      <button type="button" class="deck-card start" onClick={onStart} disabled={finding}>
+      <button
+        type="button"
+        class="deck-card start"
+        onClick={onStart}
+        disabled={finding}
+        title={t.findStranger}
+      >
         <span>{t.start}</span>
-        <small>{t.findStranger}</small>
       </button>
-      <button type="button" class="deck-card stop" onClick={onStop} disabled={!finding}>
+      <button
+        type="button"
+        class="deck-card stop"
+        onClick={onStop}
+        disabled={!finding}
+        title={t.endConversation}
+      >
         <span>{t.stop}</span>
-        <small>{t.endConversation}</small>
       </button>
-      <button type="button" class="deck-card" onClick={onOpenPrefs}>
-        <span>
-          {t.country} <b>{prefs.country === 'any' ? '🌐' : prefs.country}</b>
+      <button
+        type="button"
+        class="deck-card"
+        onClick={onOpenPrefs}
+        title={`${t.country}: ${countryLabel(t, prefs.country)}`}
+      >
+        <span class="deck-emoji" aria-hidden="true">
+          {countryDisplay}
         </span>
         <small>{countryLabel(t, prefs.country)}</small>
       </button>
-      <button type="button" class="deck-card" onClick={onOpenPrefs}>
-        <span>
-          {t.gender} <b>{genderEmoji}</b>
+      <button
+        type="button"
+        class="deck-card"
+        onClick={onOpenPrefs}
+        title={`${t.lookingFor}: ${lookingLabel}`}
+      >
+        <span class="deck-emoji" aria-hidden="true">
+          {genderEmoji}
         </span>
         <small>{lookingLabel}</small>
       </button>
@@ -51,6 +73,7 @@ export function ControlDeck({
         class={`deck-card ${autoNext ? 'auto-on' : ''}`}
         onClick={onToggleAutoNext}
         aria-pressed={autoNext}
+        title={t.autoNext}
       >
         <span>{t.autoNext}</span>
         <small>{autoNext ? t.autoNextOn : t.autoNextOff}</small>

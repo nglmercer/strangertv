@@ -27,16 +27,15 @@ export function ChatPanel({
   return (
     <div class="chat-box">
       <div class="notice">
-        <span class="notice-icon">▣</span>
         <p>
           {t.notice}
-          <br />
+          {' '}
           <button type="button" class="linkish" onClick={() => onOpenPage('rules')}>
             {t.rules}
           </button>
           {' · '}
           <button type="button" class="linkish" onClick={() => onOpenPage('safety')}>
-            ⚠ {t.safety}
+            {t.safety}
           </button>
         </p>
       </div>
@@ -50,14 +49,18 @@ export function ChatPanel({
         ))}
         <div ref={messagesEnd} />
       </div>
-      {(finding || matched) && <p class="shortcuts-hint">{t.shortcuts}</p>}
-      <form class="chat-input" onSubmit={onSend}>
+      <form
+        class="chat-input"
+        onSubmit={onSend}
+        title={finding || matched ? t.shortcuts : undefined}
+      >
         <input
           value={chatText}
           onInput={(e) => setChatText(e.currentTarget.value)}
           disabled={!matched}
           placeholder={matched ? t.writeMessage : t.startToChat}
           maxLength={500}
+          aria-description={finding || matched ? t.shortcuts : undefined}
         />
         <button type="submit" disabled={!matched || !chatText.trim()} aria-label={t.send}>
           ☺

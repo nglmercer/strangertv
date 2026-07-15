@@ -20,17 +20,25 @@ export function TopBar({
   onSettings: () => void
   onAuthClick: () => void
 }) {
+  const signalTitle = signalOk ? t.wsConnected : t.wsDisconnected
+
   return (
     <header class="topbar">
-      <a class="brand" href="/">
+      <a class="brand" href="/" title={t.live}>
         ✦ {t.brand}
       </a>
       <div class="online" aria-live="polite">
-        <i class={signalOk ? 'on' : 'off'} /> {t.live}
+        <i
+          class={signalOk ? 'on' : 'off'}
+          title={signalTitle}
+          aria-label={signalTitle}
+        />
         <span class="stats">
-          · {online} {t.online} · {waitingCount} {t.waiting}
-          {' · '}
-          <span class={signalOk ? 'ws-ok' : 'ws-bad'}>{signalOk ? t.wsConnected : t.wsDisconnected}</span>
+          {online} {t.online}
+          <span class="stats-sep" aria-hidden="true">
+            ·
+          </span>
+          {waitingCount} {t.waiting}
         </span>
       </div>
       <div class="header-actions">

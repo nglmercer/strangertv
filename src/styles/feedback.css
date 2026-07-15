@@ -14,11 +14,7 @@
   font-size: 22px;
 }
 
-.shortcuts-hint {
-  margin: 0 14px 6px;
-  font: 9px 'DM Mono', monospace;
-  color: #aaa;
-}
+/* Shortcuts live as title/aria on chat input — no permanent line */
 
 .star-row {
   display: flex;

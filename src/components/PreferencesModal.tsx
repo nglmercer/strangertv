@@ -50,7 +50,8 @@ export function PreferencesModal({
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [showDevices, setShowDevices] = useState(false)
+  // Open device panel immediately when we already know media failed (e.g. Start → busy cam).
+  const [showDevices, setShowDevices] = useState(() => Boolean(errorCode))
   const skipReacq = useRef(true)
 
   const genderLabel = (g: Gender) =>

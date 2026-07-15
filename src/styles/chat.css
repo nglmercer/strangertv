@@ -8,23 +8,16 @@
 }
 
 .notice {
-  display: flex;
-  gap: 12px;
   margin: 0 14px;
-  padding: 14px 0;
+  padding: 12px 0;
   border-bottom: 1px solid #eee;
   color: #555;
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .notice p {
   margin: 0;
-}
-
-.notice-icon {
-  font-size: 22px;
-  color: var(--accent);
 }
 
 .linkish {

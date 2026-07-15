@@ -35,10 +35,16 @@
   display: block;
 }
 
+.deck-card .deck-emoji {
+  font-size: 28px;
+  line-height: 1.2;
+}
+
 .deck-card small {
-  font-size: 10px;
-  color: #aaa;
+  font-size: 11px;
+  color: #888;
   margin-top: 10px;
+  line-height: 1.25;
 }
 
 .deck-card.start {
