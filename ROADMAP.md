@@ -21,4 +21,21 @@
 - [x] Age gate, report flow, block API, ban tables, admin report list
 - [x] Rules / safety / privacy / terms pages; no media recording by default
 - [x] Vite proxy, health endpoint, CORS allowlist config
-- [ ] Production HTTPS deployment, Turso backups, load testing, full Playwright e2e
+- [x] Admin moderation console + admin APIs
+- [x] Metrics, structured logs, security headers
+- [x] Password-reset email hook (webhook / dev log)
+- [x] Docker compose + DEPLOY.md + load-test script
+- [x] Playwright e2e (API, WS match, landing, admin auth)
+- [x] CI workflow, README, proxy/TURN/systemd examples
+- [x] Live/ready probes, Prometheus metrics, graceful WS drain
+- [x] Auto-next, quality telemetry, feature flags, smoke/backup scripts
+- [x] Mid-call block + DB block hydration
+- [x] Email verification tokens + optional enforce flag
+- [x] Drain reconnect, report alerts, admin CSV, k8s/Makefile/coturn compose
+- [x] Settings blocks/unblock, rematch cooldown, ICE retry, match notify/sound
+- [x] Rate-limit headers, Docker HEALTHCHECK, Dependabot, integration tests
+- [x] Shared interests UI, session refresh, OpenAPI, request IDs, PWA manifest
+- [x] Call timer, shortcuts, ratings, admin report resolve, versioned health
+- [x] Rating uniqueness, underage alerts, long-wait UX, robots/security.txt
+- [ ] Live HTTPS host + real TURN + Turso in your cloud account (ops only)
+

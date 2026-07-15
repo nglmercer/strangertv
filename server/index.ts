@@ -725,7 +725,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
       ],
     })
     inc('reports_total')
-    void noteReport()
+    void noteReport(message.reason)
     const partner = getPartner(socket)
     leaveRoom(socket, true, 'reported')
     send(socket, { type: 'report:ack' })

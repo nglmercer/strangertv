@@ -2,4 +2,13 @@ node_modules/
 dist/
 local.db
 local.db-*
+itest.db
+itest.db-*
 .env
+.env.local
+backups/
+test-results/
+playwright-report/
+blob-report/
+*.tsbuildinfo
+.DS_Store

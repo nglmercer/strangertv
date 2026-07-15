@@ -108,7 +108,7 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
 
 export async function fetchHealth() {
   try {
-    return await api<{ ok: boolean; waiting: number; online: number }>('/api/health')
+    return await api<{ ok: boolean; waiting: number; online: number; version?: string }>('/api/health')
   } catch {
     return { ok: false, waiting: 0, online: 0 }
   }

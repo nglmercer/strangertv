@@ -60,8 +60,11 @@ export function App() {
   const [streamTick, setStreamTick] = useState(0)
   const [callSeconds, setCallSeconds] = useState(0)
   const [rateRoomId, setRateRoomId] = useState<string | null>(null)
+  const [appVersion, setAppVersion] = useState('')
+  const [longWait, setLongWait] = useState(false)
   const messagesEnd = useRef<HTMLDivElement>(null)
   const matchedAt = useRef<number | null>(null)
+  const waitingSince = useRef<number | null>(null)
 
   const [profileNeeded, setProfileNeeded] = useState(
     () => localStorage.getItem('stranger-profile-complete') !== 'true',
@@ -101,12 +104,15 @@ export function App() {
       setQueuePos(position)
       if (onl != null) setOnline(onl)
       setMatched(false)
+      if (!waitingSince.current) waitingSince.current = Date.now()
       webrtcRef.current.clear()
       if (remoteVideo.current) remoteVideo.current.srcObject = null
     },
     onMatched: async (id, role, meta) => {
       setRoomId(id)
       setMatched(true)
+      waitingSince.current = null
+      setLongWait(false)
       matchedAt.current = Date.now()
       setCallSeconds(0)
       setStatus(trRef.current.connecting)
@@ -215,6 +221,20 @@ export function App() {
   }, [matched])
 
   useEffect(() => {
+    if (!finding || matched) {
+      setLongWait(false)
+      if (!finding) waitingSince.current = null
+      return
+    }
+    if (!waitingSince.current) waitingSince.current = Date.now()
+    const iv = window.setInterval(() => {
+      if (!waitingSince.current) return
+      setLongWait(Date.now() - waitingSince.current > 45_000)
+    }, 5000)
+    return () => clearInterval(iv)
+  }, [finding, matched])
+
+  useEffect(() => {
     messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chat])
 
@@ -271,6 +291,9 @@ export function App() {
       if (h.ok) {
         setOnline(h.online)
         setWaitingCount(h.waiting)
+        if ('version' in h && typeof (h as { version?: string }).version === 'string') {
+          setAppVersion((h as { version: string }).version)
+        }
       }
     })
     const iv = window.setInterval(() => {
@@ -460,9 +483,11 @@ export function App() {
           <strong>{finding ? status : tr.ready}</strong>
           <small>
             {finding
-              ? queuePos
-                ? `${tr.position} #${queuePos}`
-                : qualityLabel || tr.readySub
+              ? longWait
+                ? tr.longWait
+                : queuePos
+                  ? `${tr.position} #${queuePos}`
+                  : qualityLabel || tr.readySub
               : tr.readySub}
           </small>
         </div>
@@ -659,6 +684,7 @@ export function App() {
           <button type="button" class="linkish" onClick={() => setPage('terms')}>
             {tr.terms}
           </button>
+          {appVersion ? ` · ${tr.version}${appVersion}` : ''}
         </span>
         <span>{user ? `${tr.signedInAs} ${user.email}` : tr.notRecorded}</span>
       </footer>
