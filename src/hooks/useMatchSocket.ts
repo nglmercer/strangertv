@@ -4,13 +4,19 @@ import type { ClientMessage, MatchPreferences, ServerMessage } from '../../share
 
 type Handlers = {
   onWaiting?: (position?: number, online?: number) => void
-  onMatched?: (roomId: string, role: 'offerer' | 'answerer') => void
+  onMatched?: (
+    roomId: string,
+    role: 'offerer' | 'answerer',
+    meta?: { peerCountry?: string; sharedInterests?: string[] },
+  ) => void
   onPeerLeft?: (reason?: string) => void
   onSignal?: (payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }) => void
   onChat?: (text: string, time: string) => void
   onStats?: (online: number, waiting: number) => void
   onError?: (code: string, message: string) => void
   onReportAck?: () => void
+  onBlockAck?: () => void
+  onDraining?: (message?: string) => void
 }
 
 export function useMatchSocket(handlers: Handlers) {
@@ -69,7 +75,10 @@ export function useMatchSocket(handlers: Handlers) {
           h.onWaiting?.(msg.position, msg.online)
           break
         case 'room:matched':
-          h.onMatched?.(msg.roomId, msg.role)
+          h.onMatched?.(msg.roomId, msg.role, {
+            peerCountry: msg.peerCountry,
+            sharedInterests: msg.sharedInterests,
+          })
           break
         case 'room:peer-left':
           h.onPeerLeft?.(msg.reason)
@@ -88,6 +97,12 @@ export function useMatchSocket(handlers: Handlers) {
           break
         case 'report:ack':
           h.onReportAck?.()
+          break
+        case 'block:ack':
+          h.onBlockAck?.()
+          break
+        case 'server:draining':
+          h.onDraining?.(msg.message)
           break
       }
     }
@@ -137,6 +152,10 @@ export function useMatchSocket(handlers: Handlers) {
     [send],
   )
 
+  const block = useCallback(() => {
+    send({ type: 'block' })
+  }, [send])
+
   useEffect(
     () => () => {
       stopHeartbeat()
@@ -146,5 +165,5 @@ export function useMatchSocket(handlers: Handlers) {
     [],
   )
 
-  return { send, join, next, leave, report, connected, socket }
+  return { send, join, next, leave, report, block, connected, socket }
 }

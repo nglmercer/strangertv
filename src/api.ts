@@ -11,6 +11,7 @@ export type PublicUser = {
   country?: string
   language?: string
   interests?: string[]
+  emailVerified?: boolean
 }
 
 export function getToken() {
@@ -56,11 +57,16 @@ export const authApi = {
     country?: string
     language?: string
     interests?: string[]
-  }) => api<{ user: PublicUser; token: string }>('/api/auth/register', { method: 'POST', body: JSON.stringify(body) }),
+  }) =>
+    api<{ user: PublicUser; token: string; devVerifyToken?: string }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   login: (body: { email: string; password: string }) =>
     api<{ user: PublicUser; token: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   logout: () => api<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
   me: () => api<{ user: PublicUser }>('/api/auth/me'),
+  refresh: () => api<{ token: string; user: PublicUser }>('/api/auth/refresh', { method: 'POST' }),
   savePreferences: (prefs: Partial<MatchPreferences>) =>
     api<{ user: PublicUser }>('/api/auth/preferences', { method: 'PATCH', body: JSON.stringify(prefs) }),
   requestReset: (email: string) =>
@@ -73,6 +79,9 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ token, password }),
     }),
+  verifyEmail: (token: string) =>
+    api<{ ok: boolean }>('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+  resendVerification: () => api<{ ok: boolean; devVerifyToken?: string }>('/api/auth/resend-verification', { method: 'POST' }),
   deleteAccount: () => api<{ ok: boolean }>('/api/auth/account', { method: 'DELETE' }),
 }
 
@@ -81,6 +90,11 @@ export const socialApi = {
     api<{ ok: boolean }>('/api/reports', { method: 'POST', body: JSON.stringify({ reason, detail, roomId }) }),
   block: (blockedId: number) =>
     api<{ ok: boolean }>('/api/blocks', { method: 'POST', body: JSON.stringify({ blockedId }) }),
+  listBlocks: () =>
+    api<{ blocked: Array<{ id: number; email: string | null; createdAt: string | null }> }>('/api/blocks'),
+  unblock: (blockedId: number) => api<{ ok: boolean }>(`/api/blocks/${blockedId}`, { method: 'DELETE' }),
+  rate: (score: number, roomId?: string) =>
+    api<{ ok: boolean }>('/api/ratings', { method: 'POST', body: JSON.stringify({ score, roomId }) }),
 }
 
 export async function fetchIceServers(): Promise<RTCIceServer[]> {

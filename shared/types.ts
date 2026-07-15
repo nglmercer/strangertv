@@ -27,16 +27,32 @@ export type ClientMessage =
   | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown } }
   | { type: 'chat'; payload: { text: string; time: string } }
   | { type: 'report'; reason: ReportReason; detail?: string }
+  | { type: 'block' }
+  | {
+      type: 'telemetry:quality'
+      roomId?: string
+      quality: 'connecting' | 'good' | 'poor' | 'failed'
+      iceState?: string
+      connectionState?: string
+    }
 
 export type ServerMessage =
   | { type: 'queue:waiting'; position?: number; online?: number }
-  | { type: 'room:matched'; roomId: string; role: 'offerer' | 'answerer'; peerCountry?: string }
+  | {
+      type: 'room:matched'
+      roomId: string
+      role: 'offerer' | 'answerer'
+      peerCountry?: string
+      sharedInterests?: string[]
+    }
   | { type: 'room:peer-left'; reason?: string }
   | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown } }
   | { type: 'chat'; payload: { text: string; time: string } }
   | { type: 'stats'; online: number; waiting: number }
   | { type: 'error'; code: string; message: string }
   | { type: 'report:ack' }
+  | { type: 'block:ack' }
+  | { type: 'server:draining'; message?: string }
 
 export const INTERESTS = [
   'music', 'movies', 'gaming', 'sports', 'travel', 'tech', 'art', 'food', 'languages', 'anime',

@@ -133,4 +133,6 @@ export const pt: Messages = {
   rateSubmit: 'Enviar',
   rateSkip: 'Pular',
   shortcuts: 'Atalhos: M mudo · C câmera · N próximo · Esc parar',
+  longWait: 'Ainda procurando… tente ampliar país ou interesses.',
+  version: 'v',
 }

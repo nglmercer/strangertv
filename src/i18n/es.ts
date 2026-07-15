@@ -133,4 +133,6 @@ export const es: Messages = {
   rateSubmit: 'Enviar',
   rateSkip: 'Omitir',
   shortcuts: 'Atajos: M silencio · C cámara · N siguiente · Esc parar',
+  longWait: 'Sigue buscando… prueba ampliar país o intereses.',
+  version: 'v',
 }

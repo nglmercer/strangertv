@@ -131,6 +131,8 @@ export const en = {
   rateSubmit: 'Send rating',
   rateSkip: 'Skip',
   shortcuts: 'Shortcuts: M mute · C camera · N next · Esc stop',
+  longWait: 'Still searching… try widening country or interests.',
+  version: 'v',
 }
 
 export type Messages = {

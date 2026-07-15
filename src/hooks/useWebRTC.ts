@@ -62,7 +62,23 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
       }
 
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'failed') setQuality('failed')
+        if (pc.iceConnectionState === 'failed') {
+          setQuality('failed')
+          // Attempt ICE restart once
+          if (asOfferer && !pc.remoteDescription) return
+          void (async () => {
+            try {
+              if (pc.restartIce) pc.restartIce()
+              if (asOfferer) {
+                const offer = await pc.createOffer({ iceRestart: true })
+                await pc.setLocalDescription(offer)
+                onSignal({ kind: 'offer', data: offer })
+              }
+            } catch {
+              /* ignore */
+            }
+          })()
+        }
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') setQuality('good')
       }
 
@@ -130,5 +146,18 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
     }
   }, [])
 
-  return { pcRef, createPeer, handleSignal, clear, quality, hasRemote, replaceTracks }
+  const restartIce = useCallback(async () => {
+    const pc = pcRef.current
+    if (!pc) return
+    try {
+      if (pc.restartIce) pc.restartIce()
+      const offer = await pc.createOffer({ iceRestart: true })
+      await pc.setLocalDescription(offer)
+      onSignal({ kind: 'offer', data: offer })
+    } catch {
+      /* ignore */
+    }
+  }, [onSignal])
+
+  return { pcRef, createPeer, handleSignal, clear, quality, hasRemote, replaceTracks, restartIce }
 }

@@ -8,17 +8,21 @@ export function AuthModal({
   t,
   onClose,
   onAuth,
+  initialResetToken,
 }: {
   t: Messages
   onClose: () => void
   onAuth: (user: PublicUser) => void
+  initialResetToken?: string
 }) {
   const [registering, setRegistering] = useState(false)
-  const [resetMode, setResetMode] = useState<'off' | 'request' | 'confirm'>('off')
+  const [resetMode, setResetMode] = useState<'off' | 'request' | 'confirm'>(
+    initialResetToken ? 'confirm' : 'off',
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [birthDate, setBirthDate] = useState(localStorage.getItem('stranger-birth-date') ?? '')
-  const [resetToken, setResetToken] = useState('')
+  const [resetToken, setResetToken] = useState(initialResetToken ?? '')
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
