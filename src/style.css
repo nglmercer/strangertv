@@ -178,18 +178,18 @@ textarea {
 }
 
 .empty {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  z-index: 2;
   display: grid;
   place-content: center;
   text-align: center;
-  z-index: 2;
   color: #888;
-  padding: 16px;
+  padding: 8px 16px;
+  max-width: 320px;
 }
 
 .empty h2 {
-  font-size: 22px;
+  font-size: clamp(16px, 3.5vw, 22px);
   font-weight: 500;
   color: #eee;
   margin: 0 0 8px;
@@ -198,16 +198,7 @@ textarea {
 .empty p {
   margin: 0;
   font-size: 13px;
-}
-
-.local-empty {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  color: #343434;
-  font-size: 13px;
-  z-index: 2;
+  line-height: 1.4;
 }
 
 .label {
@@ -364,89 +355,6 @@ textarea {
 
 .video.remote.is-connecting {
   box-shadow: inset 0 0 100px #f16a4233;
-}
-
-.finder-state {
-  position: absolute;
-  z-index: 5;
-  left: 50%;
-  top: 22px;
-  transform: translateX(-50%) translateY(-12px);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  opacity: 0;
-  pointer-events: none;
-  padding: 8px 14px;
-  border-radius: 30px;
-  background: #101010dd;
-  color: #eee;
-  transition: opacity 0.35s, transform 0.35s;
-  white-space: nowrap;
-  max-width: calc(100% - 32px);
-}
-
-.finder-state.active {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.finder-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.finder-state strong {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.finder-state small {
-  font: 10px 'DM Mono', monospace;
-  color: #8f908c;
-  margin: 0;
-  white-space: normal;
-}
-
-.finder-orb {
-  position: relative;
-  width: 22px;
-  height: 22px;
-  display: block;
-}
-
-.finder-orb:before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  border: 1px solid var(--green);
-  border-radius: 50%;
-  animation: orbit 1.7s linear infinite;
-}
-
-.finder-orb i {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background: #d4ff65;
-  border-radius: 50%;
-  top: 0;
-  left: 9px;
-  animation: blink 1.1s infinite;
-}
-
-.finder-orb i:nth-child(2) {
-  top: 17px;
-  left: 2px;
-  animation-delay: 0.3s;
-}
-
-.finder-orb i:nth-child(3) {
-  top: 17px;
-  left: 16px;
-  animation-delay: 0.6s;
 }
 
 @keyframes orbit {
@@ -1164,12 +1072,6 @@ textarea {
   .brand-mark {
     transform: rotate(-1deg) scale(0.85);
   }
-
-  .finder-state {
-    max-width: calc(100% - 16px);
-    white-space: normal;
-  }
-
   .dashboard {
     grid-template-columns: 1fr;
   }

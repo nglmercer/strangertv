@@ -229,9 +229,9 @@ export function AdminApp() {
       {error && <p class="admin-error">{error}</p>}
 
       <nav class="admin-tabs">
-        {(['overview', 'reports', 'bans', 'users'] as const).map((t) => (
-          <button type="button" class={tab === t ? 'on' : ''} onClick={() => setTab(t)}>
-            {t}
+        {(['overview', 'reports', 'bans', 'users'] as const).map((tabKey) => (
+          <button type="button" class={tab === tabKey ? 'on' : ''} onClick={() => setTab(tabKey)}>
+            {tabLabel[tabKey]}
           </button>
         ))}
       </nav>
@@ -240,53 +240,57 @@ export function AdminApp() {
         <section class="admin-grid">
           <article class="stat">
             <strong>{overview.queue.online}</strong>
-            <span>Online</span>
+            <span>{tr.online}</span>
           </article>
           <article class="stat">
             <strong>{overview.queue.waiting}</strong>
-            <span>Waiting</span>
+            <span>{tr.waiting}</span>
           </article>
           <article class="stat">
             <strong>{overview.users}</strong>
-            <span>Users</span>
+            <span>{tr.users}</span>
           </article>
           <article class="stat">
             <strong>{overview.openReports ?? overview.reports}</strong>
-            <span>Open reports</span>
+            <span>{tr.openReports}</span>
           </article>
           <article class="stat">
             <strong>{overview.reports}</strong>
-            <span>Reports total</span>
+            <span>{tr.reportsTotal}</span>
           </article>
           <article class="stat">
             <strong>{overview.activeBans}</strong>
-            <span>Active bans</span>
+            <span>{tr.activeBans}</span>
           </article>
           <article class="stat">
             <strong>
               {overview.ratings?.average != null ? overview.ratings.average.toFixed(2) : '—'}
             </strong>
-            <span>Avg rating ({overview.ratings?.count ?? 0})</span>
+            <span>
+              {tr.avgRating} ({overview.ratings?.count ?? 0})
+            </span>
           </article>
           <article class={`stat ${overview.underageOpen ? 'stat-alert' : ''}`}>
             <strong>{overview.underageOpen ?? 0}</strong>
-            <span>Open underage</span>
+            <span>{tr.openUnderage}</span>
           </article>
           <article class="stat">
             <strong>{overview.metrics.memoryMb} MB</strong>
-            <span>RSS</span>
+            <span>{tr.memory}</span>
           </article>
           {overview.version && (
             <article class="stat">
               <strong>v{overview.version}</strong>
-              <span>Server</span>
+              <span>{tr.server}</span>
             </article>
           )}
           <article class="stat wide">
             <strong>
               p50 {overview.metrics.matchLatencyMs.p50}ms · p95 {overview.metrics.matchLatencyMs.p95}ms
             </strong>
-            <span>Match wait ({overview.metrics.matchLatencyMs.samples} samples)</span>
+            <span>
+              {tr.matchWait} ({overview.metrics.matchLatencyMs.samples} {tr.samples})
+            </span>
           </article>
           <article class="stat wide">
             <pre class="counters">{JSON.stringify(overview.metrics.counters, null, 2)}</pre>
@@ -297,7 +301,7 @@ export function AdminApp() {
       {tab === 'reports' && (
         <section class="admin-card table-wrap">
           <div class="reports-head">
-            <h2>Reports</h2>
+            <h2>{tr.reports}</h2>
             <div class="filter-row">
               {(['open', 'resolved', 'all'] as const).map((f) => (
                 <button
@@ -306,7 +310,7 @@ export function AdminApp() {
                   class={reportFilter === f ? 'admin-btn sm' : 'admin-btn ghost sm'}
                   onClick={() => setReportFilter(f)}
                 >
-                  {f}
+                  {f === 'open' ? tr.filterOpen : f === 'resolved' ? tr.filterResolved : tr.filterAll}
                 </button>
               ))}
             </div>
@@ -314,19 +318,19 @@ export function AdminApp() {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Status</th>
-                <th>Reason</th>
-                <th>Room</th>
-                <th>Reporter</th>
-                <th>Detail</th>
-                <th>When</th>
+                <th>{tr.colId}</th>
+                <th>{tr.colStatus}</th>
+                <th>{tr.colReason}</th>
+                <th>{tr.colRoom}</th>
+                <th>{tr.colReporter}</th>
+                <th>{tr.colDetail}</th>
+                <th>{tr.colWhen}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {reports.map((r) => (
-                <tr>
+                <tr key={r.id}>
                   <td>{r.id}</td>
                   <td>{r.status ?? 'open'}</td>
                   <td>{r.reason}</td>
@@ -346,7 +350,7 @@ export function AdminApp() {
                           }).then(() => load())
                         }
                       >
-                        Resolve
+                        {tr.resolve}
                       </button>
                     )}
                     {r.reporter_id != null && (
@@ -358,7 +362,7 @@ export function AdminApp() {
                           setTab('bans')
                         }}
                       >
-                        Ban reporter
+                        {tr.banReporter}
                       </button>
                     )}
                   </td>
@@ -366,71 +370,71 @@ export function AdminApp() {
               ))}
             </tbody>
           </table>
-          {!reports.length && <p class="muted">No reports yet.</p>}
+          {!reports.length && <p class="muted">{tr.noReports}</p>}
         </section>
       )}
 
       {tab === 'bans' && (
         <section class="admin-card">
-          <h2>Bans</h2>
+          <h2>{tr.bans}</h2>
           <form class="ban-form" onSubmit={submitBan}>
             <label>
-              User ID
+              {tr.userId}
               <input
                 value={banForm.userId}
                 onInput={(e) => setBanForm({ ...banForm, userId: e.currentTarget.value })}
-                placeholder="optional"
+                placeholder={tr.optional}
               />
             </label>
             <label>
-              IP
+              {tr.ip}
               <input
                 value={banForm.ip}
                 onInput={(e) => setBanForm({ ...banForm, ip: e.currentTarget.value })}
-                placeholder="optional"
+                placeholder={tr.optional}
               />
             </label>
             <label>
-              Reason
+              {tr.reason}
               <input
                 value={banForm.reason}
                 onInput={(e) => setBanForm({ ...banForm, reason: e.currentTarget.value })}
               />
             </label>
             <label>
-              Hours
+              {tr.hours}
               <input
                 value={banForm.hours}
                 onInput={(e) => setBanForm({ ...banForm, hours: e.currentTarget.value })}
-                placeholder="empty = permanent"
+                placeholder={tr.emptyPermanent}
               />
             </label>
             <button type="submit" class="admin-btn danger">
-              Create ban
+              {tr.createBan}
             </button>
           </form>
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>User</th>
-                <th>IP</th>
-                <th>Reason</th>
-                <th>Expires</th>
+                <th>{tr.colId}</th>
+                <th>{tr.colUser}</th>
+                <th>{tr.ip}</th>
+                <th>{tr.reason}</th>
+                <th>{tr.colExpires}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {bans.map((b) => (
-                <tr>
+                <tr key={b.id}>
                   <td>{b.id}</td>
                   <td>{b.user_id ?? '—'}</td>
                   <td class="mono">{b.ip ?? '—'}</td>
                   <td>{b.reason}</td>
-                  <td>{b.expires_at ?? 'permanent'}</td>
+                  <td>{b.expires_at ?? tr.permanent}</td>
                   <td>
                     <button type="button" class="admin-btn sm" onClick={() => void removeBan(b.id)}>
-                      Remove
+                      {tr.remove}
                     </button>
                   </td>
                 </tr>
@@ -442,30 +446,30 @@ export function AdminApp() {
 
       {tab === 'users' && (
         <section class="admin-card">
-          <h2>Users</h2>
+          <h2>{tr.users}</h2>
           <div class="row">
             <input
               value={userQuery}
               onInput={(e) => setUserQuery(e.currentTarget.value)}
-              placeholder="Search email"
+              placeholder={tr.searchEmail}
             />
             <button type="button" class="admin-btn" onClick={() => void searchUsers()}>
-              Search
+              {tr.search}
             </button>
           </div>
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Email</th>
-                <th>Country</th>
-                <th>Created</th>
+                <th>{tr.colId}</th>
+                <th>{tr.colEmail}</th>
+                <th>{tr.colCountry}</th>
+                <th>{tr.colCreated}</th>
                 <th />
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr>
+                <tr key={u.id}>
                   <td>{u.id}</td>
                   <td>{u.email}</td>
                   <td>{u.country}</td>
@@ -479,7 +483,7 @@ export function AdminApp() {
                         setTab('bans')
                       }}
                     >
-                      Ban
+                      {tr.ban}
                     </button>
                   </td>
                 </tr>

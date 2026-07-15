@@ -89,10 +89,12 @@ test('landing shows brand and start control', async ({ page }) => {
 
 test('admin page unlocks with key', async ({ page }) => {
   await page.goto('/admin')
-  await expect(page.getByRole('heading', { name: /Moderation/i })).toBeVisible()
-  await page.getByPlaceholder('ADMIN_KEY').fill('test-admin-key')
-  await page.getByRole('button', { name: /Unlock/i }).click()
-  await expect(page.getByText(/Online|Users|Reports/i).first()).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('heading', { name: /Moderation|Moderación|Moderação/i })).toBeVisible()
+  await page.locator('input[type="password"]').fill('test-admin-key')
+  await page.getByRole('button', { name: /Unlock|Desbloquear/i }).click()
+  await expect(page.getByText(/Online|Users|Users|En línea|Usuarios|Aguardando|Report/i).first()).toBeVisible({
+    timeout: 10_000,
+  })
 })
 
 test('admin overview requires key', async ({ request }) => {

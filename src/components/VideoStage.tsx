@@ -58,23 +58,6 @@ export function VideoStage({
 
   return (
     <section class="stage" aria-label={t.live}>
-      <div
-        class={`finder-state ${finding && !hasRemote ? 'active' : ''}`}
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-      >
-        <span class="finder-orb" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-        <div class="finder-copy">
-          <strong>{finding ? status || t.searchingTitle : t.ready}</strong>
-          <small>{finderSub}</small>
-        </div>
-      </div>
-
       <div class="video-grid">
         <article
           class={`video remote ${finding ? 'is-finding' : ''} ${hasRemote ? 'has-stream' : ''} ${matched && !hasRemote ? 'is-connecting' : ''}`}
