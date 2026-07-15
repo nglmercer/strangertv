@@ -54,32 +54,42 @@ export type ServerMessage =
   | { type: 'block:ack' }
   | { type: 'server:draining'; message?: string }
 
+/** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [
-  'music', 'movies', 'gaming', 'sports', 'travel', 'tech', 'art', 'food', 'languages', 'anime',
+  'music',
+  'movies',
+  'gaming',
+  'sports',
+  'travel',
+  'tech',
+  'art',
+  'food',
+  'languages',
+  'anime',
 ] as const
 
-export const COUNTRIES = [
-  ['any', 'Anywhere'],
-  ['PE', 'Peru'],
-  ['US', 'United States'],
-  ['MX', 'Mexico'],
-  ['ES', 'Spain'],
-  ['BR', 'Brazil'],
-  ['AR', 'Argentina'],
-  ['CO', 'Colombia'],
-  ['CL', 'Chile'],
-  ['GB', 'United Kingdom'],
-  ['DE', 'Germany'],
-  ['FR', 'France'],
-  ['JP', 'Japan'],
+/** Country preference codes (display labels live in i18n). */
+export const COUNTRY_CODES = [
+  'any',
+  'PE',
+  'US',
+  'MX',
+  'ES',
+  'BR',
+  'AR',
+  'CO',
+  'CL',
+  'GB',
+  'DE',
+  'FR',
+  'JP',
 ] as const
 
-export const MATCH_LANGUAGES = [
-  ['any', 'Any language'],
-  ['en', 'English'],
-  ['es', 'Spanish'],
-  ['pt', 'Portuguese'],
-  ['fr', 'French'],
-  ['de', 'German'],
-  ['ja', 'Japanese'],
-] as const
+/** @deprecated Use COUNTRY_CODES + i18n countryLabel */
+export const COUNTRIES = COUNTRY_CODES.map((code) => [code, code] as const)
+
+/** Match language preference codes (display labels live in i18n). */
+export const MATCH_LANGUAGE_CODES = ['any', 'en', 'es', 'pt', 'fr', 'de', 'ja'] as const
+
+/** @deprecated Use MATCH_LANGUAGE_CODES + i18n matchLangLabel */
+export const MATCH_LANGUAGES = MATCH_LANGUAGE_CODES.map((code) => [code, code] as const)

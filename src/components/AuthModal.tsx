@@ -63,7 +63,7 @@ export function AuthModal({
       onAuth(res.user)
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Error')
+      setError(e instanceof Error ? e.message : t.genericError)
     } finally {
       setLoading(false)
     }

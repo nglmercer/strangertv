@@ -1,5 +1,5 @@
 import type { MatchPreferences } from '../../shared/types'
-import type { Messages } from '../i18n'
+import { countryLabel, type Messages } from '../i18n'
 
 export function ControlDeck({
   t,
@@ -38,7 +38,7 @@ export function ControlDeck({
         <span>
           {t.country} <b>{prefs.country === 'any' ? '🌐' : prefs.country}</b>
         </span>
-        <small>{prefs.country}</small>
+        <small>{countryLabel(t, prefs.country)}</small>
       </button>
       <button type="button" class="deck-card" onClick={onOpenPrefs}>
         <span>

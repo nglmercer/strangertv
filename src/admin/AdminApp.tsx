@@ -332,7 +332,9 @@ export function AdminApp() {
               {reports.map((r) => (
                 <tr key={r.id}>
                   <td>{r.id}</td>
-                  <td>{r.status ?? 'open'}</td>
+                  <td>
+                    {(r.status ?? 'open') === 'resolved' ? tr.filterResolved : tr.filterOpen}
+                  </td>
                   <td>{r.reason}</td>
                   <td class="mono">{r.room_id ?? '—'}</td>
                   <td class="mono">{r.reporter_id ?? r.reporter_session ?? '—'}</td>

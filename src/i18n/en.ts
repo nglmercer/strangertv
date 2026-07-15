@@ -158,8 +158,87 @@ export const en = {
   stepOf: 'Step {current} of {total}',
   errorCrashTitle: 'Something went wrong',
   errorUnexpected: 'Unexpected error',
+  genericError: 'Something went wrong. Try again.',
   reload: 'Reload',
   send: 'Send',
+  deleteAccountConfirm: 'Delete your account permanently? This cannot be undone.',
+  localeEn: 'English',
+  localeEs: 'Español',
+  localePt: 'Português',
+  months: {
+    january: 'January',
+    february: 'February',
+    march: 'March',
+    april: 'April',
+    may: 'May',
+    june: 'June',
+    july: 'July',
+    august: 'August',
+    september: 'September',
+    october: 'October',
+    november: 'November',
+    december: 'December',
+  },
+  countries: {
+    any: 'Anywhere',
+    PE: 'Peru',
+    US: 'United States',
+    MX: 'Mexico',
+    ES: 'Spain',
+    BR: 'Brazil',
+    AR: 'Argentina',
+    CO: 'Colombia',
+    CL: 'Chile',
+    GB: 'United Kingdom',
+    DE: 'Germany',
+    FR: 'France',
+    JP: 'Japan',
+  },
+  matchLangs: {
+    any: 'Any language',
+    en: 'English',
+    es: 'Spanish',
+    pt: 'Portuguese',
+    fr: 'French',
+    de: 'German',
+    ja: 'Japanese',
+  },
+  interestLabels: {
+    music: 'Music',
+    movies: 'Movies',
+    gaming: 'Gaming',
+    sports: 'Sports',
+    travel: 'Travel',
+    tech: 'Tech',
+    art: 'Art',
+    food: 'Food',
+    languages: 'Languages',
+    anime: 'Anime',
+  },
+  pages: {
+    rules: `• 18+ only. No minors.
+• Keep your face visible on camera.
+• No harassment, hate, threats, or illegal activity.
+• No explicit sexual content without mutual consent of adults; respect local law.
+• No spam, scams, or advertising.
+• Report violations; abusers are banned.`,
+    safety: `• Never share personal info, address, or financial data.
+• You can leave or press Next at any time.
+• Use Report if someone breaks the rules.
+• Video and audio are not recorded by this service by default.
+• If you feel unsafe, stop the chat and contact local authorities if needed.`,
+    privacy: `We store account email and password hashes if you register, session tokens, optional preferences, blocks, and reports.
+We do not record or store video/audio streams by default.
+Matchmaking state is ephemeral in memory.
+You may delete your account from settings.
+Contact the operator for data requests.`,
+    terms: `This is an experimental stranger video chat.
+You must be 18 or older.
+You are responsible for your behavior and local laws.
+Service is provided as-is without warranty.
+We may suspend accounts that violate the rules.
+Conversations are not private from your peer; treat strangers carefully.`,
+  },
   admin: {
     consoleTitle: 'Moderation console',
     consoleHint: 'Enter the server ADMIN_KEY. Stored only in this browser.',

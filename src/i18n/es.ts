@@ -160,8 +160,87 @@ export const es: Messages = {
   stepOf: 'Paso {current} de {total}',
   errorCrashTitle: 'Algo salió mal',
   errorUnexpected: 'Error inesperado',
+  genericError: 'Algo salió mal. Inténtalo de nuevo.',
   reload: 'Recargar',
   send: 'Enviar',
+  deleteAccountConfirm: '¿Eliminar tu cuenta permanentemente? Esta acción no se puede deshacer.',
+  localeEn: 'English',
+  localeEs: 'Español',
+  localePt: 'Português',
+  months: {
+    january: 'Enero',
+    february: 'Febrero',
+    march: 'Marzo',
+    april: 'Abril',
+    may: 'Mayo',
+    june: 'Junio',
+    july: 'Julio',
+    august: 'Agosto',
+    september: 'Septiembre',
+    october: 'Octubre',
+    november: 'Noviembre',
+    december: 'Diciembre',
+  },
+  countries: {
+    any: 'Cualquier lugar',
+    PE: 'Perú',
+    US: 'Estados Unidos',
+    MX: 'México',
+    ES: 'España',
+    BR: 'Brasil',
+    AR: 'Argentina',
+    CO: 'Colombia',
+    CL: 'Chile',
+    GB: 'Reino Unido',
+    DE: 'Alemania',
+    FR: 'Francia',
+    JP: 'Japón',
+  },
+  matchLangs: {
+    any: 'Cualquier idioma',
+    en: 'Inglés',
+    es: 'Español',
+    pt: 'Portugués',
+    fr: 'Francés',
+    de: 'Alemán',
+    ja: 'Japonés',
+  },
+  interestLabels: {
+    music: 'Música',
+    movies: 'Películas',
+    gaming: 'Videojuegos',
+    sports: 'Deportes',
+    travel: 'Viajes',
+    tech: 'Tecnología',
+    art: 'Arte',
+    food: 'Comida',
+    languages: 'Idiomas',
+    anime: 'Anime',
+  },
+  pages: {
+    rules: `• Solo +18. Prohibidos menores.
+• Mantén tu rostro visible en la cámara.
+• Sin acoso, odio, amenazas ni actividad ilegal.
+• Sin contenido sexual explícito sin consentimiento mutuo de adultos; respeta la ley local.
+• Sin spam, estafas ni publicidad.
+• Reporta infracciones; los abusadores serán baneados.`,
+    safety: `• Nunca compartas datos personales, dirección ni información financiera.
+• Puedes salir o pulsar Siguiente en cualquier momento.
+• Usa Reportar si alguien incumple las reglas.
+• Este servicio no graba vídeo ni audio por defecto.
+• Si te sientes en peligro, termina el chat y contacta a las autoridades locales si hace falta.`,
+    privacy: `Guardamos el correo y el hash de la contraseña si te registras, tokens de sesión, preferencias opcionales, bloqueos y reportes.
+No grabamos ni almacenamos vídeo/audio por defecto.
+El emparejamiento es efímero en memoria.
+Puedes eliminar tu cuenta desde la configuración.
+Contacta al operador para solicitudes de datos.`,
+    terms: `Este es un chat de video experimental entre desconocidos.
+Debes tener 18 años o más.
+Eres responsable de tu conducta y de las leyes locales.
+El servicio se ofrece tal cual, sin garantía.
+Podemos suspender cuentas que violen las reglas.
+Las conversaciones no son privadas frente a tu pareja; trata a los desconocidos con precaución.`,
+  },
   admin: {
     consoleTitle: 'Consola de moderación',
     consoleHint: 'Introduce el ADMIN_KEY del servidor. Solo se guarda en este navegador.',

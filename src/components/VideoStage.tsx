@@ -1,5 +1,5 @@
 import type { RefObject } from 'preact'
-import type { Messages } from '../i18n'
+import { countryLabel, interestLabel, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
 import { formatDuration } from '../utils/format'
 
@@ -49,7 +49,7 @@ export function VideoStage({
 
   const strangerMeta = [
     t.labelStranger,
-    peerCountry ? `${t.peerFrom} ${peerCountry}` : '',
+    peerCountry ? `${t.peerFrom} ${countryLabel(t, peerCountry)}` : '',
     matched && callSeconds > 0 ? `${t.callTime} ${formatDuration(callSeconds)}` : '',
     qualityLabel,
   ]
@@ -90,7 +90,7 @@ export function VideoStage({
               <div class="chips tight">
                 {sharedInterests.map((tag) => (
                   <span class="chip on" key={tag}>
-                    {tag}
+                    {interestLabel(t, tag)}
                   </span>
                 ))}
               </div>

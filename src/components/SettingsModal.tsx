@@ -65,7 +65,7 @@ export function SettingsModal({
                 res.devVerifyToken ? `${t.verifySent} ${t.devToken}: ${res.devVerifyToken}` : t.verifySent,
               )
             } catch (e) {
-              setError(e instanceof Error ? e.message : 'Error')
+              setError(e instanceof Error ? e.message : t.genericError)
             } finally {
               setLoading(false)
             }
@@ -126,7 +126,7 @@ export function SettingsModal({
                     await socialApi.unblock(b.id)
                     setBlocks((list) => list.filter((x) => x.id !== b.id))
                   } catch (e) {
-                    setError(e instanceof Error ? e.message : 'Error')
+                    setError(e instanceof Error ? e.message : t.genericError)
                   }
                 }}
               >
@@ -141,14 +141,14 @@ export function SettingsModal({
         type="button"
         class="match full danger"
         onClick={async () => {
-          if (!confirm(t.deleteAccount + '?')) return
+          if (!confirm(t.deleteAccountConfirm)) return
           try {
             await authApi.deleteAccount()
             clearSession()
             onDeleted()
             onClose()
           } catch (e) {
-            setError(e instanceof Error ? e.message : 'Error')
+            setError(e instanceof Error ? e.message : t.genericError)
           }
         }}
       >

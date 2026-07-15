@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { COUNTRIES, INTERESTS, MATCH_LANGUAGES, type Gender, type MatchPreferences } from '../../shared/types'
-import { formatMessage, type Messages } from '../i18n'
+import {
+  COUNTRY_CODES,
+  INTERESTS,
+  MATCH_LANGUAGE_CODES,
+  type Gender,
+  type MatchPreferences,
+} from '../../shared/types'
+import { countryLabel, formatMessage, interestLabel, matchLangLabel, type Messages } from '../i18n'
 import {
   acceptTerms,
   getStartWizardStep,
@@ -133,16 +139,20 @@ export function StartMatchModal({
           <label>
             {t.country}
             <select value={prefs.country} onChange={(e) => setPrefs({ ...prefs, country: e.currentTarget.value })}>
-              {COUNTRIES.map(([v, l]) => (
-                <option value={v}>{l}</option>
+              {COUNTRY_CODES.map((code) => (
+                <option value={code} key={code}>
+                  {countryLabel(t, code)}
+                </option>
               ))}
             </select>
           </label>
           <label>
             {t.matchLanguage}
             <select value={prefs.language} onChange={(e) => setPrefs({ ...prefs, language: e.currentTarget.value })}>
-              {MATCH_LANGUAGES.map(([v, l]) => (
-                <option value={v}>{l}</option>
+              {MATCH_LANGUAGE_CODES.map((code) => (
+                <option value={code} key={code}>
+                  {matchLangLabel(t, code)}
+                </option>
               ))}
             </select>
           </label>
@@ -153,7 +163,9 @@ export function StartMatchModal({
               onChange={(e) => setPrefs({ ...prefs, lookingFor: e.currentTarget.value as Gender })}
             >
               {(['any', 'male', 'female', 'other'] as Gender[]).map((g) => (
-                <option value={g}>{genderLabel(g)}</option>
+                <option value={g} key={g}>
+                  {genderLabel(g)}
+                </option>
               ))}
             </select>
           </label>
@@ -161,6 +173,7 @@ export function StartMatchModal({
             {INTERESTS.map((tag) => (
               <button
                 type="button"
+                key={tag}
                 class={`chip ${prefs.interests.includes(tag) ? 'on' : ''}`}
                 onClick={() => {
                   const has = prefs.interests.includes(tag)
@@ -172,7 +185,7 @@ export function StartMatchModal({
                   })
                 }}
               >
-                {tag}
+                {interestLabel(t, tag)}
               </button>
             ))}
           </div>
