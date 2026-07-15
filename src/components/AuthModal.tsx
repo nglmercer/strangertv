@@ -35,7 +35,9 @@ export function AuthModal({
     try {
       if (resetMode === 'request') {
         const res = await authApi.requestReset(email)
-        setInfo(res.devResetToken ? `Dev token: ${res.devResetToken}` : 'If that email exists, a reset was created.')
+        setInfo(
+          res.devResetToken ? `${t.devToken}: ${res.devResetToken}` : t.resetEmailSent,
+        )
         if (res.devResetToken) {
           setResetToken(res.devResetToken)
           setResetMode('confirm')
@@ -44,7 +46,7 @@ export function AuthModal({
       }
       if (resetMode === 'confirm') {
         await authApi.confirmReset(resetToken, password)
-        setInfo('Password updated. You can sign in.')
+        setInfo(t.passwordUpdated)
         setResetMode('off')
         return
       }
@@ -99,7 +101,7 @@ export function AuthModal({
         )}
         {resetMode === 'confirm' && (
           <label>
-            Token
+            {t.resetToken}
             <input value={resetToken} onInput={(e) => setResetToken(e.currentTarget.value)} required />
           </label>
         )}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import { COUNTRIES, INTERESTS, MATCH_LANGUAGES, type Gender, type MatchPreferences } from '../../shared/types'
-import type { Messages } from '../i18n'
+import { formatMessage, type Messages } from '../i18n'
 import { Modal } from './Modal'
 
 export function StartMatchModal({
@@ -53,9 +53,7 @@ export function StartMatchModal({
       <button type="button" class="modal-close" onClick={onClose} aria-label={t.close}>
         ×
       </button>
-      <p class="eyebrow">
-        {step + 1}/3
-      </p>
+      <p class="eyebrow">{formatMessage(t.stepOf, { current: step + 1, total: 3 })}</p>
       <h2 id="start-title">{t.startTitle}</h2>
 
       {step === 0 && (
@@ -81,18 +79,22 @@ export function StartMatchModal({
           <label>
             {t.deviceCam}
             <select value={videoId} onChange={(e) => setVideoId(e.currentTarget.value)}>
-              <option value="">Default</option>
+              <option value="">{t.deviceDefault}</option>
               {devices.video.map((d) => (
-                <option value={d.deviceId}>{d.label || d.deviceId.slice(0, 8)}</option>
+                <option value={d.deviceId} key={d.deviceId}>
+                  {d.label || d.deviceId.slice(0, 8)}
+                </option>
               ))}
             </select>
           </label>
           <label>
             {t.deviceMic}
             <select value={audioId} onChange={(e) => setAudioId(e.currentTarget.value)}>
-              <option value="">Default</option>
+              <option value="">{t.deviceDefault}</option>
               {devices.audio.map((d) => (
-                <option value={d.deviceId}>{d.label || d.deviceId.slice(0, 8)}</option>
+                <option value={d.deviceId} key={d.deviceId}>
+                  {d.label || d.deviceId.slice(0, 8)}
+                </option>
               ))}
             </select>
           </label>

@@ -222,62 +222,148 @@ textarea {
   font: 10px 'DM Mono', monospace;
 }
 
-.tv-logo {
+.stage-empty {
   position: absolute;
+  inset: 0;
   z-index: 2;
-  left: 25%;
-  top: 27%;
-  width: 185px;
-  height: 145px;
-  border-radius: 22px;
-  background: var(--accent);
-  color: #fff;
-  text-align: center;
-  padding: 18px 0;
-  filter: drop-shadow(0 7px 0 #bd492e);
-  transform: rotate(-1deg);
+  display: grid;
+  place-content: center;
+  place-items: center;
+  gap: 14px;
+  padding: 24px;
+  background:
+    radial-gradient(ellipse at 50% 35%, #2a221c 0%, transparent 55%),
+    radial-gradient(circle at 70% 70%, #16352c44 0%, transparent 40%),
+    linear-gradient(180deg, #121212 0%, #070707 100%);
 }
 
-.tv-logo:before {
-  content: '';
-  position: absolute;
-  inset: 11px;
-  border-radius: 18px;
-  background: #fff;
-  z-index: -1;
+.stage-empty.local {
+  background: #0a0a0a;
 }
 
-.tv-logo strong,
-.tv-logo b {
-  display: block;
+.brand-mark {
   position: relative;
-  line-height: 0.92;
+  z-index: 2;
+  width: min(200px, 48vw);
+  aspect-ratio: 1.15;
+  border-radius: 28px;
+  background: linear-gradient(145deg, #f1784a 0%, #e85a32 55%, #c94a2a 100%);
+  color: #fff;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  box-shadow: 0 12px 0 #9a3a22, 0 18px 40px #0008;
+  transform: rotate(-2deg);
 }
 
-.tv-logo strong {
-  font-size: 52px;
-  color: #ee6039;
-  letter-spacing: -5px;
-}
-
-.tv-logo b {
-  font-size: 38px;
-  color: #44a47e;
-  letter-spacing: 5px;
-}
-
-.tv-logo i {
+.brand-mark-glow {
   position: absolute;
-  right: 11px;
-  width: 14px;
-  height: 14px;
+  inset: 12px;
+  border-radius: 20px;
   background: #fff;
-  border-radius: 50%;
-  bottom: 46px;
+  opacity: 0.96;
+  z-index: 0;
 }
 
-.tv-logo i:last-child {
-  bottom: 25px;
+.brand-mark strong,
+.brand-mark b {
+  position: relative;
+  z-index: 1;
+  display: block;
+  line-height: 1;
+}
+
+.brand-mark strong {
+  font-size: clamp(42px, 8vw, 56px);
+  color: #ef6238;
+  letter-spacing: -4px;
+}
+
+.brand-mark b {
+  margin-top: 4px;
+  font-size: clamp(18px, 4vw, 22px);
+  font-weight: 700;
+  color: #2f9d74;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+}
+
+.pulse-ring {
+  position: absolute;
+  width: min(220px, 55vw);
+  height: min(220px, 55vw);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.pulse-ring span {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #57c9a166;
+  border-radius: 50%;
+  animation: pulse-out 2.2s ease-out infinite;
+}
+
+.pulse-ring span:nth-child(2) {
+  animation-delay: 0.7s;
+}
+
+.pulse-ring span:nth-child(3) {
+  animation-delay: 1.4s;
+}
+
+@keyframes pulse-out {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+}
+
+.local-preview-hint {
+  margin: 0;
+  color: #555;
+  font-size: 13px;
+}
+
+.quality-pill {
+  position: absolute;
+  z-index: 4;
+  right: 12px;
+  top: 12px;
+  font: 10px 'DM Mono', monospace;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #111c;
+  color: #ccc;
+  border: 1px solid #333;
+}
+
+.quality-pill.quality-good {
+  color: #9eecc8;
+  border-color: #3a7a5a;
+}
+
+.quality-pill.quality-poor {
+  color: #f0d48a;
+  border-color: #7a6530;
+}
+
+.quality-pill.quality-failed {
+  color: #ffb4a8;
+  border-color: #8a3a30;
+}
+
+.quality-pill.quality-connecting {
+  color: #a8c8ff;
+  border-color: #3a508a;
+}
+
+.video.remote.is-connecting {
+  box-shadow: inset 0 0 100px #f16a4233;
 }
 
 .finder-state {
@@ -305,6 +391,13 @@ textarea {
   transform: translateX(-50%) translateY(0);
 }
 
+.finder-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .finder-state strong {
   font-size: 12px;
   font-weight: 600;
@@ -313,7 +406,8 @@ textarea {
 .finder-state small {
   font: 10px 'DM Mono', monospace;
   color: #8f908c;
-  margin-left: 4px;
+  margin: 0;
+  white-space: normal;
 }
 
 .finder-orb {
@@ -1067,10 +1161,13 @@ textarea {
     min-height: 0;
   }
 
-  .tv-logo {
-    transform: scale(0.75);
-    left: 10%;
-    top: 20%;
+  .brand-mark {
+    transform: rotate(-1deg) scale(0.85);
+  }
+
+  .finder-state {
+    max-width: calc(100% - 16px);
+    white-space: normal;
   }
 
   .dashboard {

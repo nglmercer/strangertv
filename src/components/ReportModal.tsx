@@ -24,15 +24,17 @@ export function ReportModal({
       </button>
       <h2 id="report-title">{t.reportTitle}</h2>
       <label>
-        Reason
+        {t.reportReason}
         <select value={reason} onChange={(e) => setReason(e.currentTarget.value as ReportReason)}>
           {reasons.map((r) => (
-            <option value={r}>{t.reasons[r]}</option>
+            <option value={r} key={r}>
+              {t.reasons[r]}
+            </option>
           ))}
         </select>
       </label>
       <label>
-        Detail
+        {t.reportDetail}
         <textarea value={detail} onInput={(e) => setDetail(e.currentTarget.value)} rows={3} maxLength={500} />
       </label>
       <button class="match full danger" onClick={() => onSubmit(reason, detail)}>

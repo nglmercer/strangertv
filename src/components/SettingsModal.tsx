@@ -62,9 +62,7 @@ export function SettingsModal({
             try {
               const res = await authApi.resendVerification()
               setInfo(
-                res.devVerifyToken
-                  ? `${t.verifySent} Dev: ${res.devVerifyToken}`
-                  : t.verifySent,
+                res.devVerifyToken ? `${t.verifySent} ${t.devToken}: ${res.devVerifyToken}` : t.verifySent,
               )
             } catch (e) {
               setError(e instanceof Error ? e.message : 'Error')

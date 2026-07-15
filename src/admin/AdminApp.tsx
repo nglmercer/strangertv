@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'preact/hooks'
+import { detectLocale, t as translate } from '../i18n'
 
 type Overview = {
   queue: { waiting: number; online: number }
@@ -58,6 +59,7 @@ async function adminFetch<T>(path: string, key: string, init?: RequestInit): Pro
 }
 
 export function AdminApp() {
+  const tr = translate(detectLocale()).admin
   const [key, setKey] = useState(() => localStorage.getItem(keyStorage) ?? '')
   const [inputKey, setInputKey] = useState(key)
   const [error, setError] = useState('')
@@ -91,10 +93,10 @@ export function AdminApp() {
       setReports(rep.reports as Report[])
       setBans(ban.bans as Ban[])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      setError(e instanceof Error ? e.message : tr.failedLoad)
       setOverview(null)
     }
-  }, [key, reportFilter])
+  }, [key, reportFilter, tr.failedLoad])
 
   useEffect(() => {
     void load()
@@ -112,7 +114,7 @@ export function AdminApp() {
       setUsers(data.users as UserRow[])
       setTab('users')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Search failed')
+      setError(e instanceof Error ? e.message : tr.searchFailed)
     }
   }
 
@@ -132,7 +134,7 @@ export function AdminApp() {
       await load()
       setTab('bans')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ban failed')
+      setError(e instanceof Error ? e.message : tr.banFailed)
     }
   }
 
@@ -141,30 +143,37 @@ export function AdminApp() {
       await adminFetch(`/api/admin/ban/${id}`, key, { method: 'DELETE' })
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unban failed')
+      setError(e instanceof Error ? e.message : tr.unbanFailed)
     }
   }
+
+  const tabLabel = {
+    overview: tr.tabOverview,
+    reports: tr.tabReports,
+    bans: tr.tabBans,
+    users: tr.tabUsers,
+  } as const
 
   if (!key) {
     return (
       <main class="admin">
         <section class="admin-card">
-          <h1>Moderation console</h1>
-          <p class="muted">Enter the server <code>ADMIN_KEY</code>. Stored only in this browser.</p>
+          <h1>{tr.consoleTitle}</h1>
+          <p class="muted">{tr.consoleHint}</p>
           <label>
-            Admin key
+            {tr.adminKey}
             <input
               type="password"
               value={inputKey}
               onInput={(e) => setInputKey(e.currentTarget.value)}
-              placeholder="ADMIN_KEY"
+              placeholder={tr.adminKey}
             />
           </label>
           <button type="button" class="admin-btn" onClick={unlock} disabled={!inputKey.trim()}>
-            Unlock
+            {tr.unlock}
           </button>
           <p class="muted">
-            <a href="/">← Back to app</a>
+            <a href="/">← {tr.backToApp}</a>
           </p>
         </section>
       </main>
@@ -175,27 +184,31 @@ export function AdminApp() {
     <main class="admin">
       <header class="admin-top">
         <div>
-          <h1>Moderation</h1>
-          <p class="muted">stranger ops · auto-refresh 15s</p>
+          <h1>{tr.title}</h1>
+          <p class="muted">{tr.subtitle}</p>
         </div>
         <div class="admin-actions">
           <button type="button" class="admin-btn ghost" onClick={() => void load()}>
-            Refresh
+            {tr.refresh}
           </button>
-          <a class="admin-btn ghost" href={`/api/admin/reports.csv`} onClick={(e) => {
-            e.preventDefault()
-            void fetch('/api/admin/reports.csv', { headers: { 'x-admin-key': key } })
-              .then((r) => r.blob())
-              .then((blob) => {
-                const url = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = 'reports.csv'
-                a.click()
-                URL.revokeObjectURL(url)
-              })
-          }}>
-            Export CSV
+          <a
+            class="admin-btn ghost"
+            href="/api/admin/reports.csv"
+            onClick={(e) => {
+              e.preventDefault()
+              void fetch('/api/admin/reports.csv', { headers: { 'x-admin-key': key } })
+                .then((r) => r.blob())
+                .then((blob) => {
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'reports.csv'
+                  a.click()
+                  URL.revokeObjectURL(url)
+                })
+            }}
+          >
+            {tr.exportCsv}
           </a>
           <button
             type="button"
@@ -205,10 +218,10 @@ export function AdminApp() {
               setKey('')
             }}
           >
-            Lock
+            {tr.lock}
           </button>
           <a class="admin-btn ghost" href="/">
-            App
+            {tr.app}
           </a>
         </div>
       </header>

@@ -59,7 +59,7 @@ export function ChatPanel({
           placeholder={matched ? t.writeMessage : t.startToChat}
           maxLength={500}
         />
-        <button type="submit" disabled={!matched || !chatText.trim()} aria-label="Send">
+        <button type="submit" disabled={!matched || !chatText.trim()} aria-label={t.send}>
           ☺
         </button>
       </form>

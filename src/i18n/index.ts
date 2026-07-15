@@ -17,4 +17,9 @@ export function detectLocale(): Locale {
   return 'en'
 }
 
+/** Replace `{key}` placeholders in a message template. */
+export function formatMessage(template: string, vars: Record<string, string | number>) {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => String(vars[key] ?? `{${key}}`))
+}
+
 export type { Messages }

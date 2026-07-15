@@ -36,7 +36,7 @@ export function CallBar({
 }) {
   if (!finding && !matched) return null
   return (
-    <div class="call-bar" role="toolbar" aria-label="Call controls">
+    <div class="call-bar" role="toolbar" aria-label={t.callControls}>
       <button type="button" class="call-btn" onClick={onMute} aria-pressed={muted}>
         {muted ? t.unmute : t.mute}
       </button>
@@ -56,7 +56,7 @@ export function CallBar({
         type="button"
         class="call-btn danger"
         disabled={!matched || !canBlock}
-        title={!canBlock ? 'Sign in to block' : undefined}
+        title={!canBlock ? t.signInToBlock : undefined}
         onClick={onBlock}
       >
         {t.blockPeer}

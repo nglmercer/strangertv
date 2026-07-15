@@ -1,4 +1,5 @@
 import { Component, type ComponentChildren } from 'preact'
+import { detectLocale, t as translate } from '../i18n'
 
 type Props = { children: ComponentChildren }
 type State = { error: Error | null }
@@ -16,12 +17,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      const tr = translate(detectLocale())
       return (
         <main class="crash">
-          <h1>Something went wrong</h1>
-          <p>{this.state.error.message || 'Unexpected error'}</p>
+          <h1>{tr.errorCrashTitle}</h1>
+          <p>{this.state.error.message || tr.errorUnexpected}</p>
           <button type="button" class="match" onClick={() => location.reload()}>
-            Reload
+            {tr.reload}
           </button>
         </main>
       )

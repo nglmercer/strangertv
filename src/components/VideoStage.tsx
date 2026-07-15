@@ -36,49 +36,71 @@ export function VideoStage({
   remoteVideo: RefObject<HTMLVideoElement>
   hasLocalStream: boolean
 }) {
+  const finderSub = finding
+    ? longWait
+      ? t.longWait
+      : queuePos
+        ? `${t.position} #${queuePos}`
+        : qualityLabel || t.searchingHint
+    : t.readySub
+
+  const emptyTitle = finding ? status || t.searchingTitle : t.idleTitle
+  const emptyBody = finding ? t.searchingHint : t.idleHint
+
+  const strangerMeta = [
+    t.labelStranger,
+    peerCountry ? `${t.peerFrom} ${peerCountry}` : '',
+    matched && callSeconds > 0 ? `${t.callTime} ${formatDuration(callSeconds)}` : '',
+    qualityLabel,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
   return (
-    <section class="stage">
-      <div class={`finder-state ${finding ? 'active' : ''}`} role="status" aria-live="polite">
-        <span class="finder-orb">
+    <section class="stage" aria-label={t.live}>
+      <div
+        class={`finder-state ${finding && !hasRemote ? 'active' : ''}`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span class="finder-orb" aria-hidden="true">
           <i />
           <i />
           <i />
         </span>
-        <strong>{finding ? status : t.ready}</strong>
-        <small>
-          {finding
-            ? longWait
-              ? t.longWait
-              : queuePos
-                ? `${t.position} #${queuePos}`
-                : qualityLabel || t.readySub
-            : t.readySub}
-        </small>
+        <div class="finder-copy">
+          <strong>{finding ? status || t.searchingTitle : t.ready}</strong>
+          <small>{finderSub}</small>
+        </div>
       </div>
 
       <div class="video-grid">
-        <article class={`video remote ${finding ? 'is-finding' : ''} ${hasRemote ? 'has-stream' : ''}`}>
-          <video ref={remoteVideo} autoplay playsinline />
+        <article
+          class={`video remote ${finding ? 'is-finding' : ''} ${hasRemote ? 'has-stream' : ''} ${matched && !hasRemote ? 'is-connecting' : ''}`}
+        >
+          <video ref={remoteVideo} autoplay playsinline aria-label={t.labelStranger} />
           {!hasRemote && (
-            <>
-              <div class="tv-logo">
-                <strong>Ome</strong>
-                <b>TV</b>
-                <i />
-                <i />
+            <div class="stage-empty">
+              <div class="brand-mark" aria-hidden="true">
+                <span class="brand-mark-glow" />
+                <strong>✦</strong>
+                <b>{t.brand}</b>
               </div>
+              {finding && (
+                <div class="pulse-ring" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              )}
               <div class="empty">
-                <h2>{finding ? status : t.ready}</h2>
-                <p>{finding ? t.readySub : t.findStranger}</p>
+                <h2>{emptyTitle}</h2>
+                <p>{emptyBody}</p>
               </div>
-            </>
+            </div>
           )}
-          <span class="label">
-            Stranger
-            {peerCountry ? ` · ${peerCountry}` : ''}
-            {matched && callSeconds > 0 ? ` · ${formatDuration(callSeconds)}` : ''}
-            {qualityLabel ? ` · ${qualityLabel}` : ''}
-          </span>
+          <span class="label">{strangerMeta}</span>
           {sharedInterests.length > 0 && matched && (
             <div class="interest-badge" aria-label={t.sharedInterests}>
               <small>{t.sharedInterests}</small>
@@ -91,11 +113,23 @@ export function VideoStage({
               </div>
             </div>
           )}
+          {matched && quality !== 'idle' && (
+            <span class={`quality-pill quality-${quality}`} aria-hidden="true">
+              {qualityLabel || t.quality.connecting}
+            </span>
+          )}
         </article>
-        <article class="video local">
-          <video ref={localVideo} autoplay playsinline muted />
-          {!hasLocalStream && <div class="local-empty">{t.previewCam}</div>}
-          <span class="label">You</span>
+
+        <article class={`video local ${hasLocalStream ? 'has-stream' : ''}`}>
+          <video ref={localVideo} autoplay playsinline muted aria-label={t.labelYou} />
+          {!hasLocalStream && (
+            <div class="stage-empty local">
+              <div class="empty">
+                <p class="local-preview-hint">{t.localPreviewHint}</p>
+              </div>
+            </div>
+          )}
+          <span class="label">{t.labelYou}</span>
         </article>
       </div>
 
