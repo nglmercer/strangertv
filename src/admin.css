@@ -218,3 +218,21 @@ th {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+.reports-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.reports-head h2 {
+  margin: 0;
+}
+
+.filter-row {
+  display: flex;
+  gap: 6px;
+}

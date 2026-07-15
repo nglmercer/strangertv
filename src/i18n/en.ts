@@ -133,6 +133,9 @@ export const en = {
   shortcuts: 'Shortcuts: M mute · C camera · N next · Esc stop',
   longWait: 'Still searching… try widening country or interests.',
   version: 'v',
+  peerLeftBlocked: 'You were blocked or the peer left after a report.',
+  peerLeftNext: 'Peer skipped. Finding someone new…',
+  peerLeftLeave: 'Peer ended the chat.',
 }
 
 export type Messages = {

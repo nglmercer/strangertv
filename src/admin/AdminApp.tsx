@@ -66,6 +66,7 @@ export function AdminApp() {
   const [userQuery, setUserQuery] = useState('')
   const [banForm, setBanForm] = useState({ userId: '', ip: '', reason: 'moderation', hours: '24' })
   const [tab, setTab] = useState<'overview' | 'reports' | 'bans' | 'users'>('overview')
+  const [reportFilter, setReportFilter] = useState<'all' | 'open' | 'resolved'>('open')
 
   const unlock = () => {
     localStorage.setItem(keyStorage, inputKey)
@@ -77,9 +78,11 @@ export function AdminApp() {
     if (!key) return
     setError('')
     try {
+      const reportsPath =
+        reportFilter === 'all' ? '/api/admin/reports' : `/api/admin/reports?status=${reportFilter}`
       const [ov, rep, ban] = await Promise.all([
         adminFetch<Overview>('/api/admin/overview', key),
-        adminFetch<{ reports: Report[] }>('/api/admin/reports', key),
+        adminFetch<{ reports: Report[] }>(reportsPath, key),
         adminFetch<{ bans: Ban[] }>('/api/admin/bans', key),
       ])
       setOverview(ov)
@@ -89,7 +92,7 @@ export function AdminApp() {
       setError(e instanceof Error ? e.message : 'Failed to load')
       setOverview(null)
     }
-  }, [key])
+  }, [key, reportFilter])
 
   useEffect(() => {
     void load()
@@ -268,7 +271,21 @@ export function AdminApp() {
 
       {tab === 'reports' && (
         <section class="admin-card table-wrap">
-          <h2>Reports</h2>
+          <div class="reports-head">
+            <h2>Reports</h2>
+            <div class="filter-row">
+              {(['open', 'resolved', 'all'] as const).map((f) => (
+                <button
+                  type="button"
+                  key={f}
+                  class={reportFilter === f ? 'admin-btn sm' : 'admin-btn ghost sm'}
+                  onClick={() => setReportFilter(f)}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
           <table>
             <thead>
               <tr>

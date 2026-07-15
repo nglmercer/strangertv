@@ -1,26 +1,29 @@
 import { defineConfig } from '@playwright/test'
 
+const port = process.env.E2E_PORT ?? '8797'
+const base = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${port}`
+
 export default defineConfig({
   testDir: 'e2e',
   timeout: 60_000,
   fullyParallel: false,
   retries: 0,
   use: {
-    // Production-like: Hono serves dist + API + WS on one port
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:8787',
+    baseURL: base,
     headless: true,
   },
   webServer: {
     command: 'npm run build && npx tsx server/index.ts',
-    url: 'http://127.0.0.1:8787/api/health',
-    reuseExistingServer: !process.env.CI,
+    url: `${base}/api/health`,
+    // Dedicated E2E port avoids clashes with dev servers on 8787
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       ...process.env,
-      PORT: '8787',
+      PORT: port,
       ADMIN_KEY: 'test-admin-key',
-      CORS_ORIGINS: 'http://127.0.0.1:8787,http://localhost:8787',
-      APP_URL: 'http://127.0.0.1:8787',
+      CORS_ORIGINS: `${base},http://localhost:${port}`,
+      APP_URL: base,
       NODE_ENV: 'test',
       STATIC_DIR: `${process.cwd()}/dist`,
     },

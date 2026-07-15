@@ -10,7 +10,7 @@ Product code is feature-complete for v1 (including polish: interests UI, refresh
 
 ```bash
 make dev
-npm test && npm run test:integration && npm run test:e2e
+npm run test:all
 make docker
 make docker-turn
 ```

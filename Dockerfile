@@ -15,10 +15,12 @@ ENV STATIC_DIR=/app/dist
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/public ./public
 COPY server ./server
 COPY shared ./shared
 COPY tsconfig.json tsconfig.node.json ./
-EXPOSE 8787
+# Alpine images may lack wget; use node for healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8787/api/health/live || exit 1
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+EXPOSE 8787
 CMD ["npx", "tsx", "server/index.ts"]

@@ -48,6 +48,7 @@ docker compose up --build
 | `npm test` | Unit tests |
 | `npm run test:integration` | Live HTTP API tests |
 | `npm run test:e2e` | Playwright |
+| `npm run test:all` | check + unit + integration + build + e2e |
 | `npm run loadtest` | WS matchmaking stress |
 | `npm run smoke` | Post-deploy HTTP smoke |
 | `npm run backup` | Local SQLite backup |

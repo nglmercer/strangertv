@@ -1,5 +1,6 @@
 import { serve } from '@hono/node-server'
 import { randomBytes, createHash } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import type { Server as HttpServer } from 'node:http'
 import { join } from 'node:path'
 import { Hono } from 'hono'
@@ -95,7 +96,17 @@ const clientIp = (c: { req: { header: (n: string) => string | undefined } }) =>
   c.req.header('x-real-ip') ??
   'unknown'
 
-const APP_VERSION = process.env.npm_package_version ?? '1.0.0'
+function resolveVersion(): string {
+  if (process.env.npm_package_version) return process.env.npm_package_version
+  if (process.env.APP_VERSION) return process.env.APP_VERSION
+  try {
+    const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as { version?: string }
+    return pkg.version ?? '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+}
+const APP_VERSION = resolveVersion()
 
 app.get('/api/health', (c) => {
   const stats = queueStats()
@@ -453,30 +464,46 @@ app.post('/api/reports', async (c) => {
 
 app.get('/api/admin/overview', async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
-  const stats = queueStats()
-  const users = await db.execute('SELECT COUNT(*) AS n FROM users')
-  const reports = await db.execute('SELECT COUNT(*) AS n FROM reports')
-  const openReports = await db.execute(
-    `SELECT COUNT(*) AS n FROM reports WHERE status = 'open' OR status IS NULL`,
-  )
-  const bans = await db.execute(
-    `SELECT COUNT(*) AS n FROM bans WHERE expires_at IS NULL OR expires_at > datetime('now')`,
-  )
-  const ratingStats = await db.execute(
-    `SELECT COUNT(*) AS n, AVG(score) AS avg_score FROM ratings`,
-  )
-  return c.json({
-    queue: stats,
-    users: Number(users.rows[0]?.n ?? 0),
-    reports: Number(reports.rows[0]?.n ?? 0),
-    openReports: Number(openReports.rows[0]?.n ?? 0),
-    activeBans: Number(bans.rows[0]?.n ?? 0),
-    ratings: {
-      count: Number(ratingStats.rows[0]?.n ?? 0),
-      average: ratingStats.rows[0]?.avg_score != null ? Number(Number(ratingStats.rows[0].avg_score).toFixed(2)) : null,
-    },
-    metrics: snapshot(),
-  })
+  try {
+    const stats = queueStats()
+    const users = await db.execute('SELECT COUNT(*) AS n FROM users')
+    const reports = await db.execute('SELECT COUNT(*) AS n FROM reports')
+    let openReports = 0
+    try {
+      const open = await db.execute(
+        `SELECT COUNT(*) AS n FROM reports WHERE COALESCE(status, 'open') = 'open'`,
+      )
+      openReports = Number(open.rows[0]?.n ?? 0)
+    } catch {
+      openReports = Number(reports.rows[0]?.n ?? 0)
+    }
+    const bans = await db.execute(
+      `SELECT COUNT(*) AS n FROM bans WHERE expires_at IS NULL OR expires_at > datetime('now')`,
+    )
+    let ratings = { count: 0, average: null as number | null }
+    try {
+      const ratingStats = await db.execute(`SELECT COUNT(*) AS n, AVG(score) AS avg_score FROM ratings`)
+      const avg = ratingStats.rows[0]?.avg_score
+      ratings = {
+        count: Number(ratingStats.rows[0]?.n ?? 0),
+        average: avg != null && avg !== '' ? Number(Number(avg).toFixed(2)) : null,
+      }
+    } catch {
+      /* ratings table may be missing on old DBs */
+    }
+    return c.json({
+      queue: stats,
+      users: Number(users.rows[0]?.n ?? 0),
+      reports: Number(reports.rows[0]?.n ?? 0),
+      openReports,
+      activeBans: Number(bans.rows[0]?.n ?? 0),
+      ratings,
+      metrics: snapshot(),
+    })
+  } catch (err) {
+    logger.error('admin.overview_failed', { err: String(err) })
+    return c.json({ error: 'Overview failed' }, 500)
+  }
 })
 
 app.get('/api/admin/reports', async (c) => {

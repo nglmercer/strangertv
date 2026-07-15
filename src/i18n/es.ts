@@ -135,4 +135,7 @@ export const es: Messages = {
   shortcuts: 'Atajos: M silencio · C cámara · N siguiente · Esc parar',
   longWait: 'Sigue buscando… prueba ampliar país o intereses.',
   version: 'v',
+  peerLeftBlocked: 'Te bloquearon o se fue tras un reporte.',
+  peerLeftNext: 'Saltó. Buscando a alguien nuevo…',
+  peerLeftLeave: 'Terminó el chat.',
 }

@@ -4,6 +4,7 @@ import {
   authApi,
   clearSession,
   fetchHealth,
+  fetchIceServers,
   getStoredUser,
   getToken,
   loadPrefs,
@@ -127,7 +128,7 @@ export function App() {
       if (!stream) return
       await webrtcRef.current.createPeer(stream, remoteVideo.current, role === 'offerer')
     },
-    onPeerLeft: () => {
+    onPeerLeft: (reason) => {
       const endedRoom = roomIdRef.current
       webrtcRef.current.clear()
       if (remoteVideo.current) remoteVideo.current.srcObject = null
@@ -139,14 +140,23 @@ export function App() {
       if (endedRoom && callSecondsRef.current >= 5 && !autoNextRef.current) {
         setRateRoomId(endedRoom)
       }
-      if (autoNextRef.current) {
+      const t = trRef.current
+      const statusMsg =
+        reason === 'blocked' || reason === 'reported'
+          ? t.peerLeftBlocked
+          : reason === 'next'
+            ? t.peerLeftNext
+            : reason === 'leave'
+              ? t.peerLeftLeave
+              : t.peerLeft
+      if (autoNextRef.current && reason !== 'blocked' && reason !== 'reported') {
         setFinding(true)
-        setStatus(trRef.current.requeueing)
+        setStatus(t.requeueing)
         setChat([])
         window.setTimeout(() => matchRef.current?.next(prefsRef.current), 400)
       } else {
         setFinding(false)
-        setStatus(trRef.current.peerLeft)
+        setStatus(statusMsg)
       }
     },
     onSignal: (payload) => {
@@ -291,11 +301,11 @@ export function App() {
       if (h.ok) {
         setOnline(h.online)
         setWaitingCount(h.waiting)
-        if ('version' in h && typeof (h as { version?: string }).version === 'string') {
-          setAppVersion((h as { version: string }).version)
-        }
+        if (h.version) setAppVersion(h.version)
       }
     })
+    // Warm ICE/TURN credentials early so first match is faster
+    void fetchIceServers().catch(() => undefined)
     const iv = window.setInterval(() => {
       void fetchHealth().then((h) => {
         if (h.ok) {

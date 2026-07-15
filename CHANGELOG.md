@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- Admin report status filter (open/resolved/all); peer-left reason messages
+- ICE preload; Docker copies `public/`; `npm run test:all`
+- Version read from package.json in production
 - Admin avg ratings + open report counts; unique ratings per room/session
 - Critical alerts for underage reports; long-wait queue tip
 - robots.txt, security.txt, version in footer

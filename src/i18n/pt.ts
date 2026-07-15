@@ -135,4 +135,7 @@ export const pt: Messages = {
   shortcuts: 'Atalhos: M mudo · C câmera · N próximo · Esc parar',
   longWait: 'Ainda procurando… tente ampliar país ou interesses.',
   version: 'v',
+  peerLeftBlocked: 'Você foi bloqueado ou a pessoa saiu após denúncia.',
+  peerLeftNext: 'Pessoa pulou. Procurando outra…',
+  peerLeftLeave: 'A pessoa encerrou o chat.',
 }

@@ -37,5 +37,6 @@
 - [x] Shared interests UI, session refresh, OpenAPI, request IDs, PWA manifest
 - [x] Call timer, shortcuts, ratings, admin report resolve, versioned health
 - [x] Rating uniqueness, underage alerts, long-wait UX, robots/security.txt
+- [x] Admin report filters, peer-left reasons, ICE preload, Docker public assets
 - [ ] Live HTTPS host + real TURN + Turso in your cloud account (ops only)
 

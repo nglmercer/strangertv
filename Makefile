@@ -33,5 +33,5 @@ docker:
 docker-turn:
 	docker compose --profile turn up --build -d
 
-ci: check test build
-	npm run test:e2e
+ci:
+	npm run test:all

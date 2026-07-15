@@ -13,7 +13,7 @@ async function completeAgeGate(page: Page) {
 }
 
 test('health API is ok', async ({ request }) => {
-  const res = await request.get('http://127.0.0.1:8787/api/health')
+  const res = await request.get('/api/health')
   expect(res.ok()).toBeTruthy()
   const body = await res.json()
   expect(body.ok).toBe(true)
@@ -23,7 +23,7 @@ test('health API is ok', async ({ request }) => {
 test('register and login via API', async ({ request }) => {
   const email = `e2e_${Date.now()}@example.com`
   const password = 'password12'
-  const reg = await request.post('http://127.0.0.1:8787/api/auth/register', {
+  const reg = await request.post('/api/auth/register', {
     data: { email, password, birthDate: '1990-01-15' },
   })
   expect(reg.status()).toBe(201)
@@ -31,12 +31,12 @@ test('register and login via API', async ({ request }) => {
   expect(regBody.token).toBeTruthy()
   expect(regBody.user.email).toBe(email)
 
-  const me = await request.get('http://127.0.0.1:8787/api/auth/me', {
+  const me = await request.get('/api/auth/me', {
     headers: { authorization: `Bearer ${regBody.token}` },
   })
   expect(me.ok()).toBeTruthy()
 
-  const login = await request.post('http://127.0.0.1:8787/api/auth/login', {
+  const login = await request.post('/api/auth/login', {
     data: { email, password },
   })
   expect(login.ok()).toBeTruthy()
@@ -50,10 +50,12 @@ test('two clients match over websocket', async () => {
     lookingFor: 'any',
     interests: [],
   }
+  const port = process.env.E2E_PORT ?? '8797'
+  const wsUrl = `ws://127.0.0.1:${port}/ws`
 
   const open = () =>
     new Promise<{ ws: WebSocket; role?: string; roomId?: string }>((resolve, reject) => {
-      const ws = new WebSocket('ws://127.0.0.1:8787/ws')
+      const ws = new WebSocket(wsUrl)
       const timer = setTimeout(() => reject(new Error('timeout')), 10_000)
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'queue:join', preferences: prefs }))
@@ -94,9 +96,9 @@ test('admin page unlocks with key', async ({ page }) => {
 })
 
 test('admin overview requires key', async ({ request }) => {
-  const denied = await request.get('http://127.0.0.1:8787/api/admin/overview')
+  const denied = await request.get('/api/admin/overview')
   expect(denied.status()).toBe(403)
-  const ok = await request.get('http://127.0.0.1:8787/api/admin/overview', {
+  const ok = await request.get('/api/admin/overview', {
     headers: { 'x-admin-key': 'test-admin-key' },
   })
   expect(ok.ok()).toBeTruthy()
@@ -105,11 +107,11 @@ test('admin overview requires key', async ({ request }) => {
 })
 
 test('ready and prometheus metrics', async ({ request }) => {
-  const ready = await request.get('http://127.0.0.1:8787/api/health/ready')
+  const ready = await request.get('/api/health/ready')
   expect(ready.ok()).toBeTruthy()
-  const live = await request.get('http://127.0.0.1:8787/api/health/live')
+  const live = await request.get('/api/health/live')
   expect(live.ok()).toBeTruthy()
-  const prom = await request.get('http://127.0.0.1:8787/api/metrics/prometheus', {
+  const prom = await request.get('/api/metrics/prometheus', {
     headers: { 'x-admin-key': 'test-admin-key' },
   })
   expect(prom.ok()).toBeTruthy()
@@ -119,20 +121,20 @@ test('ready and prometheus metrics', async ({ request }) => {
 
 test('register returns verify token in non-prod and verify works', async ({ request }) => {
   const email = `verify_${Date.now()}@example.com`
-  const reg = await request.post('http://127.0.0.1:8787/api/auth/register', {
+  const reg = await request.post('/api/auth/register', {
     data: { email, password: 'password12', birthDate: '1990-01-15' },
   })
   expect(reg.status()).toBe(201)
   const body = await reg.json()
   expect(body.devVerifyToken).toBeTruthy()
-  const verified = await request.post('http://127.0.0.1:8787/api/auth/verify-email', {
+  const verified = await request.post('/api/auth/verify-email', {
     data: { token: body.devVerifyToken },
   })
   expect(verified.ok()).toBeTruthy()
 })
 
 test('admin reports csv', async ({ request }) => {
-  const res = await request.get('http://127.0.0.1:8787/api/admin/reports.csv', {
+  const res = await request.get('/api/admin/reports.csv', {
     headers: { 'x-admin-key': 'test-admin-key' },
   })
   expect(res.ok()).toBeTruthy()
@@ -140,19 +142,28 @@ test('admin reports csv', async ({ request }) => {
   expect(text.startsWith('id,')).toBeTruthy()
 })
 
+test('robots and security.txt are served', async ({ request }) => {
+  const robots = await request.get('/robots.txt')
+  expect(robots.ok()).toBeTruthy()
+  expect(await robots.text()).toContain('Disallow: /admin')
+  const sec = await request.get('/.well-known/security.txt')
+  expect(sec.ok()).toBeTruthy()
+  expect(await sec.text()).toContain('Contact:')
+})
+
 test('openapi docs and session refresh', async ({ request }) => {
-  const docs = await request.get('http://127.0.0.1:8787/api/docs')
+  const docs = await request.get('/api/docs')
   expect(docs.ok()).toBeTruthy()
   const body = await docs.json()
   expect(body.openapi).toMatch(/^3\./)
   expect(body.paths['/api/auth/refresh']).toBeTruthy()
 
   const email = `ref_${Date.now()}@example.com`
-  const reg = await request.post('http://127.0.0.1:8787/api/auth/register', {
+  const reg = await request.post('/api/auth/register', {
     data: { email, password: 'password12', birthDate: '1990-01-15' },
   })
   const { token } = await reg.json()
-  const refreshed = await request.post('http://127.0.0.1:8787/api/auth/refresh', {
+  const refreshed = await request.post('/api/auth/refresh', {
     headers: { authorization: `Bearer ${token}` },
   })
   expect(refreshed.ok()).toBeTruthy()
