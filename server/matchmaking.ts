@@ -1,4 +1,5 @@
 import type { Gender, MatchPreferences, ServerMessage } from '../shared/types'
+import { inc, observeMs } from './metrics'
 
 export type SocketLike = {
   send: (message: string) => void
@@ -28,16 +29,79 @@ const partners = new Map<SocketLike, SocketLike>()
 const roomsBySocket = new Map<SocketLike, Room>()
 const peerMeta = new Map<SocketLike, QueuePeer>()
 const blockedPairs = new Set<string>() // "minId:maxId"
+/** Recent matches: key userA:userB or sessionA:sessionB → expiry ms */
+const recentPairs = new Map<string, number>()
+const RECENT_COOLDOWN_MS = Number(process.env.REMATCH_COOLDOWN_MS ?? 10 * 60_000)
+
+function pairKeyUsers(a: number, b: number) {
+  return a < b ? `u:${a}:${b}` : `u:${b}:${a}`
+}
+
+function pairKeySessions(a: string, b: string) {
+  return a < b ? `s:${a}:${b}` : `s:${b}:${a}`
+}
 
 export function blockPair(a: number, b: number) {
   const key = a < b ? `${a}:${b}` : `${b}:${a}`
   blockedPairs.add(key)
 }
 
+export function unblockPair(a: number, b: number) {
+  const key = a < b ? `${a}:${b}` : `${b}:${a}`
+  blockedPairs.delete(key)
+}
+
 export function isBlockedPair(a?: number, b?: number) {
   if (!a || !b) return false
   const key = a < b ? `${a}:${b}` : `${b}:${a}`
   return blockedPairs.has(key)
+}
+
+function isRecentPair(a: QueuePeer, b: QueuePeer) {
+  const now = Date.now()
+  if (a.userId && b.userId) {
+    const exp = recentPairs.get(pairKeyUsers(a.userId, b.userId))
+    if (exp && exp > now) return true
+  }
+  const expS = recentPairs.get(pairKeySessions(a.sessionKey, b.sessionKey))
+  return Boolean(expS && expS > now)
+}
+
+function rememberPair(a: QueuePeer, b: QueuePeer) {
+  const until = Date.now() + RECENT_COOLDOWN_MS
+  if (a.userId && b.userId) recentPairs.set(pairKeyUsers(a.userId, b.userId), until)
+  recentPairs.set(pairKeySessions(a.sessionKey, b.sessionKey), until)
+  // prune occasionally
+  if (recentPairs.size > 5000) {
+    for (const [k, exp] of recentPairs) {
+      if (exp <= Date.now()) recentPairs.delete(k)
+    }
+  }
+}
+
+export function rematchCooldownMs() {
+  return RECENT_COOLDOWN_MS
+}
+
+/** Hydrate in-memory block set from DB rows. */
+export function hydrateBlocks(rows: Array<{ blocker_id: unknown; blocked_id: unknown }>) {
+  for (const row of rows) {
+    const a = Number(row.blocker_id)
+    const b = Number(row.blocked_id)
+    if (a && b) blockPair(a, b)
+  }
+}
+
+export function getPartnerUserId(socket: SocketLike): number | undefined {
+  const room = roomsBySocket.get(socket)
+  if (!room) return undefined
+  if (room.a === socket) return room.bUserId
+  if (room.b === socket) return room.aUserId
+  return undefined
+}
+
+export function blockedPairCount() {
+  return blockedPairs.size
 }
 
 export function send(socket: SocketLike, message: ServerMessage) {
@@ -66,6 +130,7 @@ function interestScore(a: string[], b: string[]) {
 function compatible(a: QueuePeer, b: QueuePeer) {
   if (a.socket === b.socket) return false
   if (isBlockedPair(a.userId, b.userId)) return false
+  if (isRecentPair(a, b)) return false
   const pa = a.preferences
   const pb = b.preferences
   if (!countryOk(pa.country, pb.country)) return false
@@ -167,6 +232,7 @@ export function joinQueue(
 
   if (bestIdx >= 0) {
     const partner = waiting.splice(bestIdx, 1)[0]!
+    rememberPair(self, partner)
     const room: Room = {
       id: newRoomId(),
       a: socket,
@@ -179,23 +245,30 @@ export function joinQueue(
     partners.set(partner.socket, socket)
     roomsBySocket.set(socket, room)
     roomsBySocket.set(partner.socket, room)
+    const sharedInterests = preferences.interests.filter((x) => partner.preferences.interests.includes(x))
     send(socket, {
       type: 'room:matched',
       roomId: room.id,
       role: 'offerer',
       peerCountry: partner.preferences.country,
+      sharedInterests,
     })
     send(partner.socket, {
       type: 'room:matched',
       roomId: room.id,
       role: 'answerer',
       peerCountry: preferences.country,
+      sharedInterests,
     })
+    const waitMs = Date.now() - partner.joinedAt
+    observeMs('match_wait', waitMs)
+    inc('matches_total')
     broadcastStats()
     return
   }
 
   waiting.push(self)
+  inc('queue_joins')
   send(socket, {
     type: 'queue:waiting',
     position: waiting.length,

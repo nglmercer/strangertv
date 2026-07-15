@@ -1,5 +1,6 @@
 {
   "name": "stranger-chat",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -7,22 +8,42 @@
     "build": "tsc -b && vite build",
     "start": "tsx server/index.ts",
     "check": "tsc -b --pretty false",
-    "test": "tsx --test server/matchmaking.test.ts server/auth.test.ts"
+    "test": "tsx --test server/auth.test.ts server/matchmaking.test.ts server/blocks.test.ts server/config.test.ts",
+    "test:integration": "tsx --test server/api.integration.test.ts",
+    "test:e2e": "playwright test",
+    "loadtest": "node scripts/load-test.mjs",
+    "smoke": "bash scripts/smoke.sh",
+    "backup": "bash scripts/backup-db.sh",
+    "docker:up": "docker compose up --build -d",
+    "docker:turn": "docker compose --profile turn up --build -d"
   },
   "dependencies": {
-    "@hono/node-server": "latest",
-    "@libsql/client": "latest",
-    "hono": "latest",
-    "preact": "latest",
-    "vite": "^8.0.0",
-    "ws": "latest",
-    "tsx": "latest",
-    "concurrently": "latest"
+    "@hono/node-server": "^2.0.9",
+    "@libsql/client": "^0.15.0",
+    "concurrently": "^9.0.0",
+    "hono": "^4.12.30",
+    "preact": "^10.26.0",
+    "tsx": "^4.19.0",
+    "vite": "^6.2.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "typescript": "latest",
-    "@preact/preset-vite": "latest",
-    "@types/node": "latest",
-    "@types/ws": "latest"
+    "@playwright/test": "^1.51.0",
+    "@preact/preset-vite": "^2.10.0",
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.8.0"
+  },
+  "overrides": {
+    "@babel/core": "^7.26.10",
+    "@babel/traverse": "^7.26.10",
+    "@babel/types": "^7.26.10",
+    "@babel/generator": "^7.26.10",
+    "@babel/parser": "^7.26.10",
+    "@babel/template": "^7.26.10",
+    "@babel/helper-module-transforms": "^7.26.0",
+    "@babel/helper-plugin-utils": "^7.26.0",
+    "@babel/plugin-transform-react-jsx": "^7.25.9",
+    "@babel/plugin-transform-react-jsx-development": "^7.25.9"
   }
 }

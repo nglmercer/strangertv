@@ -68,9 +68,27 @@ export async function migrate() {
       room_id TEXT,
       reason TEXT NOT NULL,
       detail TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS ratings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id TEXT,
+      rater_id INTEGER,
+      rater_session TEXT,
+      score INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+  try {
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS ratings_room_session ON ratings (room_id, rater_session)',
+    )
+  } catch {
+    /* ignore if null rooms conflict on some dialects */
+  }
   await db.execute(`
     CREATE TABLE IF NOT EXISTS bans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -97,5 +115,15 @@ export async function migrate() {
     } catch {
       /* column exists */
     }
+  }
+  try {
+    await db.execute('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0')
+  } catch {
+    /* column exists */
+  }
+  try {
+    await db.execute(`ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'open'`)
+  } catch {
+    /* column exists */
   }
 }

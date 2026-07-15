@@ -1,28 +1,40 @@
-import { serve, upgradeWebSocket } from '@hono/node-server'
+import { serve } from '@hono/node-server'
 import { randomBytes, createHash } from 'node:crypto'
+import type { Server as HttpServer } from 'node:http'
+import { join } from 'node:path'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { getConnInfo } from '@hono/node-server/conninfo'
-import { WebSocketServer } from 'ws'
+import { WebSocketServer, type WebSocket } from 'ws'
+import { noteReport } from './alerts'
 import {
+  createEmailVerificationToken,
   createSession,
   hashPassword,
   hashToken,
   isAdult,
   isBanned,
   publicUser,
+  refreshSession,
   revokeSession,
   userFromToken,
   validCredentials,
+  verifyEmailToken,
   verifyPassword,
 } from './auth'
+import { openApiDocument } from './openapi'
+import { requestIdMiddleware } from './requestId'
+import { config } from './config'
 import { db, migrate, tursoUrl } from './db'
+import { resetEmailBody, sendEmail, verifyEmailBody } from './email'
+import { logger } from './logger'
 import {
   fullRemove,
   getMeta,
   getPartner,
+  getPartnerUserId,
   getRoom,
   heartbeat,
+  hydrateBlocks,
   joinQueue,
   leaveRoom,
   normalizePreferences,
@@ -30,17 +42,38 @@ import {
   removeFromQueue,
   send,
   blockPair,
+  unblockPair,
   type SocketLike,
 } from './matchmaking'
-import { rateLimit } from './rateLimit'
+import { inc, prometheusText, snapshot } from './metrics'
+import { rateLimit, rateLimitHeaders, rateLimitInfo } from './rateLimit'
+import { requireAdmin, securityHeaders } from './security'
+import { createStaticHandler } from './static'
 import { getIceServers } from './turn'
 import type { ClientMessage, ReportReason } from '../shared/types'
 
 await migrate()
+{
+  const blocks = await db.execute('SELECT blocker_id, blocked_id FROM blocks')
+  hydrateBlocks(blocks.rows as unknown as Array<{ blocker_id: unknown; blocked_id: unknown }>)
+  logger.info('db.migrated', {
+    url: tursoUrl.startsWith('file:') ? 'local' : 'remote',
+    blocks: blocks.rows.length,
+  })
+}
+
+let draining = false
+let dbOk = true
 
 const app = new Hono()
-const origins = (process.env.CORS_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173').split(',')
+const origins = config.corsOrigins
+const appUrl = config.appUrl
+const distDir = config.staticDir || join(process.cwd(), 'dist')
+const publicDir = join(process.cwd(), 'public')
+const serveStatic = createStaticHandler(distDir, publicDir)
 
+app.use('*', requestIdMiddleware)
+app.use('*', securityHeaders)
 app.use(
   '/api/*',
   cors({
@@ -49,31 +82,82 @@ app.use(
   }),
 )
 
+app.get('/api/docs', (c) => c.json(openApiDocument(appUrl)))
+
 const getBearer = (c: { req: { header: (n: string) => string | undefined } }) => {
   const h = c.req.header('authorization')
   if (h?.startsWith('Bearer ')) return h.slice(7)
   return c.req.header('x-session-token') ?? null
 }
 
-const clientIp = (c: { req: { header: (n: string) => string | undefined } }) => {
-  try {
-    // @ts-expect-error conninfo needs full context in some versions
-    return getConnInfo(c).remote.address ?? 'unknown'
-  } catch {
-    return c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-  }
-}
+const clientIp = (c: { req: { header: (n: string) => string | undefined } }) =>
+  c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+  c.req.header('x-real-ip') ??
+  'unknown'
+
+const APP_VERSION = process.env.npm_package_version ?? '1.0.0'
 
 app.get('/api/health', (c) => {
   const stats = queueStats()
   return c.json({
-    ok: true,
+    ok: !draining && dbOk,
+    version: APP_VERSION,
+    draining,
     waiting: stats.waiting,
     online: stats.online,
     database: tursoUrl.startsWith('file:') ? 'local libSQL' : 'turso',
     turn: Boolean(process.env.TURN_SECRET && process.env.TURN_URLS),
+    uptimeSec: Math.floor(process.uptime()),
+    features: config.features,
   })
 })
+
+/** Liveness: process is up (k8s livenessProbe). */
+app.get('/api/health/live', (c) => c.json({ ok: true, version: APP_VERSION }))
+
+/** Readiness: accept traffic (k8s readinessProbe). */
+app.get('/api/health/ready', async (c) => {
+  if (draining) return c.json({ ok: false, reason: 'draining' }, 503)
+  try {
+    await db.execute('SELECT 1')
+    dbOk = true
+  } catch {
+    dbOk = false
+    return c.json({ ok: false, reason: 'database' }, 503)
+  }
+  return c.json({ ok: true })
+})
+
+app.get('/api/metrics', (c) => {
+  if (!config.metricsPublic && !requireAdmin(c)) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  const stats = queueStats()
+  return c.json({ ...snapshot(), queue: stats, draining })
+})
+
+app.get('/api/metrics/prometheus', (c) => {
+  if (!config.metricsPublic && !requireAdmin(c)) {
+    return c.text('Forbidden', 403)
+  }
+  const stats = queueStats()
+  const body = prometheusText({
+    queue_waiting: stats.waiting,
+    queue_online: stats.online,
+    draining: draining ? 1 : 0,
+  })
+  return c.body(body, 200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' })
+})
+
+app.get('/api/config/public', (c) =>
+  c.json({
+    features: {
+      anonymousMatch: config.features.anonymousMatch,
+      qualityTelemetry: config.features.qualityTelemetry,
+    },
+    turnConfigured: Boolean(process.env.TURN_SECRET && process.env.TURN_URLS),
+  }),
+)
 
 app.get('/api/ice', async (c) => {
   const ip = clientIp(c)
@@ -83,7 +167,11 @@ app.get('/api/ice', async (c) => {
 
 app.post('/api/auth/register', async (c) => {
   const ip = clientIp(c)
-  if (!rateLimit(`register:${ip}`, 10, 15 * 60_000)) return c.json({ error: 'Too many attempts. Try later.' }, 429)
+  const rl = rateLimitInfo(`register:${ip}`, 10, 15 * 60_000)
+  if (!rl.ok) {
+    return c.json({ error: 'Too many attempts. Try later.' }, 429, rateLimitHeaders(rl))
+  }
+  inc('auth_register_attempts')
 
   const body = await c.req.json<{
     email?: unknown
@@ -124,22 +212,64 @@ app.post('/api/auth/register', async (c) => {
       sql: 'INSERT INTO consents (user_id, kind) VALUES (?, ?)',
       args: [userId, 'terms_age'],
     })
+    const verifyToken = await createEmailVerificationToken(userId)
+    const mail = verifyEmailBody(verifyToken, appUrl)
+    await sendEmail({
+      to: email.toLowerCase(),
+      subject: 'Verify your stranger email',
+      text: mail.text,
+      html: mail.html,
+    })
     const user = await userFromToken(token)
-    return c.json({ user: user ? publicUser(user) : null, token }, 201)
+    inc('auth_register_ok')
+    logger.info('auth.register', { userId })
+    return c.json(
+      {
+        user: user ? publicUser(user) : null,
+        token,
+        ...(config.isProd ? {} : { devVerifyToken: verifyToken }),
+      },
+      201,
+    )
   } catch {
     return c.json({ error: 'That email is already registered.' }, 409)
   }
 })
 
+app.post('/api/auth/verify-email', async (c) => {
+  const { token } = await c.req.json<{ token?: string }>()
+  if (typeof token !== 'string' || !token) return c.json({ error: 'Invalid token.' }, 400)
+  const ok = await verifyEmailToken(token)
+  if (!ok) return c.json({ error: 'Invalid or expired token.' }, 400)
+  inc('email_verified')
+  return c.json({ ok: true })
+})
+
+app.post('/api/auth/resend-verification', async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (user.email_verified) return c.json({ ok: true, already: true })
+  const ip = clientIp(c)
+  if (!rateLimit(`reverify:${ip}`, 5, 15 * 60_000)) return c.json({ error: 'Too many attempts.' }, 429)
+  const verifyToken = await createEmailVerificationToken(user.id)
+  const mail = verifyEmailBody(verifyToken, appUrl)
+  await sendEmail({ to: user.email, subject: 'Verify your stranger email', text: mail.text, html: mail.html })
+  return c.json({ ok: true, ...(config.isProd ? {} : { devVerifyToken: verifyToken }) })
+})
+
 app.post('/api/auth/login', async (c) => {
   const ip = clientIp(c)
-  if (!rateLimit(`login:${ip}`, 20, 15 * 60_000)) return c.json({ error: 'Too many attempts. Try later.' }, 429)
+  const rl = rateLimitInfo(`login:${ip}`, 20, 15 * 60_000)
+  if (!rl.ok) {
+    return c.json({ error: 'Too many attempts. Try later.' }, 429, rateLimitHeaders(rl))
+  }
+  inc('auth_login_attempts')
 
   const { email, password } = await c.req.json<{ email?: unknown; password?: unknown }>()
   if (!validCredentials(email, password)) return c.json({ error: 'Invalid email or password.' }, 400)
 
   const result = await db.execute({
-    sql: 'SELECT id, password_hash, birth_date FROM users WHERE email = ?',
+    sql: 'SELECT id, password_hash, birth_date, email_verified FROM users WHERE email = ?',
     args: [email.toLowerCase()],
   })
   const row = result.rows[0]
@@ -153,8 +283,12 @@ app.post('/api/auth/login', async (c) => {
   if (!birthDate || !isAdult(birthDate)) {
     return c.json({ error: 'Your account needs a valid 18+ birthday.' }, 403)
   }
+  if (config.features.requireEmailVerified && !Number(row.email_verified)) {
+    return c.json({ error: 'Verify your email before signing in.', code: 'email_unverified' }, 403)
+  }
   const token = await createSession(userId)
   const user = await userFromToken(token)
+  inc('auth_login_ok')
   return c.json({ user: user ? publicUser(user) : null, token })
 })
 
@@ -162,6 +296,16 @@ app.post('/api/auth/logout', async (c) => {
   const token = getBearer(c)
   if (token) await revokeSession(token)
   return c.json({ ok: true })
+})
+
+app.post('/api/auth/refresh', async (c) => {
+  const token = getBearer(c)
+  if (!token) return c.json({ error: 'Unauthorized' }, 401)
+  const next = await refreshSession(token)
+  if (!next) return c.json({ error: 'Unauthorized' }, 401)
+  const user = await userFromToken(next)
+  inc('auth_refresh_ok')
+  return c.json({ token: next, user: user ? publicUser(user) : null })
 })
 
 app.get('/api/auth/me', async (c) => {
@@ -198,7 +342,7 @@ app.post('/api/auth/password-reset/request', async (c) => {
   const ip = clientIp(c)
   if (!rateLimit(`reset:${ip}`, 5, 15 * 60_000)) return c.json({ error: 'Too many attempts.' }, 429)
   const { email } = await c.req.json<{ email?: string }>()
-  // Always same response (no account enumeration)
+  let devResetToken: string | undefined
   if (typeof email === 'string') {
     const result = await db.execute({ sql: 'SELECT id FROM users WHERE email = ?', args: [email.toLowerCase()] })
     const id = result.rows[0]?.id
@@ -209,13 +353,18 @@ app.post('/api/auth/password-reset/request', async (c) => {
         sql: 'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
         args: [Number(id), hashToken(token), expires],
       })
-      // Dev: return token so local testing works without email
-      if (process.env.NODE_ENV !== 'production') {
-        return c.json({ ok: true, devResetToken: token })
-      }
+      const body = resetEmailBody(token, appUrl)
+      await sendEmail({
+        to: email.toLowerCase(),
+        subject: 'Reset your stranger password',
+        text: body.text,
+        html: body.html,
+      })
+      if (process.env.NODE_ENV !== 'production') devResetToken = token
+      inc('password_reset_requests')
     }
   }
-  return c.json({ ok: true })
+  return c.json({ ok: true, ...(devResetToken ? { devResetToken } : {}) })
 })
 
 app.post('/api/auth/password-reset/confirm', async (c) => {
@@ -235,6 +384,8 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
     args: [await hashPassword(password), Number(row.user_id)],
   })
   await db.execute({ sql: 'UPDATE password_reset_tokens SET used = 1 WHERE id = ?', args: [Number(row.id)] })
+  await db.execute({ sql: 'UPDATE sessions SET revoked = 1 WHERE user_id = ?', args: [Number(row.user_id)] })
+  inc('password_reset_ok')
   return c.json({ ok: true })
 })
 
@@ -255,10 +406,33 @@ app.get('/api/blocks', async (c) => {
   const user = await userFromToken(getBearer(c))
   if (!user) return c.json({ error: 'Unauthorized' }, 401)
   const result = await db.execute({
-    sql: 'SELECT blocked_id FROM blocks WHERE blocker_id = ?',
+    sql: `SELECT b.blocked_id AS id, u.email, b.created_at
+          FROM blocks b
+          LEFT JOIN users u ON u.id = b.blocked_id
+          WHERE b.blocker_id = ?
+          ORDER BY b.id DESC`,
     args: [user.id],
   })
-  return c.json({ blocked: result.rows.map((r) => Number(r.blocked_id)) })
+  return c.json({
+    blocked: result.rows.map((r) => ({
+      id: Number(r.id),
+      email: typeof r.email === 'string' ? r.email : null,
+      createdAt: typeof r.created_at === 'string' ? r.created_at : null,
+    })),
+  })
+})
+
+app.delete('/api/blocks/:id', async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  const blockedId = Number(c.req.param('id'))
+  if (!blockedId) return c.json({ error: 'Invalid id' }, 400)
+  await db.execute({
+    sql: 'DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?',
+    args: [user.id, blockedId],
+  })
+  unblockPair(user.id, blockedId)
+  return c.json({ ok: true })
 })
 
 app.post('/api/reports', async (c) => {
@@ -272,26 +446,148 @@ app.post('/api/reports', async (c) => {
     sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail) VALUES (?, ?, ?, ?, ?)',
     args: [user?.id ?? null, ip, body.roomId ?? null, body.reason, body.detail?.slice(0, 500) ?? null],
   })
+  inc('reports_total')
+  void noteReport(body.reason)
   return c.json({ ok: true })
 })
 
+app.get('/api/admin/overview', async (c) => {
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  const stats = queueStats()
+  const users = await db.execute('SELECT COUNT(*) AS n FROM users')
+  const reports = await db.execute('SELECT COUNT(*) AS n FROM reports')
+  const openReports = await db.execute(
+    `SELECT COUNT(*) AS n FROM reports WHERE status = 'open' OR status IS NULL`,
+  )
+  const bans = await db.execute(
+    `SELECT COUNT(*) AS n FROM bans WHERE expires_at IS NULL OR expires_at > datetime('now')`,
+  )
+  const ratingStats = await db.execute(
+    `SELECT COUNT(*) AS n, AVG(score) AS avg_score FROM ratings`,
+  )
+  return c.json({
+    queue: stats,
+    users: Number(users.rows[0]?.n ?? 0),
+    reports: Number(reports.rows[0]?.n ?? 0),
+    openReports: Number(openReports.rows[0]?.n ?? 0),
+    activeBans: Number(bans.rows[0]?.n ?? 0),
+    ratings: {
+      count: Number(ratingStats.rows[0]?.n ?? 0),
+      average: ratingStats.rows[0]?.avg_score != null ? Number(Number(ratingStats.rows[0].avg_score).toFixed(2)) : null,
+    },
+    metrics: snapshot(),
+  })
+})
+
 app.get('/api/admin/reports', async (c) => {
-  const key = c.req.header('x-admin-key')
-  if (!process.env.ADMIN_KEY || key !== process.env.ADMIN_KEY) return c.json({ error: 'Forbidden' }, 403)
-  const result = await db.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 100')
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  const status = c.req.query('status')
+  const result =
+    status === 'open' || status === 'resolved'
+      ? await db.execute({
+          sql: 'SELECT * FROM reports WHERE status = ? ORDER BY id DESC LIMIT 200',
+          args: [status],
+        })
+      : await db.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 200')
   return c.json({ reports: result.rows })
 })
 
+app.patch('/api/admin/reports/:id', async (c) => {
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json<{ status?: string }>()
+  if (!id || (body.status !== 'open' && body.status !== 'resolved')) {
+    return c.json({ error: 'Invalid request' }, 400)
+  }
+  await db.execute({ sql: 'UPDATE reports SET status = ? WHERE id = ?', args: [body.status, id] })
+  return c.json({ ok: true })
+})
+
+app.get('/api/admin/reports.csv', async (c) => {
+  if (!requireAdmin(c)) return c.text('Forbidden', 403)
+  const result = await db.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 1000')
+  const headers = ['id', 'reporter_id', 'reporter_session', 'room_id', 'reason', 'detail', 'status', 'created_at']
+  const escape = (v: unknown) => {
+    const s = v == null ? '' : String(v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const lines = [headers.join(',')]
+  for (const row of result.rows) {
+    lines.push(headers.map((h) => escape((row as Record<string, unknown>)[h])).join(','))
+  }
+  return c.body(lines.join('\n') + '\n', 200, {
+    'content-type': 'text/csv; charset=utf-8',
+    'content-disposition': 'attachment; filename="reports.csv"',
+  })
+})
+
+app.post('/api/ratings', async (c) => {
+  const ip = clientIp(c)
+  if (!rateLimit(`rating:${ip}`, 40, 60_000)) return c.json({ error: 'Too many requests' }, 429)
+  const user = await userFromToken(getBearer(c))
+  const body = await c.req.json<{ roomId?: string; score?: number }>()
+  const score = Number(body.score)
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    return c.json({ error: 'Score must be 1–5.' }, 400)
+  }
+  const roomId = body.roomId?.slice(0, 64) || `anon_${ip}_${Date.now()}`
+  try {
+    await db.execute({
+      sql: 'INSERT INTO ratings (room_id, rater_id, rater_session, score) VALUES (?, ?, ?, ?)',
+      args: [roomId, user?.id ?? null, ip, score],
+    })
+  } catch {
+    return c.json({ error: 'Already rated this match.' }, 409)
+  }
+  inc('ratings_total')
+  inc(`rating_score_${score}`)
+  return c.json({ ok: true })
+})
+
+app.get('/api/admin/bans', async (c) => {
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  const result = await db.execute('SELECT * FROM bans ORDER BY id DESC LIMIT 200')
+  return c.json({ bans: result.rows })
+})
+
+app.get('/api/admin/users', async (c) => {
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  const q = c.req.query('q')?.trim()
+  if (q) {
+    const result = await db.execute({
+      sql: `SELECT id, email, birth_date, country, created_at FROM users
+            WHERE email LIKE ? ORDER BY id DESC LIMIT 50`,
+      args: [`%${q.toLowerCase()}%`],
+    })
+    return c.json({ users: result.rows })
+  }
+  const result = await db.execute(
+    'SELECT id, email, birth_date, country, created_at FROM users ORDER BY id DESC LIMIT 50',
+  )
+  return c.json({ users: result.rows })
+})
+
 app.post('/api/admin/ban', async (c) => {
-  const key = c.req.header('x-admin-key')
-  if (!process.env.ADMIN_KEY || key !== process.env.ADMIN_KEY) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
   const body = await c.req.json<{ userId?: number; ip?: string; reason?: string; hours?: number }>()
-  const expires =
-    body.hours != null ? new Date(Date.now() + body.hours * 3600_000).toISOString() : null
+  const expires = body.hours != null ? new Date(Date.now() + body.hours * 3600_000).toISOString() : null
   await db.execute({
     sql: 'INSERT INTO bans (user_id, ip, reason, expires_at) VALUES (?, ?, ?, ?)',
     args: [body.userId ?? null, body.ip ?? null, body.reason ?? 'moderation', expires],
   })
+  if (body.userId) {
+    await db.execute({ sql: 'UPDATE sessions SET revoked = 1 WHERE user_id = ?', args: [body.userId] })
+  }
+  inc('bans_total')
+  logger.warn('admin.ban', { userId: body.userId, ip: body.ip, reason: body.reason })
+  return c.json({ ok: true })
+})
+
+app.delete('/api/admin/ban/:id', async (c) => {
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  const id = Number(c.req.param('id'))
+  if (!id) return c.json({ error: 'Invalid id' }, 400)
+  await db.execute({ sql: 'DELETE FROM bans WHERE id = ?', args: [id] })
   return c.json({ ok: true })
 })
 
@@ -304,127 +600,227 @@ app.delete('/api/auth/account', async (c) => {
   return c.json({ ok: true })
 })
 
-// WebSocket signaling
-app.get(
-  '/ws',
-  upgradeWebSocket((c) => {
-    const ip = (() => {
-      try {
-        return getConnInfo(c).remote.address ?? 'unknown'
-      } catch {
-        return 'unknown'
-      }
-    })()
-    const sessionKey = createHash('sha256').update(`${ip}:${Date.now()}:${Math.random()}`).digest('hex').slice(0, 16)
-
-    return {
-      async onMessage(event, rawSocket) {
-        const ws = rawSocket as unknown as SocketLike
-        let message: ClientMessage
-        try {
-          message = JSON.parse(String(event.data)) as ClientMessage
-        } catch {
-          return
-        }
-
-        if (message.type === 'queue:heartbeat') {
-          heartbeat(ws)
-          return
-        }
-
-        if (message.type === 'queue:join' || message.type === 'room:next') {
-          if (!rateLimit(`wsjoin:${ip}`, 40, 60_000)) {
-            send(ws, { type: 'error', code: 'rate_limit', message: 'Slow down.' })
-            return
-          }
-          if (await isBanned(null, ip)) {
-            send(ws, { type: 'error', code: 'banned', message: 'Access denied.' })
-            return
-          }
-          const prefs = normalizePreferences(message.preferences)
-          if (!prefs) {
-            send(ws, { type: 'error', code: 'bad_prefs', message: 'Invalid preferences.' })
-            return
-          }
-          let userId: number | undefined
-          if (message.token) {
-            const user = await userFromToken(message.token)
-            if (user) {
-              if (await isBanned(user.id, ip)) {
-                send(ws, { type: 'error', code: 'banned', message: 'Access denied.' })
-                return
-              }
-              userId = user.id
-            }
-          }
-          if (message.type === 'room:next') {
-            leaveRoom(ws, true, 'next')
-          }
-          joinQueue(ws, prefs, { userId, sessionKey })
-          return
-        }
-
-        if (message.type === 'queue:leave' || message.type === 'room:leave') {
-          removeFromQueue(ws)
-          leaveRoom(ws, true, 'leave')
-          return
-        }
-
-        if (message.type === 'signal') {
-          const partner = getPartner(ws)
-          if (partner && message.payload) {
-            send(partner, { type: 'signal', payload: message.payload })
-          }
-          return
-        }
-
-        if (message.type === 'chat') {
-          const partner = getPartner(ws)
-          const text = message.payload?.text?.slice(0, 500)
-          if (partner && text) {
-            send(partner, {
-              type: 'chat',
-              payload: { text, time: message.payload.time || new Date().toISOString() },
-            })
-          }
-          return
-        }
-
-        if (message.type === 'report') {
-          if (!rateLimit(`wsreport:${ip}`, 10, 60_000)) return
-          const room = getRoom(ws)
-          const meta = getMeta(ws)
-          await db.execute({
-            sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail) VALUES (?, ?, ?, ?, ?)',
-            args: [
-              meta?.userId ?? null,
-              sessionKey,
-              room?.id ?? null,
-              message.reason,
-              message.detail?.slice(0, 500) ?? null,
-            ],
-          })
-          const partner = getPartner(ws)
-          leaveRoom(ws, true, 'reported')
-          send(ws, { type: 'report:ack' })
-          if (partner) {
-            leaveRoom(partner, false)
-          }
-          return
-        }
-      },
-      onClose(_event, socket) {
-        fullRemove(socket as unknown as SocketLike)
-      },
-      onError(_event, socket) {
-        fullRemove(socket as unknown as SocketLike)
-      },
-    }
-  }),
-)
-
-const wss = new WebSocketServer({ noServer: true })
-const port = Number(process.env.PORT ?? 8787)
-serve({ fetch: app.fetch, port, websocket: { server: wss } }, (info) => {
-  console.log(`Stranger server listening on http://localhost:${info.port}`)
+// Production: serve Vite build for SPA (including /admin)
+app.get('*', async (c) => {
+  if (c.req.path.startsWith('/api') || c.req.path === '/ws') return c.notFound()
+  const res = await serveStatic(c.req.path)
+  if (res) return res
+  return c.text('Not found — run npm run build or use Vite dev server', 404)
 })
+
+function asSocket(ws: WebSocket): SocketLike {
+  return ws as unknown as SocketLike
+}
+
+async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, raw: string) {
+  const socket = asSocket(ws)
+  let message: ClientMessage
+  try {
+    message = JSON.parse(raw) as ClientMessage
+  } catch {
+    return
+  }
+
+  if (message.type === 'queue:heartbeat') {
+    heartbeat(socket)
+    return
+  }
+
+  if (message.type === 'queue:join' || message.type === 'room:next') {
+    if (draining) {
+      send(socket, { type: 'server:draining', message: 'Server is restarting. Try again shortly.' })
+      return
+    }
+    if (!rateLimit(`wsjoin:${ip}`, 40, 60_000)) {
+      send(socket, { type: 'error', code: 'rate_limit', message: 'Slow down.' })
+      return
+    }
+    if (await isBanned(null, ip)) {
+      send(socket, { type: 'error', code: 'banned', message: 'Access denied.' })
+      return
+    }
+    if (!config.features.anonymousMatch && !message.token) {
+      send(socket, { type: 'error', code: 'auth_required', message: 'Sign in to match.' })
+      return
+    }
+    const prefs = normalizePreferences(message.preferences)
+    if (!prefs) {
+      send(socket, { type: 'error', code: 'bad_prefs', message: 'Invalid preferences.' })
+      return
+    }
+    let userId: number | undefined
+    if (message.token) {
+      const user = await userFromToken(message.token)
+      if (user) {
+        if (await isBanned(user.id, ip)) {
+          send(socket, { type: 'error', code: 'banned', message: 'Access denied.' })
+          return
+        }
+        if (config.features.requireEmailVerified && !user.email_verified) {
+          send(socket, { type: 'error', code: 'email_unverified', message: 'Verify your email first.' })
+          return
+        }
+        userId = user.id
+      }
+    }
+    if (message.type === 'room:next') {
+      leaveRoom(socket, true, 'next')
+      inc('room_next')
+    }
+    joinQueue(socket, prefs, { userId, sessionKey })
+    return
+  }
+
+  if (message.type === 'queue:leave' || message.type === 'room:leave') {
+    removeFromQueue(socket)
+    leaveRoom(socket, true, 'leave')
+    return
+  }
+
+  if (message.type === 'signal') {
+    const partner = getPartner(socket)
+    if (partner && message.payload) {
+      send(partner, { type: 'signal', payload: message.payload })
+      inc('signals_relayed')
+    }
+    return
+  }
+
+  if (message.type === 'chat') {
+    if (!rateLimit(`wschat:${ip}`, 30, 60_000)) {
+      send(socket, { type: 'error', code: 'rate_limit', message: 'Slow down chat.' })
+      return
+    }
+    const partner = getPartner(socket)
+    const text = message.payload?.text?.slice(0, 500)
+    if (partner && text) {
+      send(partner, {
+        type: 'chat',
+        payload: { text, time: message.payload.time || new Date().toISOString() },
+      })
+      inc('chats_relayed')
+    }
+    return
+  }
+
+  if (message.type === 'report') {
+    if (!rateLimit(`wsreport:${ip}`, 10, 60_000)) return
+    if (!config.features.guestReports) {
+      const meta = getMeta(socket)
+      if (!meta?.userId) {
+        send(socket, { type: 'error', code: 'auth_required', message: 'Sign in to report.' })
+        return
+      }
+    }
+    const room = getRoom(socket)
+    const meta = getMeta(socket)
+    await db.execute({
+      sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail) VALUES (?, ?, ?, ?, ?)',
+      args: [
+        meta?.userId ?? null,
+        sessionKey,
+        room?.id ?? null,
+        message.reason,
+        message.detail?.slice(0, 500) ?? null,
+      ],
+    })
+    inc('reports_total')
+    void noteReport()
+    const partner = getPartner(socket)
+    leaveRoom(socket, true, 'reported')
+    send(socket, { type: 'report:ack' })
+    if (partner) leaveRoom(partner, false)
+    return
+  }
+
+  if (message.type === 'block') {
+    const meta = getMeta(socket)
+    const peerId = getPartnerUserId(socket)
+    if (meta?.userId && peerId) {
+      await db.execute({
+        sql: 'INSERT OR IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?, ?)',
+        args: [meta.userId, peerId],
+      })
+      blockPair(meta.userId, peerId)
+      inc('blocks_total')
+    }
+    const partner = getPartner(socket)
+    leaveRoom(socket, true, 'blocked')
+    send(socket, { type: 'block:ack' })
+    if (partner) leaveRoom(partner, false)
+    return
+  }
+
+  if (message.type === 'telemetry:quality') {
+    if (!config.features.qualityTelemetry) return
+    if (!rateLimit(`telemetry:${ip}`, 60, 60_000)) return
+    inc(`webrtc_quality_${message.quality}`)
+    logger.debug('webrtc.quality', {
+      roomId: message.roomId,
+      quality: message.quality,
+      ice: message.iceState,
+      conn: message.connectionState,
+    })
+  }
+}
+
+const port = config.port
+
+const httpServer = serve({ fetch: app.fetch, port }, (info) => {
+  logger.info('server.listen', { port: info.port, static: distDir, env: config.nodeEnv })
+}) as HttpServer
+
+const wss = new WebSocketServer({ server: httpServer, path: '/ws' })
+
+wss.on('connection', (ws, req) => {
+  if (draining) {
+    ws.send(JSON.stringify({ type: 'server:draining', message: 'Server is restarting.' }))
+    ws.close(1012, 'service restart')
+    return
+  }
+  const ip =
+    (req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+      req.socket.remoteAddress ||
+      'unknown') ?? 'unknown'
+  const sessionKey = createHash('sha256')
+    .update(`${ip}:${Date.now()}:${Math.random()}`)
+    .digest('hex')
+    .slice(0, 16)
+  inc('ws_connections')
+
+  ws.on('message', (data) => {
+    void handleWsMessage(ws, ip, sessionKey, String(data))
+  })
+  ws.on('close', () => fullRemove(asSocket(ws)))
+  ws.on('error', () => fullRemove(asSocket(ws)))
+})
+
+let shuttingDown = false
+const shutdown = (signal: string) => {
+  if (shuttingDown) return
+  shuttingDown = true
+  draining = true
+  logger.info('server.draining', { signal, drainMs: config.drainMs })
+
+  const payload = JSON.stringify({
+    type: 'server:draining',
+    message: 'Server is restarting. Please reconnect shortly.',
+  })
+  for (const client of wss.clients) {
+    try {
+      if (client.readyState === 1) client.send(payload)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  setTimeout(() => {
+    logger.info('server.shutdown')
+    wss.close()
+    httpServer.close(() => process.exit(0))
+    setTimeout(() => process.exit(0), 2000).unref?.()
+  }, config.drainMs).unref?.()
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))

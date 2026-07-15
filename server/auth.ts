@@ -13,6 +13,7 @@ export type UserRow = {
   country: string | null
   language: string | null
   interests: string | null
+  email_verified?: number | null
 }
 
 export const hashPassword = async (password: string) => {
@@ -67,11 +68,19 @@ export async function revokeSession(token: string) {
   })
 }
 
+/** Issue a new session token and revoke the previous one (sliding sessions). */
+export async function refreshSession(token: string): Promise<string | null> {
+  const user = await userFromToken(token)
+  if (!user) return null
+  await revokeSession(token)
+  return createSession(user.id)
+}
+
 export async function userFromToken(token: string | undefined | null): Promise<UserRow | null> {
   if (!token) return null
   const result = await db.execute({
     sql: `
-      SELECT u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests
+      SELECT u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified
       FROM sessions s
       JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.revoked = 0 AND s.expires_at > datetime('now')
@@ -88,6 +97,7 @@ export async function userFromToken(token: string | undefined | null): Promise<U
     country: typeof row.country === 'string' ? row.country : null,
     language: typeof row.language === 'string' ? row.language : null,
     interests: typeof row.interests === 'string' ? row.interests : null,
+    email_verified: typeof row.email_verified === 'number' ? row.email_verified : Number(row.email_verified ?? 0),
   }
 }
 
@@ -124,5 +134,35 @@ export function publicUser(u: UserRow) {
     country: u.country ?? 'any',
     language: u.language ?? 'en',
     interests,
+    emailVerified: Boolean(u.email_verified),
   }
+}
+
+export async function createEmailVerificationToken(userId: number): Promise<string> {
+  const token = randomBytes(32).toString('base64url')
+  const expires = new Date(Date.now() + 48 * 3600_000).toISOString()
+  await db.execute({
+    sql: 'INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
+    args: [userId, hashToken(token), expires],
+  })
+  return token
+}
+
+export async function verifyEmailToken(token: string): Promise<boolean> {
+  const result = await db.execute({
+    sql: `SELECT id, user_id FROM email_verification_tokens
+          WHERE token_hash = ? AND used = 0 AND expires_at > datetime('now')`,
+    args: [hashToken(token)],
+  })
+  const row = result.rows[0]
+  if (!row) return false
+  await db.execute({
+    sql: 'UPDATE users SET email_verified = 1 WHERE id = ?',
+    args: [Number(row.user_id)],
+  })
+  await db.execute({
+    sql: 'UPDATE email_verification_tokens SET used = 1 WHERE id = ?',
+    args: [Number(row.id)],
+  })
+  return true
 }

@@ -57,3 +57,10 @@ export function resetEmailBody(token: string, appUrl: string) {
   const html = `<p>Reset your <strong>stranger</strong> password.</p><p><a href="${link}">Reset password</a></p><p>Or use token: <code>${token}</code></p><p>Expires in 1 hour.</p>`
   return { text, html, link }
 }
+
+export function verifyEmailBody(token: string, appUrl: string) {
+  const link = `${appUrl.replace(/\/$/, '')}/?verify=${encodeURIComponent(token)}`
+  const text = `Verify your stranger email.\n\nOpen: ${link}\n\nThis link expires in 48 hours.`
+  const html = `<p>Verify your <strong>stranger</strong> email.</p><p><a href="${link}">Verify email</a></p><p>Expires in 48 hours.</p>`
+  return { text, html, link }
+}
