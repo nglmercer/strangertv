@@ -1,42 +1,16 @@
 import type { Gender, MatchPreferences } from '../shared/types'
-import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
+import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STUN_SERVERS } from '../shared/constants'
+import {
+  type PublicUser,
+  clearSession,
+  getJSON,
+  getStoredUser,
+  getToken,
+  setJSON,
+  setSession,
+} from './storage'
 
-const tokenKey = STORAGE_KEYS.token
-const userKey = STORAGE_KEYS.user
-
-export type PublicUser = {
-  id: number
-  email: string
-  birthDate?: string | null
-  gender?: string
-  country?: string
-  language?: string
-  interests?: string[]
-  emailVerified?: boolean
-}
-
-export function getToken() {
-  return localStorage.getItem(tokenKey)
-}
-
-export function setSession(token: string, user: PublicUser) {
-  localStorage.setItem(tokenKey, token)
-  localStorage.setItem(userKey, JSON.stringify(user))
-}
-
-export function clearSession() {
-  localStorage.removeItem(tokenKey)
-  localStorage.removeItem(userKey)
-}
-
-export function getStoredUser(): PublicUser | null {
-  try {
-    const raw = localStorage.getItem(userKey)
-    return raw ? (JSON.parse(raw) as PublicUser) : null
-  } catch {
-    return null
-  }
-}
+export type { PublicUser }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
@@ -122,12 +96,8 @@ export function wsUrl() {
 }
 
 export function loadPrefs(): MatchPreferences {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.prefs)
-    if (raw) return JSON.parse(raw) as MatchPreferences
-  } catch {
-    /* ignore */
-  }
+  const stored = getJSON<MatchPreferences | null>(STORAGE_KEYS.prefs, null)
+  if (stored) return stored
   return {
     country: DEFAULT_COUNTRY,
     language: DEFAULT_LANGUAGE,
@@ -138,5 +108,5 @@ export function loadPrefs(): MatchPreferences {
 }
 
 export function savePrefs(prefs: MatchPreferences) {
-  localStorage.setItem(STORAGE_KEYS.prefs, JSON.stringify(prefs))
+  setJSON(STORAGE_KEYS.prefs, prefs)
 }

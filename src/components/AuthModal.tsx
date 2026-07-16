@@ -2,7 +2,7 @@ import { useState } from 'preact/hooks'
 import { authApi, setSession, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
 import { isAdult } from '../utils/age'
-import { applyUserToClient, storageKeys } from '../utils/clientStorage'
+import { get, set, storageKeys, applyUserToClient } from '../utils/clientStorage'
 import { Modal } from './Modal'
 
 export function AuthModal({
@@ -22,7 +22,7 @@ export function AuthModal({
   )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [birthDate, setBirthDate] = useState(() => localStorage.getItem(storageKeys.birthDate) ?? '')
+  const [birthDate, setBirthDate] = useState(() => get(storageKeys.birthDate) ?? '')
   const [resetToken, setResetToken] = useState(initialResetToken ?? '')
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')

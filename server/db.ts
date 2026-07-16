@@ -1,4 +1,5 @@
 import { createClient, type Client } from '@libsql/client'
+import { DB_DEFAULTS, REPORT_STATUS } from '../shared/constants'
 
 export const tursoUrl = process.env.TURSO_DATABASE_URL ?? 'file:local.db'
 export const db: Client = createClient({
@@ -13,9 +14,9 @@ export async function migrate() {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       birth_date TEXT,
-      gender TEXT DEFAULT 'other',
-      country TEXT DEFAULT 'any',
-      language TEXT DEFAULT 'en',
+      gender TEXT DEFAULT '${DB_DEFAULTS.gender}',
+      country TEXT DEFAULT '${DB_DEFAULTS.country}',
+      language TEXT DEFAULT '${DB_DEFAULTS.language}',
       interests TEXT DEFAULT '[]',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
@@ -68,7 +69,7 @@ export async function migrate() {
       room_id TEXT,
       reason TEXT NOT NULL,
       detail TEXT,
-      status TEXT NOT NULL DEFAULT 'open',
+      status TEXT NOT NULL DEFAULT '${REPORT_STATUS.open}',
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
   `)
@@ -117,12 +118,12 @@ export async function migrate() {
     }
   }
   try {
-    await db.execute('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0')
+    await db.execute(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT ${DB_DEFAULTS.booleanFalse}`)
   } catch {
     /* column exists */
   }
   try {
-    await db.execute(`ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'open'`)
+    await db.execute(`ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT '${REPORT_STATUS.open}'`)
   } catch {
     /* column exists */
   }

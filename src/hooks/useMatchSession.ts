@@ -4,7 +4,8 @@ import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
-import { PEER_LEFT_REASON, QUALITY_TIER, SignalKind, STORAGE_KEYS, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
+import { PEER_LEFT_REASON, QUALITY_TIER, SignalKind, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
+import { isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
 import { useWebRTC } from './useWebRTC'
@@ -99,8 +100,8 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       setQueuePos(undefined)
       setSharedInterests(meta?.sharedInterests ?? [])
       setPeerCountry(meta?.peerCountry && meta.peerCountry !== 'any' ? meta.peerCountry : '')
-      if (localStorage.getItem(STORAGE_KEYS.matchSound) !== '0') playMatchSound()
-      if (localStorage.getItem(STORAGE_KEYS.matchNotify) === '1') {
+      if (isMatchSoundEnabled()) playMatchSound()
+      if (isMatchNotifyEnabled()) {
         notifyMatch(trRef.current.brand, trRef.current.connecting)
       }
       const stream = mediaRef.current.streamRef.current

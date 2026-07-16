@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'preact/hooks'
 import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
-import { PREFS_TAB, PrefsTab, STORAGE_KEYS, GENDER } from '../shared/constants'
+import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
+import { getFlag, setFlag } from './utils/storage'
 import { authApi, clearSession, getStoredUser, loadPrefs, savePrefs, socialApi, type PublicUser } from './api'
 import { AppFooter } from './components/AppFooter'
 import { AppModals } from './components/AppModals'
@@ -30,7 +31,7 @@ export function App() {
     savePrefs(p)
   }
 
-  const [autoNext, setAutoNext] = useState(() => localStorage.getItem(STORAGE_KEYS.autoNext) === '1')
+  const [autoNext, setAutoNext] = useState(() => getFlag(STORAGE_KEYS.autoNext))
   const [status, setStatus] = useState(() => translate(detectLocale()).ready)
 
   const [showStart, setShowStart] = useState(false)
@@ -222,7 +223,7 @@ export function App() {
           onToggleAutoNext={() => {
             const nextVal = !autoNext
             setAutoNext(nextVal)
-            localStorage.setItem(STORAGE_KEYS.autoNext, nextVal ? '1' : '0')
+            setFlag(STORAGE_KEYS.autoNext, nextVal)
           }}
         />
         <ChatPanel

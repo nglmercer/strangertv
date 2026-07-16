@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { getToken, wsUrl } from '../api'
-import type { ClientMessage, MatchPreferences, ServerMessage } from '../../shared/types'
+import type { ClientMessage, MatchPreferences, Role, ServerMessage } from '../../shared/types'
 import { WS_MESSAGE_TYPE, TIMING_MS } from '../../shared/constants'
 
 type Handlers = {
   onWaiting?: (position?: number, online?: number) => void
   onMatched?: (
     roomId: string,
-    role: 'offerer' | 'answerer',
+    role: Role,
     meta?: { peerCountry?: string; sharedInterests?: string[] },
   ) => void
   onPeerLeft?: (reason?: string) => void

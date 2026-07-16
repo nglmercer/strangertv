@@ -1,6 +1,8 @@
 import type { Gender, MatchPreferences } from '../../shared/types'
-import { DEFAULT_GENDER, GENDERS, STORAGE_KEYS } from '../../shared/constants'
-import type { PublicUser } from '../api'
+import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, GENDERS, STORAGE_KEYS } from '../../shared/constants'
+import { type PublicUser, get, getBool, getFlag, set, setBool, setFlag } from './storage'
+
+export { get, set, storageKeys, STORAGE_KEYS }
 import { isAdult } from './age'
 
 /** Bump when legal copy changes so users re-accept terms. */
@@ -8,36 +10,20 @@ export const TERMS_VERSION = 'v1'
 
 export const storageKeys = STORAGE_KEYS
 
-function get(key: string): string | null {
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function set(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    /* private mode / quota */
-  }
-}
-
 export function isAgeGateComplete(): boolean {
-  if (get(storageKeys.profileComplete) === 'true') return true
+  if (getBool(storageKeys.profileComplete)) return true
   const birth = get(storageKeys.birthDate)
   return Boolean(birth && isAdult(birth))
 }
 
 export function markAgeGateComplete(birthDate: string) {
   set(storageKeys.birthDate, birthDate)
-  set(storageKeys.profileComplete, 'true')
+  setBool(storageKeys.profileComplete, true)
 }
 
 export function isTermsAccepted(): boolean {
   const v = get(storageKeys.termsAccepted)
-  return v === TERMS_VERSION || v === 'true'
+  return v === TERMS_VERSION || getBool(storageKeys.termsAccepted)
 }
 
 export function acceptTerms() {
@@ -45,21 +31,21 @@ export function acceptTerms() {
 }
 
 export function areDevicesReady(): boolean {
-  return get(storageKeys.devicesReady) === '1'
+  return getFlag(storageKeys.devicesReady)
 }
 
 export function markDevicesReady() {
-  set(storageKeys.devicesReady, '1')
+  setFlag(storageKeys.devicesReady, true)
 }
 
 export function isMatchSetupComplete(): boolean {
-  return get(storageKeys.setupComplete) === '1' && isTermsAccepted() && areDevicesReady()
+  return getFlag(storageKeys.setupComplete) && isTermsAccepted() && areDevicesReady()
 }
 
 export function markMatchSetupComplete() {
   acceptTerms()
   markDevicesReady()
-  set(storageKeys.setupComplete, '1')
+  setFlag(storageKeys.setupComplete, true)
 }
 
 /** True when Start can join the queue without re-opening the wizard. */
@@ -121,20 +107,20 @@ export function applyUserToClient(user: PublicUser): {
     return { profileComplete, prefs: null }
   }
 
-  let lookingFor: Gender = 'any'
-  try {
-    const raw = get(storageKeys.prefs)
-    if (raw) {
-      const parsed = JSON.parse(raw) as MatchPreferences
+  let lookingFor: Gender = DEFAULT_GENDER
+  const stored = get(storageKeys.prefs)
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored) as MatchPreferences
       lookingFor = asGender(parsed.lookingFor)
+    } catch {
+      /* ignore */
     }
-  } catch {
-    /* ignore */
   }
 
   const prefs: MatchPreferences = {
-    country: user.country || 'any',
-    language: user.language || 'any',
+    country: user.country || DEFAULT_COUNTRY,
+    language: user.language || DEFAULT_LANGUAGE,
     gender: asGender(user.gender),
     lookingFor,
     interests: Array.isArray(user.interests) ? user.interests.slice(0, 5) : [],

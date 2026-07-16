@@ -12,6 +12,7 @@ import {
   STORAGE_KEYS,
   TIMING_MS,
 } from '../../shared/constants'
+import { get, remove, set } from '../../utils/storage'
 
 type Overview = {
   queue: { waiting: number; online: number }
@@ -72,7 +73,7 @@ async function adminFetch<T>(path: string, key: string, init?: RequestInit): Pro
 
 export function AdminApp() {
   const tr = translate(detectLocale()).admin
-  const [key, setKey] = useState(() => localStorage.getItem(keyStorage) ?? '')
+  const [key, setKey] = useState(() => get(keyStorage) ?? '')
   const [inputKey, setInputKey] = useState(key)
   const [error, setError] = useState('')
   const [overview, setOverview] = useState<Overview | null>(null)
@@ -85,7 +86,7 @@ export function AdminApp() {
   const [reportFilter, setReportFilter] = useState<ReportStatusFilter>(REPORT_STATUS_FILTER.open)
 
   const unlock = () => {
-    localStorage.setItem(keyStorage, inputKey)
+    set(keyStorage, inputKey)
     setKey(inputKey)
     setError('')
   }
@@ -228,7 +229,7 @@ export function AdminApp() {
             type="button"
             class="admin-btn ghost"
             onClick={() => {
-              localStorage.removeItem(keyStorage)
+              remove(keyStorage)
               setKey('')
             }}
           >

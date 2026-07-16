@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences, ServerMessage } from '../shared/types'
+import type { Gender, MatchPreferences, Role, ServerMessage } from '../shared/types'
 import {
   DEFAULT_COUNTRY,
   DEFAULT_GENDER,
@@ -6,6 +6,7 @@ import {
   GENDERS,
   METRIC_NAMES,
   PEER_LEFT_REASON,
+  ROLE,
   SERVER_ERROR_CODE,
   WS_MESSAGE_TYPE,
 } from '../shared/constants'
@@ -258,14 +259,14 @@ export function joinQueue(
     send(socket, {
       type: WS_MESSAGE_TYPE.roomMatched,
       roomId: room.id,
-      role: 'offerer',
+      role: ROLE.offerer as Role,
       peerCountry: partner.preferences.country,
       sharedInterests,
     })
     send(partner.socket, {
       type: WS_MESSAGE_TYPE.roomMatched,
       roomId: room.id,
-      role: 'answerer',
+      role: ROLE.answerer as Role,
       peerCountry: preferences.country,
       sharedInterests,
     })

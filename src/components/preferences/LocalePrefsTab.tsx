@@ -1,5 +1,6 @@
 import type { Locale } from '../../../shared/types'
-import { LOCALES, STORAGE_KEYS } from '../../../shared/constants'
+import { LOCALES } from '../../../shared/constants'
+import { setStoredLocale } from '../../../utils/storage'
 import type { Messages } from '../../i18n'
 
 export function LocalePrefsTab({
@@ -20,7 +21,7 @@ export function LocalePrefsTab({
           onChange={(e) => {
             const l = e.currentTarget.value as Locale
             setLocale(l)
-            localStorage.setItem(STORAGE_KEYS.locale, l)
+            setStoredLocale(l)
           }}
         >
           {LOCALES.map((l) => (

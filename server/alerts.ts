@@ -1,5 +1,5 @@
 import { logger } from './logger'
-import { HTTP_HEADERS, METRIC_NAMES, MIME_TYPE } from '../shared/constants'
+import { ALERT_TYPE, HTTP_HEADERS, METRIC_NAMES, MIME_TYPE } from '../shared/constants'
 import { inc } from './metrics'
 
 const windowMs = 5 * 60_000
@@ -36,7 +36,7 @@ export async function noteReport(reason?: string) {
   if (reason === 'underage') {
     inc(METRIC_NAMES.reportsUnderage)
     await postAlert({
-      type: 'underage_report',
+      type: ALERT_TYPE.underageReport,
       priority: 'critical',
       reason,
       recentReports: reportTimes.length,
@@ -47,7 +47,7 @@ export async function noteReport(reason?: string) {
   if (reportTimes.length < threshold) return
 
   await postAlert({
-    type: 'report_spike',
+    type: ALERT_TYPE.reportSpike,
     count: reportTimes.length,
     windowMinutes: 5,
     threshold,

@@ -292,6 +292,52 @@ export const REPORT_REASONS = [
 export const DEFAULT_COUNTRY = 'any'
 export const DEFAULT_LANGUAGE = 'any'
 export const DEFAULT_GENDER = 'any'
+export const DEFAULT_LOCALE = 'en'
+
+// ---------------------------------------------------------------------------
+// Matchmaking room roles
+// ---------------------------------------------------------------------------
+export const ROLE = {
+  offerer: 'offerer',
+  answerer: 'answerer',
+} as const
+
+export type Role = (typeof ROLE)[keyof typeof ROLE]
+
+// ---------------------------------------------------------------------------
+// Storage flag convention (boolean preferences stored as '0' / '1' strings)
+// ---------------------------------------------------------------------------
+export const STORAGE_FLAG = {
+  off: '0',
+  on: '1',
+} as const
+
+/** Boolean preference stored as the literal strings 'true' / 'false'. */
+export const STORAGE_BOOL = {
+  false: 'false',
+  true: 'true',
+} as const
+
+// ---------------------------------------------------------------------------
+// Database column defaults (keep in sync with server/db.ts schema)
+// ---------------------------------------------------------------------------
+export const DB_DEFAULTS = {
+  gender: 'other',
+  country: 'any',
+  language: 'en',
+  booleanFalse: 0,
+} as const
+
+// ---------------------------------------------------------------------------
+// Report status (DB column values + filter)
+// ---------------------------------------------------------------------------
+export const REPORT_STATUS = {
+  open: 'open',
+  resolved: 'resolved',
+  pending: 'pending',
+} as const
+
+export type ReportStatus = (typeof REPORT_STATUS)[keyof typeof REPORT_STATUS]
 
 // ---------------------------------------------------------------------------
 // Admin report filter statuses
@@ -388,12 +434,16 @@ export const CONSENT_KIND = {
 export const BAN_REASON_DEFAULT = 'moderation'
 
 // ---------------------------------------------------------------------------
-// Email subjects
+// Alert webhook event types
 // ---------------------------------------------------------------------------
 export const ALERT_TYPE = {
   underageReport: 'underage_report',
   reportSpike: 'report_spike',
 } as const
+
+// ---------------------------------------------------------------------------
+// Email subjects
+// ---------------------------------------------------------------------------
 export const EMAIL_SUBJECT = {
   verify: 'Verify your stranger email',
   reset: 'Reset your stranger password',

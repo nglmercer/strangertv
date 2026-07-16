@@ -1,5 +1,6 @@
 import type { Locale } from '../../shared/types'
-import { LOCALES, STORAGE_KEYS } from '../../shared/constants'
+import { DEFAULT_LOCALE, LOCALES } from '../../shared/constants'
+import { getStoredLocale } from '../../utils/storage'
 import { en, type Messages } from './en'
 import { es } from './es'
 import { pt } from './pt'
@@ -11,11 +12,11 @@ export function t(locale: Locale): Messages {
 }
 
 export function detectLocale(): Locale {
-  const stored = localStorage.getItem(STORAGE_KEYS.locale)
+  const stored = getStoredLocale()
   if ((LOCALES as readonly string[]).includes(stored ?? '')) return stored as Locale
   const nav = navigator.language.slice(0, 2)
-  if (nav === 'es' || nav === 'pt') return nav
-  return 'en'
+  if ((LOCALES as readonly string[]).includes(nav)) return nav as Locale
+  return DEFAULT_LOCALE
 }
 
 /** Replace `{key}` placeholders in a message template. */

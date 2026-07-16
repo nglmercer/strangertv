@@ -1,6 +1,9 @@
 export type Gender = 'any' | 'male' | 'female' | 'other'
 export type Locale = 'en' | 'es' | 'pt'
 
+/** WebRTC matchmaking role assigned to each peer in a room. */
+export type Role = 'offerer' | 'answerer'
+
 export type MatchPreferences = {
   country: string
   language: string
@@ -41,7 +44,7 @@ export type ServerMessage =
   | {
       type: 'room:matched'
       roomId: string
-      role: 'offerer' | 'answerer'
+      role: Role
       peerCountry?: string
       sharedInterests?: string[]
     }
