@@ -1,5 +1,6 @@
 import type { Gender, MatchPreferences } from '../../shared/types'
 import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, GENDERS, STORAGE_KEYS } from '../../shared/constants'
+import { parseInterests, parseJson } from '../../shared/json'
 import { type PublicUser, get, getBool, getFlag, set, setBool, setFlag } from './storage'
 
 export { get, set }
@@ -110,12 +111,8 @@ export function applyUserToClient(user: PublicUser): {
   let lookingFor: Gender = DEFAULT_GENDER
   const stored = get(storageKeys.prefs)
   if (stored) {
-    try {
-      const parsed = JSON.parse(stored) as MatchPreferences
-      lookingFor = asGender(parsed.lookingFor)
-    } catch {
-      /* ignore */
-    }
+    const parsed = parseJson<MatchPreferences | null>(stored, null)
+    lookingFor = asGender(parsed?.lookingFor)
   }
 
   const prefs: MatchPreferences = {

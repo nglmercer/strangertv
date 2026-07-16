@@ -44,28 +44,30 @@ const blockedPairs = new Set<string>() // "minId:maxId"
 const recentPairs = new Map<string, number>()
 const RECENT_COOLDOWN_MS = Number(process.env.REMATCH_COOLDOWN_MS ?? 10 * 60_000)
 
+/** Canonical unordered key for a pair of identifiers (smaller first). */
+function pairKey(prefix: string, a: string | number, b: string | number) {
+  return a < b ? `${prefix}:${a}:${b}` : `${prefix}:${b}:${a}`
+}
+
 function pairKeyUsers(a: number, b: number) {
-  return a < b ? `u:${a}:${b}` : `u:${b}:${a}`
+  return pairKey('u', a, b)
 }
 
 function pairKeySessions(a: string, b: string) {
-  return a < b ? `s:${a}:${b}` : `s:${b}:${a}`
+  return pairKey('s', a, b)
 }
 
 export function blockPair(a: number, b: number) {
-  const key = a < b ? `${a}:${b}` : `${b}:${a}`
-  blockedPairs.add(key)
+  blockedPairs.add(pairKey('', a, b))
 }
 
 export function unblockPair(a: number, b: number) {
-  const key = a < b ? `${a}:${b}` : `${b}:${a}`
-  blockedPairs.delete(key)
+  blockedPairs.delete(pairKey('', a, b))
 }
 
 export function isBlockedPair(a?: number, b?: number) {
   if (!a || !b) return false
-  const key = a < b ? `${a}:${b}` : `${b}:${a}`
-  return blockedPairs.has(key)
+  return blockedPairs.has(pairKey('', a, b))
 }
 
 function isRecentPair(a: QueuePeer, b: QueuePeer) {

@@ -2,6 +2,8 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from 'node:util'
 import { db } from './db'
 import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE } from '../shared/constants'
+import { parseInterests } from '../shared/json'
+import { isAdult } from '../shared/age'
 
 const scrypt = promisify(scryptCallback)
 const SESSION_DAYS = 14
@@ -39,18 +41,6 @@ export const validCredentials = (email: unknown, password: unknown): email is st
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) &&
   typeof password === 'string' &&
   password.length >= 8
-
-export const isAdult = (birthDate: string) => {
-  const date = new Date(`${birthDate}T00:00:00Z`)
-  if (Number.isNaN(date.getTime())) return false
-  const today = new Date()
-  let age = today.getUTCFullYear() - date.getUTCFullYear()
-  const beforeBirthday =
-    today.getUTCMonth() < date.getUTCMonth() ||
-    (today.getUTCMonth() === date.getUTCMonth() && today.getUTCDate() < date.getUTCDate())
-  if (beforeBirthday) age--
-  return date <= today && age >= 18
-}
 
 export async function createSession(userId: number): Promise<string> {
   const token = randomBytes(32).toString('base64url')
@@ -121,12 +111,7 @@ export async function isBanned(userId?: number | null, ip?: string | null): Prom
 }
 
 export function publicUser(u: UserRow) {
-  let interests: string[] = []
-  try {
-    interests = u.interests ? (JSON.parse(u.interests) as string[]) : []
-  } catch {
-    interests = []
-  }
+  const interests = parseInterests(u.interests)
   return {
     id: u.id,
     email: u.email,

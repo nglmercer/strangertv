@@ -1,8 +1,6 @@
 import { serve } from '@hono/node-server'
 import { randomBytes, createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import type { Server as HttpServer } from 'node:http'
-import { join } from 'node:path'
 import { Hono } from 'hono'
 import { compress } from 'hono/compress'
 import { cors } from 'hono/cors'
@@ -52,12 +50,12 @@ import { rateLimit, rateLimitHeaders, rateLimitInfo } from './rateLimit'
 import { requireAdmin, securityHeaders } from './security'
 import { createStaticHandler } from './static'
 import { getIceServers } from './turn'
+import { clientIp, getBearer, ipFromReq, resolveVersion } from './http'
 import type { ClientMessage, ReportReason } from '../shared/types'
 import {
   API_PREFIX,
   API_ROUTES,
   BAN_REASON_DEFAULT,
-  BEARER_PREFIX,
   CONSENT_KIND,
   DEFAULT_COUNTRY,
   DEFAULT_GENDER,
@@ -110,27 +108,6 @@ app.use(
 
 app.get(API_ROUTES.docs, (c) => c.json(openApiDocument(appUrl)))
 
-const getBearer = (c: { req: { header: (n: string) => string | undefined } }) => {
-  const h = c.req.header(HTTP_HEADERS.authorization)
-  if (h?.startsWith(BEARER_PREFIX)) return h.slice(BEARER_PREFIX.length)
-  return c.req.header(HTTP_HEADERS.xSessionToken) ?? null
-}
-
-const clientIp = (c: { req: { header: (n: string) => string | undefined } }) =>
-  c.req.header(HTTP_HEADERS.xForwardedFor)?.split(',')[0]?.trim() ??
-  c.req.header(HTTP_HEADERS.xRealIp) ??
-  'unknown'
-
-function resolveVersion(): string {
-  if (process.env.npm_package_version) return process.env.npm_package_version
-  if (process.env.APP_VERSION) return process.env.APP_VERSION
-  try {
-    const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as { version?: string }
-    return pkg.version ?? '0.0.0'
-  } catch {
-    return '0.0.0'
-  }
-}
 const APP_VERSION = resolveVersion()
 
 app.get(API_ROUTES.health, (c) => {
@@ -862,10 +839,7 @@ wss.on('connection', (ws, req) => {
     ws.close(WS_CLOSE_CODE.serviceRestart, 'service restart')
     return
   }
-  const ip =
-    (req.headers[HTTP_HEADERS.xForwardedFor]?.toString().split(',')[0]?.trim() ||
-      req.socket.remoteAddress ||
-      'unknown') ?? 'unknown'
+  const ip = ipFromReq(req)
   const sessionKey = createHash('sha256')
     .update(`${ip}:${Date.now()}:${Math.random()}`)
     .digest('hex')
@@ -905,10 +879,6 @@ const shutdown = (signal: string) => {
     setTimeout(() => process.exit(0), 2000).unref?.()
   }, config.drainMs).unref?.()
 }
-
-process.on('SIGTERM', () => shutdown('SIGTERM'))
-process.on('SIGINT', () => shutdown('SIGINT'))
-
 
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
