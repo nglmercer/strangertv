@@ -190,6 +190,9 @@ export function App() {
           cameraOn={session.media.cameraOn}
           quality={session.webrtc.quality}
           canBlock={Boolean(user)}
+          devices={session.media.devices}
+          videoId={session.media.videoId}
+          audioId={session.media.audioId}
           onMute={() => session.media.setMutedTrack(!session.media.muted)}
           onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
           onNext={session.next}
@@ -197,6 +200,12 @@ export function App() {
           onReport={() => setReportOpen(true)}
           onBlock={() => session.match.block()}
           onRetryIce={() => void session.webrtc.restartIce()}
+          onDeviceChange={onDeviceChange}
+          onOpenDeviceSettings={() => {
+            setPrefsTab(PREFS_TAB.devices)
+            setPreferences(true)
+          }}
+          onRefreshDevices={() => void session.media.refreshDevices()}
           onFullscreen={() => {
             const el = document.querySelector('.stage')
             if (!el) return

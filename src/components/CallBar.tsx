@@ -3,6 +3,9 @@ import type { Messages } from '../i18n'
 import type { Quality } from '../types/ui'
 import { QUALITY_TIER } from '../../shared/constants'
 
+type Devices = { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
+type MenuKind = 'mic' | 'cam' | 'more' | null
+
 type Props = {
   t: Messages
   finding: boolean
@@ -11,6 +14,9 @@ type Props = {
   cameraOn: boolean
   quality: Quality
   canBlock: boolean
+  devices: Devices
+  videoId: string
+  audioId: string
   onMute: () => void
   onCamera: () => void
   onNext: () => void
@@ -19,6 +25,9 @@ type Props = {
   onBlock: () => void
   onRetryIce: () => void
   onFullscreen: () => void
+  onDeviceChange: (kind: 'video' | 'audio', id: string) => void
+  onOpenDeviceSettings: () => void
+  onRefreshDevices: () => void
 }
 
 function Icon({ d, size = 20 }: { d: string; size?: number }) {
@@ -50,6 +59,16 @@ const icons = {
   fullscreen:
     'M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z',
   more: 'M6 10a2 2 0 1 0 .001 4.001A2 2 0 0 0 6 10zm6 0a2 2 0 1 0 .001 4.001A2 2 0 0 0 12 10zm6 0a2 2 0 1 0 .001 4.001A2 2 0 0 0 18 10z',
+  chevron:
+    'M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z',
+  check: 'M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z',
+  eye: 'M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  settings:
+    'M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z',
+}
+
+function deviceLabel(d: MediaDeviceInfo, fallback: string) {
+  return d.label || d.deviceId.slice(0, 8) || fallback
 }
 
 export function CallBar({
@@ -60,6 +79,9 @@ export function CallBar({
   cameraOn,
   quality,
   canBlock,
+  devices,
+  videoId,
+  audioId,
   onMute,
   onCamera,
   onNext,
@@ -68,17 +90,20 @@ export function CallBar({
   onBlock,
   onRetryIce,
   onFullscreen,
+  onDeviceChange,
+  onOpenDeviceSettings,
+  onRefreshDevices,
 }: Props) {
-  const [moreOpen, setMoreOpen] = useState(false)
+  const [menu, setMenu] = useState<MenuKind>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!moreOpen) return
+    if (!menu) return
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setMoreOpen(false)
+      if (!rootRef.current?.contains(e.target as Node)) setMenu(null)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMoreOpen(false)
+      if (e.key === 'Escape') setMenu(null)
     }
     document.addEventListener('mousedown', onDoc)
     document.addEventListener('keydown', onKey)
@@ -86,35 +111,157 @@ export function CallBar({
       document.removeEventListener('mousedown', onDoc)
       document.removeEventListener('keydown', onKey)
     }
-  }, [moreOpen])
+  }, [menu])
 
   if (!finding && !matched) return null
 
   const muteLabel = muted ? t.unmute : t.mute
   const camLabel = cameraOn ? t.camOff : t.camOn
 
+  const openMenu = (kind: Exclude<MenuKind, null>) => {
+    setMenu((cur) => {
+      const next = cur === kind ? null : kind
+      if (next === 'mic' || next === 'cam') onRefreshDevices()
+      return next
+    })
+  }
+
+  const pickDevice = (kind: 'video' | 'audio', id: string) => {
+    setMenu(null)
+    onDeviceChange(kind, id)
+  }
+
+  const openSettings = () => {
+    setMenu(null)
+    onOpenDeviceSettings()
+  }
+
   return (
     <div ref={rootRef} class="call-bar" role="toolbar" aria-label={t.callControls}>
-      <button
-        type="button"
-        class={`call-btn icon ${muted ? 'is-off' : ''}`}
-        onClick={onMute}
-        aria-pressed={muted}
-        aria-label={muteLabel}
-        title={muteLabel}
-      >
-        <Icon d={muted ? icons.micOff : icons.micOn} />
-      </button>
-      <button
-        type="button"
-        class={`call-btn icon ${!cameraOn ? 'is-off' : ''}`}
-        onClick={onCamera}
-        aria-pressed={!cameraOn}
-        aria-label={camLabel}
-        title={camLabel}
-      >
-        <Icon d={cameraOn ? icons.camOn : icons.camOff} />
-      </button>
+      <div class={`call-split ${menu === 'mic' ? 'open' : ''}`}>
+        <button
+          type="button"
+          class={`call-btn icon call-split-main ${muted ? 'is-off' : ''}`}
+          onClick={onMute}
+          aria-pressed={muted}
+          aria-label={muteLabel}
+          title={muteLabel}
+        >
+          <Icon d={muted ? icons.micOff : icons.micOn} />
+        </button>
+        <button
+          type="button"
+          class={`call-btn icon call-split-caret ${menu === 'mic' ? 'is-active' : ''} ${muted ? 'is-off' : ''}`}
+          onClick={() => openMenu('mic')}
+          aria-expanded={menu === 'mic'}
+          aria-haspopup="menu"
+          aria-label={t.micOptions}
+          title={t.micOptions}
+        >
+          <Icon d={icons.chevron} size={16} />
+        </button>
+        {menu === 'mic' && (
+          <div class="call-device-menu" role="menu" aria-label={t.deviceMic}>
+            <div class="call-menu-heading">{t.deviceMic}</div>
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={!audioId}
+              class={`call-menu-item ${!audioId ? 'is-selected' : ''}`}
+              onClick={() => pickDevice('audio', '')}
+            >
+              <span class="call-menu-check">{!audioId ? <Icon d={icons.check} size={16} /> : null}</span>
+              <span class="call-menu-label">{t.deviceDefault}</span>
+            </button>
+            {devices.audio.map((d) => {
+              const selected = audioId === d.deviceId
+              return (
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  class={`call-menu-item ${selected ? 'is-selected' : ''}`}
+                  key={d.deviceId}
+                  onClick={() => pickDevice('audio', d.deviceId)}
+                >
+                  <span class="call-menu-check">{selected ? <Icon d={icons.check} size={16} /> : null}</span>
+                  <span class="call-menu-label">{deviceLabel(d, t.deviceMic)}</span>
+                </button>
+              )
+            })}
+            <div class="call-menu-sep" />
+            <button type="button" role="menuitem" class="call-menu-item" onClick={openSettings}>
+              <Icon d={icons.settings} size={18} />
+              <span>{t.mediaChangeDevices}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div class={`call-split ${menu === 'cam' ? 'open' : ''}`}>
+        <button
+          type="button"
+          class={`call-btn icon call-split-main ${!cameraOn ? 'is-off' : ''}`}
+          onClick={onCamera}
+          aria-pressed={!cameraOn}
+          aria-label={camLabel}
+          title={camLabel}
+        >
+          <Icon d={cameraOn ? icons.camOn : icons.camOff} />
+        </button>
+        <button
+          type="button"
+          class={`call-btn icon call-split-caret ${menu === 'cam' ? 'is-active' : ''} ${!cameraOn ? 'is-off' : ''}`}
+          onClick={() => openMenu('cam')}
+          aria-expanded={menu === 'cam'}
+          aria-haspopup="menu"
+          aria-label={t.camOptions}
+          title={t.camOptions}
+        >
+          <Icon d={icons.chevron} size={16} />
+        </button>
+        {menu === 'cam' && (
+          <div class="call-device-menu" role="menu" aria-label={t.deviceCam}>
+            <div class="call-menu-heading">{t.deviceCam}</div>
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={!videoId}
+              class={`call-menu-item ${!videoId ? 'is-selected' : ''}`}
+              onClick={() => pickDevice('video', '')}
+            >
+              <span class="call-menu-check">{!videoId ? <Icon d={icons.check} size={16} /> : null}</span>
+              <span class="call-menu-label">{t.deviceDefault}</span>
+            </button>
+            {devices.video.map((d) => {
+              const selected = videoId === d.deviceId
+              return (
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  class={`call-menu-item ${selected ? 'is-selected' : ''}`}
+                  key={d.deviceId}
+                  onClick={() => pickDevice('video', d.deviceId)}
+                >
+                  <span class="call-menu-check">{selected ? <Icon d={icons.check} size={16} /> : null}</span>
+                  <span class="call-menu-label">{deviceLabel(d, t.deviceCam)}</span>
+                </button>
+              )
+            })}
+            <div class="call-menu-sep" />
+            <button type="button" role="menuitem" class="call-menu-item" onClick={openSettings}>
+              <Icon d={icons.eye} size={18} />
+              <span>{t.previewCam}</span>
+            </button>
+            <button type="button" role="menuitem" class="call-menu-item" onClick={openSettings}>
+              <Icon d={icons.settings} size={18} />
+              <span>{t.videoSettings}</span>
+            </button>
+          </div>
+        )}
+      </div>
+
       <button
         type="button"
         class="call-btn icon next-btn"
@@ -135,19 +282,19 @@ export function CallBar({
         <Icon d={icons.stop} />
       </button>
 
-      <div class={`call-more ${moreOpen ? 'open' : ''}`}>
+      <div class={`call-more ${menu === 'more' ? 'open' : ''}`}>
         <button
           type="button"
-          class={`call-btn icon ${moreOpen ? 'is-active' : ''}`}
-          onClick={() => setMoreOpen((v) => !v)}
-          aria-expanded={moreOpen}
+          class={`call-btn icon ${menu === 'more' ? 'is-active' : ''}`}
+          onClick={() => openMenu('more')}
+          aria-expanded={menu === 'more'}
           aria-haspopup="menu"
           aria-label={t.moreActions}
           title={t.moreActions}
         >
           <Icon d={icons.more} />
         </button>
-        {moreOpen && (
+        {menu === 'more' && (
           <div class="call-more-menu" role="menu">
             <button
               type="button"
@@ -155,7 +302,7 @@ export function CallBar({
               class="call-menu-item"
               disabled={!matched}
               onClick={() => {
-                setMoreOpen(false)
+                setMenu(null)
                 onReport()
               }}
             >
@@ -169,7 +316,7 @@ export function CallBar({
               disabled={!matched || !canBlock}
               title={!canBlock ? t.signInToBlock : undefined}
               onClick={() => {
-                setMoreOpen(false)
+                setMenu(null)
                 onBlock()
               }}
             >
@@ -182,7 +329,7 @@ export function CallBar({
                 role="menuitem"
                 class="call-menu-item"
                 onClick={() => {
-                  setMoreOpen(false)
+                  setMenu(null)
                   onRetryIce()
                 }}
               >
@@ -195,7 +342,7 @@ export function CallBar({
               role="menuitem"
               class="call-menu-item"
               onClick={() => {
-                setMoreOpen(false)
+                setMenu(null)
                 onFullscreen()
               }}
             >

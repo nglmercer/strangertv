@@ -97,6 +97,90 @@
   background: #7a3a30ee;
 }
 
+.call-split {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.call-split-main {
+  border-radius: 999px 4px 4px 999px !important;
+  width: 40px !important;
+}
+
+.call-split-caret {
+  border-radius: 4px 999px 999px 4px !important;
+  width: 22px !important;
+  min-width: 22px;
+}
+
+.call-split-main.is-off,
+.call-split-caret.is-off {
+  background: #5a2a22cc;
+  color: #ffc9c0;
+}
+
+.call-split.open .call-split-caret {
+  background: #3a4a44cc;
+  color: #9eecc8;
+}
+
+.call-device-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  min-width: 240px;
+  max-width: min(320px, 80vw);
+  max-height: min(360px, 50vh);
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 14px;
+  background: #121212f2;
+  border: 1px solid #ffffff18;
+  box-shadow: 0 12px 36px #000a;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(12px);
+  z-index: 8;
+}
+
+.call-menu-heading {
+  padding: 8px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a9a9a;
+}
+
+.call-menu-sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: #ffffff14;
+}
+
+.call-menu-check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  color: #9eecc8;
+}
+
+.call-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.call-menu-item.is-selected {
+  color: #c8f5df;
+}
+
 .call-more {
   position: relative;
 }
