@@ -46,6 +46,16 @@
   margin: auto;
 }
 
+.chat-footer-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  justify-content: center;
+  font: 9px 'DM Mono', monospace;
+  color: #aaa;
+  padding: 6px 0 2px;
+}
+
 .message {
   align-self: flex-start;
   display: flex;

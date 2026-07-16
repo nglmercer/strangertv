@@ -52,16 +52,8 @@
     width: 100%;
   }
 
-  .online .stats {
-    display: none;
-  }
-
   .call-bar {
     bottom: 8px;
     border-radius: 16px;
-  }
-
-  .footer {
-    font-size: 10px;
   }
 }

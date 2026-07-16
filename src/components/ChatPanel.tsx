@@ -14,6 +14,8 @@ export function ChatPanel({
   messagesEnd,
   onSend,
   onOpenPage,
+  appVersion,
+  userEmail,
 }: {
   t: Messages
   chat: ChatMessage[]
@@ -24,7 +26,11 @@ export function ChatPanel({
   messagesEnd: RefObject<HTMLDivElement>
   onSend: (e: Event) => void
   onOpenPage: (p: PageId) => void
+  appVersion?: string
+  userEmail?: string | null
 }) {
+  const isEmpty = chat.length === 0
+
   return (
     <div class="chat-box">
       <div class="notice">
@@ -41,7 +47,23 @@ export function ChatPanel({
         </p>
       </div>
       <div class="messages" aria-live="polite">
-        {chat.length === 0 && <span class="chat-placeholder">{t.chatPlaceholder}</span>}
+        {isEmpty && (
+          <div class="chat-footer-info">
+            <span>{t.footerAge}</span>
+            <span>
+              <button type="button" class="linkish" onClick={() => onOpenPage(PAGE_ID.privacy)}>
+                {t.privacy}
+              </button>
+              {' · '}
+              <button type="button" class="linkish" onClick={() => onOpenPage(PAGE_ID.terms)}>
+                {t.terms}
+              </button>
+            </span>
+            {appVersion && <span>{t.version}{appVersion}</span>}
+            {userEmail && <span>{t.signedInAs} {userEmail}</span>}
+          </div>
+        )}
+        {isEmpty && <span class="chat-placeholder">{t.chatPlaceholder}</span>}
         {chat.map((message, i) => (
           <div class={`message ${message.mine ? 'mine' : ''}`} key={`${message.time}-${i}`}>
             <span>{message.text}</span>

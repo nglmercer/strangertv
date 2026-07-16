@@ -7,6 +7,8 @@ export function TopBar({
   waitingCount,
   signalOk,
   user,
+  pinned,
+  onTogglePin,
   onPreferences,
   onSettings,
   onAuthClick,
@@ -16,6 +18,8 @@ export function TopBar({
   waitingCount: number
   signalOk: boolean
   user: PublicUser | null
+  pinned: boolean
+  onTogglePin: () => void
   onPreferences: () => void
   onSettings: () => void
   onAuthClick: () => void
@@ -23,7 +27,27 @@ export function TopBar({
   const signalTitle = signalOk ? t.wsConnected : t.wsDisconnected
 
   return (
-    <header class="topbar">
+    <header class={`topbar${pinned ? ' pinned' : ''}`}>
+      <button
+        type="button"
+        class="topbar-peek"
+        onClick={onTogglePin}
+        aria-label={pinned ? t.collapseHeader : t.expandHeader}
+        title={pinned ? t.collapseHeader : t.expandHeader}
+      >
+        {pinned ? (
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="6" y1="6" x2="18" y2="18" />
+            <line x1="18" y1="6" x2="6" y2="18" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="4" y1="7" x2="20" y2="7" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="17" x2="20" y2="17" />
+          </svg>
+        )}
+      </button>
       <a class="brand" href="/" title={t.live}>
         ✦ {t.brand}
       </a>

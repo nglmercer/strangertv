@@ -3,14 +3,12 @@ import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { getFlag, setFlag } from './utils/storage'
 import { authApi, clearSession, getStoredUser, loadPrefs, savePrefs, socialApi, type PublicUser } from './api'
-import { AppFooter } from './components/AppFooter'
 import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
 import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
-import { TopBar } from './components/TopBar'
 import { VideoStage } from './components/VideoStage'
 import { useCallKeyboard } from './hooks/useCallKeyboard'
 import { useMatchSession } from './hooks/useMatchSession'
@@ -150,19 +148,6 @@ export function App() {
   return (
     <main class="app">
       <OfflineBanner label={tr.offline} />
-      <TopBar
-        t={tr}
-        online={session.online}
-        waitingCount={session.waitingCount}
-        signalOk={session.match.connected}
-        user={user}
-        onPreferences={() => {
-          setPrefsTab(undefined)
-          setPreferences(true)
-        }}
-        onSettings={() => setSettings(true)}
-        onAuthClick={() => void onAuthClick()}
-      />
 
       <div class="stage-wrap">
         <VideoStage
@@ -245,15 +230,10 @@ export function App() {
           messagesEnd={session.messagesEnd}
           onSend={session.sendChat}
           onOpenPage={setPage}
+          appVersion={appVersion}
+          userEmail={user?.email ?? null}
         />
       </section>
-
-      <AppFooter
-        t={tr}
-        userEmail={user?.email ?? null}
-        appVersion={appVersion}
-        onOpenPage={setPage}
-      />
 
       <AppModals
         t={tr}

@@ -1,11 +1,9 @@
 /* App styles — modular imports */
 @import './styles/base.css';
-@import './styles/topbar.css';
 @import './styles/stage.css';
 @import './styles/feedback.css';
 @import './styles/call.css';
 @import './styles/dashboard.css';
 @import './styles/chat.css';
 @import './styles/modals.css';
-@import './styles/footer.css';
 @import './styles/responsive.css';

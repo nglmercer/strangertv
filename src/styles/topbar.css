@@ -10,6 +10,52 @@
   position: relative;
   z-index: 2;
   gap: 12px;
+  transition: height 0.2s ease, padding 0.2s ease;
+}
+
+/* Collapsed: thin strip, only peek button visible */
+.topbar:not(.pinned) {
+  height: 36px;
+  padding: 0 16px;
+  justify-content: center;
+}
+
+/* Peek toggle button — always visible, left side when collapsed */
+.topbar-peek {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+  border-radius: 6px;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.topbar-peek:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* Pinned: peek button sits inline at the start */
+.topbar.pinned .topbar-peek {
+  order: -1;
+}
+
+/* Collapsed: hide all content except peek */
+.topbar:not(.pinned) .brand,
+.topbar:not(.pinned) .online,
+.topbar:not(.pinned) .header-actions {
+  position: absolute;
+  visibility: hidden;
+  width: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .brand {
