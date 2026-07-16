@@ -68,6 +68,9 @@ export const API_ROUTES = {
 
 export const WS_PATH = '/ws'
 
+export const ADMIN_PATH = '/admin'
+export const ADMIN_HASH = '#admin'
+
 // ---------------------------------------------------------------------------
 // WebSocket message type discriminators
 // ---------------------------------------------------------------------------
@@ -161,6 +164,17 @@ export const RTC_STATE = {
 } as const
 
 export type RtcState = (typeof RTC_STATE)[keyof typeof RTC_STATE]
+
+// ---------------------------------------------------------------------------
+// RTCIceCandidatePair states (distinct from RTCPeerConnection states)
+// ---------------------------------------------------------------------------
+export const ICE_PAIR_STATE = {
+  frozen: 'frozen',
+  waiting: 'waiting',
+  inProgress: 'in-progress',
+  succeeded: 'succeeded',
+  failed: 'failed',
+} as const
 
 // ---------------------------------------------------------------------------
 // HTTP status codes
@@ -281,6 +295,17 @@ export const PAGE_ID = {
 } as const
 
 export type PageId = (typeof PAGE_ID)[keyof typeof PAGE_ID]
+
+// ---------------------------------------------------------------------------
+// Preferences modal tab ids
+// ---------------------------------------------------------------------------
+export const PREFS_TAB = {
+  match: 'match',
+  devices: 'devices',
+  language: 'language',
+} as const
+
+export type PrefsTab = (typeof PREFS_TAB)[keyof typeof PREFS_TAB]
 
 // ---------------------------------------------------------------------------
 // Feature flag environment variable names

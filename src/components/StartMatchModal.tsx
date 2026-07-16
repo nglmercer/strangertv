@@ -6,6 +6,7 @@ import {
   type Gender,
   type MatchPreferences,
 } from '../../shared/types'
+import { GENDERS } from '../../shared/constants'
 import { countryLabel, formatMessage, interestLabel, matchLangLabel, type Messages } from '../i18n'
 import {
   acceptTerms,
@@ -180,7 +181,7 @@ export function StartMatchModal({
               value={prefs.lookingFor}
               onChange={(e) => setPrefs({ ...prefs, lookingFor: e.currentTarget.value as Gender })}
             >
-              {(['any', 'male', 'female', 'other'] as Gender[]).map((g) => (
+              {GENDERS.map((g) => (
                 <option value={g} key={g}>
                   {genderLabel(g)}
                 </option>

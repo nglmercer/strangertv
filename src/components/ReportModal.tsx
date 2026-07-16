@@ -1,9 +1,8 @@
 import { useState } from 'preact/hooks'
 import type { ReportReason } from '../../shared/types'
+import { REPORT_REASONS } from '../../shared/constants'
 import type { Messages } from '../i18n'
 import { Modal } from './Modal'
-
-const reasons: ReportReason[] = ['nudity', 'harassment', 'hate', 'spam', 'underage', 'violence', 'other']
 
 export function ReportModal({
   t,
@@ -26,7 +25,7 @@ export function ReportModal({
       <label>
         {t.reportReason}
         <select value={reason} onChange={(e) => setReason(e.currentTarget.value as ReportReason)}>
-          {reasons.map((r) => (
+          {REPORT_REASONS.map((r) => (
             <option value={r} key={r}>
               {t.reasons[r]}
             </option>

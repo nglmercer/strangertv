@@ -5,9 +5,8 @@ import {
   type Gender,
   type MatchPreferences,
 } from '../../../shared/types'
+import { GENDERS } from '../../../shared/constants'
 import { countryLabel, interestLabel, matchLangLabel, type Messages } from '../../i18n'
-
-const genders: Gender[] = ['any', 'male', 'female', 'other']
 
 export function MatchPrefsTab({
   t,
@@ -52,7 +51,7 @@ export function MatchPrefsTab({
       <label>
         {t.gender}
         <select value={prefs.gender} onChange={(e) => setPrefs({ ...prefs, gender: e.currentTarget.value as Gender })}>
-          {genders.map((g) => (
+          {GENDERS.map((g) => (
             <option value={g} key={g}>
               {genderLabel(g)}
             </option>
@@ -65,7 +64,7 @@ export function MatchPrefsTab({
           value={prefs.lookingFor}
           onChange={(e) => setPrefs({ ...prefs, lookingFor: e.currentTarget.value as Gender })}
         >
-          {genders.map((g) => (
+          {GENDERS.map((g) => (
             <option value={g} key={g}>
               {genderLabel(g)}
             </option>

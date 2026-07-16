@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'preact/hooks'
 import { fetchIceServers } from '../api'
 import type { Quality } from '../types/ui'
-import { QUALITY_TIER, RTC_STATE, SignalKind } from '../../shared/constants'
+import { QUALITY_TIER, RTC_STATE, SIGNAL_KIND, SignalKind } from '../../shared/constants'
 import {
   emptyLinkStats,
   qualityFromLink,
@@ -38,7 +38,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
 
   const sampleStats = useCallback(async (pc: RTCPeerConnection) => {
     const state = pc.connectionState
-    if (state === 'closed' || state === 'failed') return
+    if (state === RTC_STATE.closed || state === RTC_STATE.failed) return
     try {
       const { stats, seed } = await readLinkStats(pc, statsSeed.current)
       statsSeed.current = seed
@@ -72,7 +72,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
     pendingCandidates.current = []
     remoteReady.current = false
     setHasRemote(false)
-    setQuality('idle')
+    setQuality(QUALITY_TIER.idle)
     setLinkStats(emptyLinkStats)
   }, [stopStatsLoop])
 
@@ -104,16 +104,20 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
 
       const applyState = () => {
         const state = pc.connectionState
-        if (state === 'connected') {
+        if (state === RTC_STATE.connected) {
           // Coarse until first getStats sample
-          setQuality((q) => (q === 'idle' || q === 'connecting' || q === 'failed' ? 'connecting' : q))
+          setQuality((q) =>
+            q === QUALITY_TIER.idle || q === QUALITY_TIER.connecting || q === QUALITY_TIER.failed
+              ? QUALITY_TIER.connecting
+              : q,
+          )
           startStatsLoop(pc)
-        } else if (state === 'connecting' || state === 'new') {
-          setQuality('connecting')
-        } else if (state === 'disconnected') {
-          setQuality('poor')
-        } else if (state === 'failed' || state === 'closed') {
-          setQuality('failed')
+        } else if (state === RTC_STATE.connecting || state === RTC_STATE.new) {
+          setQuality(QUALITY_TIER.connecting)
+        } else if (state === RTC_STATE.disconnected) {
+          setQuality(QUALITY_TIER.poor)
+        } else if (state === RTC_STATE.failed || state === RTC_STATE.closed) {
+          setQuality(QUALITY_TIER.failed)
           stopStatsLoop()
         }
       }
@@ -147,7 +151,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
   const createPeer = useCallback(
     async (stream: MediaStream, remoteVideo: HTMLVideoElement | null, asOfferer: boolean) => {
       clear()
-      setQuality('connecting')
+      setQuality(QUALITY_TIER.connecting)
       const iceServers = await fetchIceServers()
       const pc = new RTCPeerConnection({ iceServers })
       pcRef.current = pc
@@ -223,7 +227,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
     const pc = pcRef.current
     if (!pc) return
     try {
-      setQuality('connecting')
+      setQuality(QUALITY_TIER.connecting)
       if (pc.restartIce) pc.restartIce()
       const offer = await pc.createOffer({ iceRestart: true })
       await pc.setLocalDescription(offer)

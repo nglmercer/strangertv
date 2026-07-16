@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'preact/hooks'
 import { authApi, clearSession, socialApi, type PublicUser } from '../api'
+import { STORAGE_KEYS } from '../../shared/constants'
 import type { Messages } from '../i18n'
 import { requestNotifyPermission } from '../utils/notify'
 import { Modal } from './Modal'
@@ -22,8 +23,8 @@ export function SettingsModal({
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [blocks, setBlocks] = useState<BlockRow[]>([])
-  const [sound, setSound] = useState(() => localStorage.getItem('stranger-match-sound') !== '0')
-  const [notify, setNotify] = useState(() => localStorage.getItem('stranger-match-notify') === '1')
+  const [sound, setSound] = useState(() => localStorage.getItem(STORAGE_KEYS.matchSound) !== '0')
+  const [notify, setNotify] = useState(() => localStorage.getItem(STORAGE_KEYS.matchNotify) === '1')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -84,7 +85,7 @@ export function SettingsModal({
             onChange={(e) => {
               const v = e.currentTarget.checked
               setSound(v)
-              localStorage.setItem('stranger-match-sound', v ? '1' : '0')
+              localStorage.setItem(STORAGE_KEYS.matchSound, v ? '1' : '0')
             }}
           />
           <span>{t.matchSound}</span>
@@ -104,7 +105,7 @@ export function SettingsModal({
                 }
               }
               setNotify(want)
-              localStorage.setItem('stranger-match-notify', want ? '1' : '0')
+              localStorage.setItem(STORAGE_KEYS.matchNotify, want ? '1' : '0')
             }}
           />
           <span>{t.matchNotify}</span>

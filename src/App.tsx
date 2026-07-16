@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'preact/hooks'
 import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
+import { PREFS_TAB, PrefsTab, STORAGE_KEYS } from '../shared/constants'
 import { authApi, clearSession, getStoredUser, loadPrefs, savePrefs, socialApi, type PublicUser } from './api'
 import { AppFooter } from './components/AppFooter'
 import { AppModals } from './components/AppModals'
@@ -29,12 +30,12 @@ export function App() {
     savePrefs(p)
   }
 
-  const [autoNext, setAutoNext] = useState(() => localStorage.getItem('stranger-auto-next') === '1')
+  const [autoNext, setAutoNext] = useState(() => localStorage.getItem(STORAGE_KEYS.autoNext) === '1')
   const [status, setStatus] = useState(() => translate(detectLocale()).ready)
 
   const [showStart, setShowStart] = useState(false)
   const [preferences, setPreferences] = useState(false)
-  const [prefsTab, setPrefsTab] = useState<'match' | 'devices' | 'language' | undefined>(undefined)
+  const [prefsTab, setPrefsTab] = useState<PrefsTab | undefined>(undefined)
   const [auth, setAuth] = useState(false)
   const [resetTokenFromUrl, setResetTokenFromUrl] = useState('')
   const [settings, setSettings] = useState(false)
@@ -97,7 +98,7 @@ export function App() {
       void session.beginMatch().then((ok) => {
         // Camera busy / denied after first-time setup: open Devices tab.
         if (!ok) {
-          setPrefsTab('devices')
+          setPrefsTab(PREFS_TAB.devices)
           setPreferences(true)
         }
       })
@@ -215,13 +216,13 @@ export function App() {
           onStart={onStartClick}
           onStop={session.stop}
           onOpenPrefs={() => {
-            setPrefsTab('match')
+            setPrefsTab(PREFS_TAB.match)
             setPreferences(true)
           }}
           onToggleAutoNext={() => {
             const nextVal = !autoNext
             setAutoNext(nextVal)
-            localStorage.setItem('stranger-auto-next', nextVal ? '1' : '0')
+            localStorage.setItem(STORAGE_KEYS.autoNext, nextVal ? '1' : '0')
           }}
         />
         <ChatPanel

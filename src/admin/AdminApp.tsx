@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from 'preact/hooks'
 import { detectLocale, t as translate } from '../i18n'
+import {
+  ADMIN_TAB,
+  AdminTab,
+  API_ROUTES,
+  BAN_REASON_DEFAULT,
+  HTTP_HEADERS,
+  MIME_TYPE,
+  REPORT_STATUS_FILTER,
+  ReportStatusFilter,
+  STORAGE_KEYS,
+} from '../../shared/constants'
 
 type Overview = {
   queue: { waiting: number; online: number }
@@ -46,12 +57,12 @@ type UserRow = {
   created_at: string
 }
 
-const keyStorage = 'stranger-admin-key'
+const keyStorage = STORAGE_KEYS.adminKey
 
 async function adminFetch<T>(path: string, key: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
-  headers.set('x-admin-key', key)
-  if (init?.body && !headers.has('content-type')) headers.set('content-type', 'application/json')
+  headers.set(HTTP_HEADERS.xAdminKey, key)
+  if (init?.body && !headers.has(HTTP_HEADERS.contentType)) headers.set(HTTP_HEADERS.contentType, MIME_TYPE.json)
   const res = await fetch(path, { ...init, headers })
   const data = (await res.json().catch(() => ({}))) as T & { error?: string }
   if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -68,9 +79,9 @@ export function AdminApp() {
   const [bans, setBans] = useState<Ban[]>([])
   const [users, setUsers] = useState<UserRow[]>([])
   const [userQuery, setUserQuery] = useState('')
-  const [banForm, setBanForm] = useState({ userId: '', ip: '', reason: 'moderation', hours: '24' })
-  const [tab, setTab] = useState<'overview' | 'reports' | 'bans' | 'users'>('overview')
-  const [reportFilter, setReportFilter] = useState<'all' | 'open' | 'resolved'>('open')
+  const [banForm, setBanForm] = useState({ userId: '', ip: '', reason: BAN_REASON_DEFAULT, hours: '24' })
+  const [tab, setTab] = useState<AdminTab>(ADMIN_TAB.overview)
+  const [reportFilter, setReportFilter] = useState<ReportStatusFilter>(REPORT_STATUS_FILTER.open)
 
   const unlock = () => {
     localStorage.setItem(keyStorage, inputKey)
@@ -83,11 +94,13 @@ export function AdminApp() {
     setError('')
     try {
       const reportsPath =
-        reportFilter === 'all' ? '/api/admin/reports' : `/api/admin/reports?status=${reportFilter}`
+        reportFilter === REPORT_STATUS_FILTER.all
+          ? API_ROUTES.adminReports
+          : `${API_ROUTES.adminReports}?status=${reportFilter}`
       const [ov, rep, ban] = await Promise.all([
-        adminFetch<Overview>('/api/admin/overview', key),
+        adminFetch<Overview>(API_ROUTES.adminOverview, key),
         adminFetch<{ reports: Report[] }>(reportsPath, key),
-        adminFetch<{ bans: Ban[] }>('/api/admin/bans', key),
+        adminFetch<{ bans: Ban[] }>(API_ROUTES.adminBans, key),
       ])
       setOverview(ov)
       setReports(rep.reports as Report[])
@@ -108,7 +121,7 @@ export function AdminApp() {
   const searchUsers = async () => {
     try {
       const data = await adminFetch<{ users: UserRow[] }>(
-        `/api/admin/users?q=${encodeURIComponent(userQuery)}`,
+        `${API_ROUTES.adminUsers}?q=${encodeURIComponent(userQuery)}`,
         key,
       )
       setUsers(data.users as UserRow[])
@@ -121,7 +134,7 @@ export function AdminApp() {
   const submitBan = async (event: Event) => {
     event.preventDefault()
     try {
-      await adminFetch('/api/admin/ban', key, {
+      await adminFetch(API_ROUTES.adminBan, key, {
         method: 'POST',
         body: JSON.stringify({
           userId: banForm.userId ? Number(banForm.userId) : undefined,
@@ -130,7 +143,7 @@ export function AdminApp() {
           hours: banForm.hours ? Number(banForm.hours) : undefined,
         }),
       })
-      setBanForm({ userId: '', ip: '', reason: 'moderation', hours: '24' })
+      setBanForm({ userId: '', ip: '', reason: BAN_REASON_DEFAULT, hours: '24' })
       await load()
       setTab('bans')
     } catch (e) {
@@ -140,7 +153,7 @@ export function AdminApp() {
 
   const removeBan = async (id: number) => {
     try {
-      await adminFetch(`/api/admin/ban/${id}`, key, { method: 'DELETE' })
+      await adminFetch(API_ROUTES.adminBanById(id), key, { method: 'DELETE' })
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : tr.unbanFailed)
@@ -193,10 +206,10 @@ export function AdminApp() {
           </button>
           <a
             class="admin-btn ghost"
-            href="/api/admin/reports.csv"
+            href={API_ROUTES.adminReportsCsv}
             onClick={(e) => {
               e.preventDefault()
-              void fetch('/api/admin/reports.csv', { headers: { 'x-admin-key': key } })
+              void fetch(API_ROUTES.adminReportsCsv, { headers: { [HTTP_HEADERS.xAdminKey]: key } })
                 .then((r) => r.blob())
                 .then((blob) => {
                   const url = URL.createObjectURL(blob)
@@ -229,7 +242,7 @@ export function AdminApp() {
       {error && <p class="admin-error">{error}</p>}
 
       <nav class="admin-tabs">
-        {(['overview', 'reports', 'bans', 'users'] as const).map((tabKey) => (
+        {Object.values(ADMIN_TAB).map((tabKey) => (
           <button type="button" class={tab === tabKey ? 'on' : ''} onClick={() => setTab(tabKey)}>
             {tabLabel[tabKey]}
           </button>
@@ -303,14 +316,18 @@ export function AdminApp() {
           <div class="reports-head">
             <h2>{tr.reports}</h2>
             <div class="filter-row">
-              {(['open', 'resolved', 'all'] as const).map((f) => (
+              {Object.values(REPORT_STATUS_FILTER).map((f) => (
                 <button
                   type="button"
                   key={f}
                   class={reportFilter === f ? 'admin-btn sm' : 'admin-btn ghost sm'}
                   onClick={() => setReportFilter(f)}
                 >
-                  {f === 'open' ? tr.filterOpen : f === 'resolved' ? tr.filterResolved : tr.filterAll}
+                  {f === REPORT_STATUS_FILTER.open
+                    ? tr.filterOpen
+                    : f === REPORT_STATUS_FILTER.resolved
+                      ? tr.filterResolved
+                      : tr.filterAll}
                 </button>
               ))}
             </div>
@@ -333,7 +350,7 @@ export function AdminApp() {
                 <tr key={r.id}>
                   <td>{r.id}</td>
                   <td>
-                    {(r.status ?? 'open') === 'resolved' ? tr.filterResolved : tr.filterOpen}
+                    {(r.status ?? REPORT_STATUS_FILTER.open) === REPORT_STATUS_FILTER.resolved ? tr.filterResolved : tr.filterOpen}
                   </td>
                   <td>{r.reason}</td>
                   <td class="mono">{r.room_id ?? '—'}</td>
@@ -341,14 +358,14 @@ export function AdminApp() {
                   <td>{r.detail ?? ''}</td>
                   <td>{r.created_at}</td>
                   <td class="row-actions">
-                    {(r.status ?? 'open') !== 'resolved' && (
+                    {(r.status ?? REPORT_STATUS_FILTER.open) !== REPORT_STATUS_FILTER.resolved && (
                       <button
                         type="button"
                         class="admin-btn sm"
                         onClick={() =>
-                          void adminFetch(`/api/admin/reports/${r.id}`, key, {
+                          void adminFetch(API_ROUTES.adminReportById(r.id), key, {
                             method: 'PATCH',
-                            body: JSON.stringify({ status: 'resolved' }),
+                            body: JSON.stringify({ status: REPORT_STATUS_FILTER.resolved }),
                           }).then(() => load())
                         }
                       >

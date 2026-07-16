@@ -1,5 +1,5 @@
 import type { Quality } from '../types/ui'
-import { QUALITY_TIER, RTC_STATE } from '../../shared/constants'
+import { ICE_PAIR_STATE, QUALITY_TIER, RTC_STATE } from '../../shared/constants'
 
 /** Live link metrics from RTCPeerConnection.getStats() (not mocked). */
 export type LinkStats = {
@@ -40,7 +40,7 @@ export async function readLinkStats(
   let hasRtp = false
 
   report.forEach((stat) => {
-    if (stat.type === 'candidate-pair' && (stat as RTCIceCandidatePairStats).state === RTC_STATE.succeeded) {
+    if (stat.type === 'candidate-pair' && (stat as RTCIceCandidatePairStats).state === ICE_PAIR_STATE.succeeded) {
       const pair = stat as RTCIceCandidatePairStats & { currentRoundTripTime?: number }
       // Prefer nominated / selected pair
       const selected =

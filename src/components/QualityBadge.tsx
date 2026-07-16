@@ -1,16 +1,17 @@
 import { formatMessage, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
+import { QUALITY_TIER } from '../../shared/constants'
 import type { LinkStats } from '../utils/webrtcQuality'
 
 function tierLabel(t: Messages, quality: Quality): string {
   switch (quality) {
-    case 'good':
+    case QUALITY_TIER.good:
       return t.quality.good
-    case 'poor':
+    case QUALITY_TIER.poor:
       return t.quality.poor
-    case 'failed':
+    case QUALITY_TIER.failed:
       return t.quality.failed
-    case 'connecting':
+    case QUALITY_TIER.connecting:
       return t.quality.connecting
     default:
       return t.quality.connecting
@@ -19,7 +20,7 @@ function tierLabel(t: Messages, quality: Quality): string {
 
 function formatDetail(t: Messages, quality: Quality, stats: LinkStats | null | undefined): string {
   const label = tierLabel(t, quality)
-  if (quality === 'connecting' || quality === 'failed' || quality === 'idle') {
+  if (quality === QUALITY_TIER.connecting || quality === QUALITY_TIER.failed || quality === QUALITY_TIER.idle) {
     return label
   }
   if (!stats || (stats.rttMs == null && stats.lossPct == null && stats.bitrateKbps == null)) {
