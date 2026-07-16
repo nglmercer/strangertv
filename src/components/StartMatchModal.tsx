@@ -9,9 +9,7 @@ import {
 import { GENDER, GENDERS } from '../../shared/constants'
 import { countryLabel, formatMessage, interestLabel, matchLangLabel, type Messages } from '../i18n'
 import {
-  acceptTerms,
   getStartWizardStep,
-  isTermsAccepted,
   markDevicesReady,
   markMatchSetupComplete,
 } from '../utils/clientStorage'
@@ -55,7 +53,6 @@ export function StartMatchModal({
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [accepted, setAccepted] = useState(() => isTermsAccepted())
   const [step, setStep] = useState(() => getStartWizardStep())
   const [needStreamHint, setNeedStreamHint] = useState(false)
 
@@ -86,12 +83,6 @@ export function StartMatchModal({
   const genderLabel = (g: Gender) =>
     g === GENDER.male ? t.male : g === GENDER.female ? t.female : g === GENDER.other ? t.other : t.any
 
-  const goDevices = () => {
-    if (!accepted) return
-    acceptTerms()
-    setStep(1)
-  }
-
   const goPrefs = () => {
     if (!stream) {
       setNeedStreamHint(true)
@@ -99,7 +90,7 @@ export function StartMatchModal({
       return
     }
     markDevicesReady()
-    setStep(2)
+    setStep(1)
   }
 
   const finish = () => {
@@ -112,23 +103,10 @@ export function StartMatchModal({
       <button type="button" class="modal-close" onClick={onClose} aria-label={t.close}>
         ×
       </button>
-      <p class="eyebrow">{formatMessage(t.stepOf, { current: step + 1, total: 3 })}</p>
+      <p class="eyebrow">{formatMessage(t.stepOf, { current: step + 1, total: 2 })}</p>
       <h2 id="start-title">{t.startTitle}</h2>
 
       {step === 0 && (
-        <>
-          <label class="check-row">
-            <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.currentTarget.checked)} />
-            <span>{t.acceptTerms}</span>
-          </label>
-          <p class="modal-copy">{t.mustBe18}</p>
-          <button class="match full" disabled={!accepted} onClick={goDevices}>
-            {t.nextBtn}
-          </button>
-        </>
-      )}
-
-      {step === 1 && (
         <>
           <div class="preview-wrap">
             <video ref={videoRef} autoplay playsinline muted class="preview-video" />
@@ -153,7 +131,7 @@ export function StartMatchModal({
         </>
       )}
 
-      {step === 2 && (
+      {step === 1 && (
         <>
           <label>
             {t.country}

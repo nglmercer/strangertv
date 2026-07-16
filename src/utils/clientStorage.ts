@@ -40,7 +40,7 @@ export function markDevicesReady() {
 }
 
 export function isMatchSetupComplete(): boolean {
-  return getFlag(storageKeys.setupComplete) && isTermsAccepted() && areDevicesReady()
+  return getFlag(storageKeys.setupComplete) && isTermsAccepted() && areDevicesReady() && isAgeGateComplete()
 }
 
 export function markMatchSetupComplete() {
@@ -69,11 +69,10 @@ export function saveAudioDeviceId(id: string) {
   set(storageKeys.audioDevice, id)
 }
 
-/** First incomplete wizard step (0 terms, 1 devices, 2 prefs). */
-export function getStartWizardStep(): 0 | 1 | 2 {
-  if (!isTermsAccepted()) return 0
-  if (!areDevicesReady()) return 1
-  return 2
+/** First incomplete wizard step (0 devices, 1 prefs). Age/terms are handled by the age gate. */
+export function getStartWizardStep(): 0 | 1 {
+  if (!areDevicesReady()) return 0
+  return 1
 }
 
 const genders = GENDERS as readonly Gender[]
