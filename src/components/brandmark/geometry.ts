@@ -1,171 +1,183 @@
+// geometry.ts
 export interface SmartDeviceGeometry {
   positions: Float32Array
   normals: Float32Array
   chassisIndices: Uint16Array
   screenIndices: Uint16Array
-  starIndices: Uint16Array
-}
-
-interface BoxParams {
-  wFront: number
-  hFront: number
-  wBack: number
-  hBack: number
-  zFront: number
-  zBack: number
-  yOffset?: number
-}
-
-function computeQuadNormal(p0: number[], p1: number[], p2: number[]): [number, number, number] {
-  const ux = p1[0] - p0[0], uy = p1[1] - p0[1], uz = p1[2] - p0[2]
-  const vx = p2[0] - p0[0], vy = p2[1] - p0[1], vz = p2[2] - p0[2]
-  const nx = uy * vz - uz * vy
-  const ny = uz * vx - ux * vz
-  const nz = ux * vy - uy * vx
-  const len = Math.sqrt(nx * nx + ny * ny + nz * nz)
-  return len > 0.0001 ? [nx / len, ny / len, nz / len] : [0, 0, 1]
+  starIndices: Uint16Array // Reused for the 3D Orbit Connection emblem
 }
 
 export function makeSmartDevice(): SmartDeviceGeometry {
-  const positionsList: number[] = []
-  const normalsList: number[] = []
+  // A PERFECT 1:1:1 CUBE SIZE
+  const size = 1.1
+  const bevel = 0.06 // Crisp chamfered edge
+
+  const chassisPositions: number[] = []
+  const chassisNormals: number[] = []
   const chassisIndicesList: number[] = []
-  let vertexCount = 0
 
-  // Procedural box builder with CCW wind order & dynamic shading normals
-  function pushBox({ wFront, hFront, wBack, hBack, zFront, zBack, yOffset = 0 }: BoxParams) {
-    const f_bl = [-wFront, -hFront + yOffset, zFront]
-    const f_br = [wFront, -hFront + yOffset, zFront]
-    const f_tr = [wFront, hFront + yOffset, zFront]
-    const f_tl = [-wFront, hFront + yOffset, zFront]
+  // --- 1. CHAMFERED 1:1:1 CUBE CHASSIS ---
+  const outer = size
+  const inner = size - bevel
 
-    const b_br = [wBack, -hBack + yOffset, zBack]
-    const b_bl = [-wBack, -hBack + yOffset, zBack]
-    const b_tl = [-wBack, hBack + yOffset, zBack]
-    const b_tr = [wBack, hBack + yOffset, zBack]
+  // 8-point profile for a perfectly square face with corner cuts
+  const squareProfile = [
+    [-inner,  outer], [ inner,  outer], // Top
+    [ outer,  inner], [ outer, -inner], // Right
+    [ inner, -outer], [-inner, -outer], // Bottom
+    [-outer, -inner], [-outer,  inner]  // Left
+  ]
 
-    const faces = [
-      { verts: [f_bl, f_br, f_tr, f_tl] }, // Front (+Z)
-      { verts: [b_br, b_bl, b_tl, b_tr] }, // Back (-Z)
-      { verts: [f_tl, f_tr, b_tr, b_tl] }, // Top (+Y)
-      { verts: [b_bl, b_br, f_br, f_bl] }, // Bottom (-Y)
-      { verts: [b_bl, f_bl, f_tl, b_tl] }, // Left (-X)
-      { verts: [f_br, b_br, b_tr, f_tr] }, // Right (+X)
-    ]
+  // Front Bevel Ring
+  const frontRingStart = 0
+  for (const [x, y] of squareProfile) {
+    chassisPositions.push(x, y, inner)
+    const dX = Math.sign(x), dY = Math.sign(y)
+    chassisNormals.push(dX * 0.3, dY * 0.3, 0.9)
+  }
+  // Front Plateau
+  const frontPlateauStart = 8
+  for (const [x, y] of squareProfile) {
+    chassisPositions.push(x * 0.94, y * 0.94, outer)
+    chassisNormals.push(0, 0, 1)
+  }
 
-    for (const face of faces) {
-      const n = computeQuadNormal(face.verts[0], face.verts[1], face.verts[2])
-      for (const v of face.verts) {
-        positionsList.push(...v)
-        normalsList.push(...n)
-      }
+  // Back Bevel Ring
+  const backRingStart = 16
+  for (const [x, y] of squareProfile) {
+    chassisPositions.push(x, y, -inner)
+    const dX = Math.sign(x), dY = Math.sign(y)
+    chassisNormals.push(dX * 0.3, dY * 0.3, -0.9)
+  }
+  // Back Plateau
+  const backPlateauStart = 24
+  for (const [x, y] of squareProfile) {
+    chassisPositions.push(x * 0.94, y * 0.94, -outer)
+    chassisNormals.push(0, 0, -1)
+  }
 
-      const o = vertexCount
-      chassisIndicesList.push(
-        o, o + 1, o + 2,
-        o, o + 2, o + 3
-      )
-      vertexCount += 4
+  // FIXED: Ring structural connection helper now uses CCW winding order
+  const connectRings = (r1: number, r2: number) => {
+    for (let i = 0; i < 8; i++) {
+      const next = (i + 1) % 8
+      chassisIndicesList.push(r1 + i, r2 + i, r1 + next)
+      chassisIndicesList.push(r1 + next, r2 + i, r2 + next)
     }
   }
 
-  // 1. Sleek premium tapered display chassis
-  pushBox({
-    wFront: 1.6,
-    hFront: 1.0,
-    wBack: 1.4,
-    hBack: 0.8,
-    zFront: 0.35,
-    zBack: -0.35,
-    yOffset: 0
-  })
+  connectRings(frontRingStart, frontPlateauStart)
+  connectRings(backPlateauStart, backRingStart)
+  connectRings(backRingStart, frontRingStart)
 
-  // Elegant metal neck/stand
-  pushBox({
-    wFront: 0.12,
-    hFront: 0.25,
-    wBack: 0.10,
-    hBack: 0.25,
-    zFront: 0.05,
-    zBack: -0.15,
-    yOffset: -1.25
-  })
+  // Cap centers
+  const frontCenterIdx = 32
+  chassisPositions.push(0, 0, outer); chassisNormals.push(0, 0, 1)
+  const backCenterIdx = 33
+  chassisPositions.push(0, 0, -outer); chassisNormals.push(0, 0, -1)
 
-  // Ultra-sleek display base plate
-  pushBox({
-    wFront: 0.5,
-    hFront: 0.04,
-    wBack: 0.45,
-    hBack: 0.04,
-    zFront: 0.35,
-    zBack: -0.35,
-    yOffset: -1.52
-  })
-
-  const chassisIndices = new Uint16Array(chassisIndicesList)
-
-  // 2. High-precision glass screen panel on front skin
-  const screenStartIdx = vertexCount
-  const sWidth = 1.6 * 0.93
-  const sHeight = 1.0 * 0.93
-  const sDepth = 0.35 + 0.006
-
-  positionsList.push(
-    -sWidth, -sHeight, sDepth,
-     sWidth, -sHeight, sDepth,
-     sWidth,  sHeight, sDepth,
-    -sWidth,  sHeight, sDepth
-  )
-  normalsList.push(
-    0, 0, 1,
-    0, 0, 1,
-    0, 0, 1,
-    0, 0, 1
-  )
-  const screenIndices = new Uint16Array([
-    screenStartIdx, screenStartIdx + 1, screenStartIdx + 2,
-    screenStartIdx, screenStartIdx + 2, screenStartIdx + 3
-  ])
-  vertexCount += 4
-
-  // 3. Ultra-detailed 3D faceted star (bevelled pyramid structure)
-  const starStartIdx = vertexCount
-  const starIndicesList: number[] = []
-
-  const rOuter = 0.45
-  const rInner = 0.45 * 0.4
-  const starDepth = sDepth + 0.006
-  const bevelHeight = 0.08
-
-  // Center tip pushed forward
-  const centerPt = [0.0, 0.0, starDepth + bevelHeight]
-
-  // Outer and inner star points
-  const starPts: number[][] = []
-  for (let i = 0; i < 10; i++) {
-    const angle = (i * Math.PI) / 5 - Math.PI / 2
-    const r = i % 2 === 0 ? rOuter : rInner
-    starPts.push([r * Math.cos(angle), r * Math.sin(angle), starDepth])
+  for (let i = 0; i < 8; i++) {
+    const next = (i + 1) % 8
+    // Front cap remains CCW
+    chassisIndicesList.push(frontCenterIdx, frontPlateauStart + next, frontPlateauStart + i)
+    // FIXED: Reversed back cap to make it CCW when looking from behind
+    chassisIndicesList.push(backCenterIdx, backPlateauStart + next, backPlateauStart + i)
   }
 
-  // Generate 10 independent facet triangles for sharp metallic edge reflections
-  for (let i = 0; i < 10; i++) {
-    const pCurrent = starPts[i]
-    const pNext = starPts[(i + 1) % 10]
+  // --- 2. PERFECT SQUARE WATERFALL SCREEN ---
+  const screenPositions: number[] = []
+  const screenNormals: number[] = []
+  const screenIndicesList: number[] = []
 
-    positionsList.push(...centerPt, ...pCurrent, ...pNext)
+  const sSize = size - 0.08
+  const screenBaseIdx = chassisPositions.length / 3
+  const xSegments = 10
+  const ySegments = 10
 
-    const n = computeQuadNormal(centerPt, pCurrent, pNext)
-    normalsList.push(...n, ...n, ...n)
+  for (let y = 0; y <= ySegments; y++) {
+    const pctY = y / ySegments
+    const posY = -sSize + pctY * (sSize * 2)
 
-    const o = starStartIdx + i * 3
-    starIndicesList.push(o, o + 1, o + 2)
+    for (let x = 0; x <= xSegments; x++) {
+      const pctX = x / xSegments
+      const posX = -sSize + pctX * (sSize * 2)
+
+      // Symmetric face curvature
+      const normalizedX = posX / sSize
+      const curveDepth = 0.04 * (1.0 - normalizedX * normalizedX)
+      const posZ = outer + 0.008 + curveDepth
+
+      screenPositions.push(posX, posY, posZ)
+
+      const nx = normalizedX * 0.2
+      const nz = Math.sqrt(1.0 - nx * nx)
+      screenNormals.push(nx, 0.0, nz)
+    }
   }
 
-  const starIndices = new Uint16Array(starIndicesList)
+  for (let y = 0; y < ySegments; y++) {
+    for (let x = 0; x < xSegments; x++) {
+      const row0 = screenBaseIdx + y * (xSegments + 1)
+      const row1 = screenBaseIdx + (y + 1) * (xSegments + 1)
+      screenIndicesList.push(row0 + x, row0 + (x + 1), row1 + x)
+      screenIndicesList.push(row0 + (x + 1), row1 + (x + 1), row1 + x)
+    }
+  }
 
-  const positions = new Float32Array(positionsList)
-  const normals = new Float32Array(normalsList)
+  // --- 3. 3D ORBIT RING EMBLEM ---
+  const ringPositions: number[] = []
+  const ringNormals: number[] = []
+  const ringIndicesList: number[] = []
 
-  return { positions, normals, chassisIndices, screenIndices, starIndices }
+  const ringBaseIdx = (chassisPositions.length + screenPositions.length) / 3
+  const radialSteps = 32
+  const tubeSteps = 8
+  const ringRadius = 0.26
+  const tubeRadius = 0.035
+  const emblemZ = outer + 0.12
+
+  const buildTorus = (offsetX: number, tiltAngle: number) => {
+    const startIdx = ringBaseIdx + ringPositions.length / 3
+
+    for (let i = 0; i <= radialSteps; i++) {
+      const theta = (i / radialSteps) * Math.PI * 2
+      const rawX = ringRadius * Math.cos(theta)
+      const rawY = ringRadius * Math.sin(theta)
+
+      const ringX = offsetX + rawX * Math.cos(tiltAngle)
+      const ringY = rawY
+      const ringZ = emblemZ + rawX * Math.sin(tiltAngle)
+
+      for (let j = 0; j < tubeSteps; j++) {
+        const phi = (j / tubeSteps) * Math.PI * 2
+        const nx = Math.cos(phi) * Math.cos(theta)
+        const ny = Math.sin(phi)
+        const nz = Math.cos(phi) * Math.sin(theta)
+
+        ringPositions.push(ringX + tubeRadius * nx, ringY + tubeRadius * ny, ringZ + tubeRadius * nz)
+        ringNormals.push(nx, ny, nz)
+      }
+    }
+
+    for (let i = 0; i < radialSteps; i++) {
+      const r0 = startIdx + i * tubeSteps
+      const r1 = startIdx + (i + 1) * tubeSteps
+      for (let j = 0; j < tubeSteps; j++) {
+        const nextJ = (j + 1) % tubeSteps
+        ringIndicesList.push(r0 + j, r1 + j, r0 + nextJ)
+        ringIndicesList.push(r0 + nextJ, r1 + j, r1 + nextJ)
+      }
+    }
+  }
+
+  // Two intersecting TV/Chat setup rings scaled cleanly onto the cube's front skin
+  buildTorus(-0.14,  0.4)
+  buildTorus( 0.14, -0.4)
+
+  return {
+    positions: new Float32Array([...chassisPositions, ...screenPositions, ...ringPositions]),
+    normals: new Float32Array([...chassisNormals, ...screenNormals, ...ringNormals]),
+    chassisIndices: new Uint16Array(chassisIndicesList),
+    screenIndices: new Uint16Array(screenIndicesList),
+    starIndices: new Uint16Array(ringIndicesList),
+  }
 }

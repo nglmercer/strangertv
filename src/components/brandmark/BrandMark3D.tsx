@@ -136,9 +136,9 @@ export function BrandMark3D({
       gl.uniform3f(uLightDir, 0.5, 0.8, 1.0)
 
       // Device Materials configuration
-      gl.uniform3f(uChassisColor, 0.12, 0.12, 0.14) // Dark Matte Frame
-      gl.uniform3f(uScreenColor, 0.05, 0.07, 0.12)  // Display Obsidian Blue
-      gl.uniform3f(uStarColor, 1.0, 0.5, 0.0)        // Bright Orange Star
+      gl.uniform3f(uChassisColor, 1.0, 0.35, 0.0)   // Modern Premium Orange (Chassis)
+      gl.uniform3f(uScreenColor, 0.03, 0.03, 0.04)   // Sleek Piano Black (Screen)
+      gl.uniform3f(uStarColor, 0.95, 0.95, 0.98)     // Lustrous Glossy Silver (Curved Star)
 
       // Bind buffer attributes
       gl.bindBuffer(gl.ARRAY_BUFFER, posBuf)
