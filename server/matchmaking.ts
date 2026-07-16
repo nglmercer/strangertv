@@ -178,7 +178,7 @@ export function leaveRoom(socket: SocketLike, notifyPartner = true, reason?: str
   if (partner) {
     partners.delete(socket)
     partners.delete(partner)
-    if (notifyPartner) send(partner, { type: 'room:peer-left', reason })
+    if (notifyPartner) send(partner, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason })
   }
   if (room) {
     roomsBySocket.delete(room.a)
@@ -198,7 +198,7 @@ export function queueStats() {
 
 export function broadcastStats() {
   const stats = queueStats()
-  const msg: ServerMessage = { type: 'stats', online: stats.online, waiting: stats.waiting }
+  const msg: ServerMessage = { type: WS_MESSAGE_TYPE.stats, online: stats.online, waiting: stats.waiting }
   for (const peer of waiting) send(peer.socket, msg)
   for (const socket of partners.keys()) send(socket, msg)
 }
@@ -256,14 +256,14 @@ export function joinQueue(
     roomsBySocket.set(partner.socket, room)
     const sharedInterests = preferences.interests.filter((x) => partner.preferences.interests.includes(x))
     send(socket, {
-      type: 'room:matched',
+      type: WS_MESSAGE_TYPE.roomMatched,
       roomId: room.id,
       role: 'offerer',
       peerCountry: partner.preferences.country,
       sharedInterests,
     })
     send(partner.socket, {
-      type: 'room:matched',
+      type: WS_MESSAGE_TYPE.roomMatched,
       roomId: room.id,
       role: 'answerer',
       peerCountry: preferences.country,
@@ -279,7 +279,7 @@ export function joinQueue(
   waiting.push(self)
   inc(METRIC_NAMES.queueJoins)
   send(socket, {
-    type: 'queue:waiting',
+    type: WS_MESSAGE_TYPE.queueWaiting,
     position: waiting.length,
     online: queueStats().online,
   })

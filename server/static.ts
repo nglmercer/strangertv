@@ -33,7 +33,7 @@ export function createStaticHandler(distDir: string, publicDir?: string) {
       return new Response(data, {
         headers: {
           [HTTP_HEADERS.contentType]: type,
-          'cache-control': isHtml || isWellKnown ? CACHE_CONTROL.noCache : CACHE_CONTROL.immutable,
+          [HTTP_HEADERS.cacheControl]: isHtml || isWellKnown ? CACHE_CONTROL.noCache : CACHE_CONTROL.immutable,
         },
       })
     } catch {
@@ -58,7 +58,7 @@ export function createStaticHandler(distDir: string, publicDir?: string) {
     try {
       const index = await readFile(join(root, 'index.html'))
       return new Response(index, {
-        headers: { [HTTP_HEADERS.contentType]: MIME_TYPE.html, 'cache-control': CACHE_CONTROL.noCache },
+        headers: { [HTTP_HEADERS.contentType]: MIME_TYPE.html, [HTTP_HEADERS.cacheControl]: CACHE_CONTROL.noCache },
       })
     } catch {
       return null

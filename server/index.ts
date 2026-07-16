@@ -54,9 +54,13 @@ import { createStaticHandler } from './static'
 import { getIceServers } from './turn'
 import type { ClientMessage, ReportReason } from '../shared/types'
 import {
+  API_PREFIX,
+  API_ROUTES,
   BAN_REASON_DEFAULT,
   BEARER_PREFIX,
   CONSENT_KIND,
+  DEFAULT_COUNTRY,
+  DEFAULT_GENDER,
   DEFAULT_LANGUAGE,
   EMAIL_SUBJECT,
   HTTP_HEADERS,
@@ -65,10 +69,12 @@ import {
   MIME_TYPE,
   PEER_LEFT_REASON,
   REPORT_CSV_HEADERS,
+  REPORT_REASONS,
   REPORT_STATUS_FILTER,
   SERVER_ERROR_CODE,
   WS_CLOSE_CODE,
   WS_MESSAGE_TYPE,
+  WS_PATH,
 } from '../shared/constants'
 
 await migrate()
@@ -176,7 +182,7 @@ app.get(API_ROUTES.metricsPrometheus, (c) => {
     queue_online: stats.online,
     draining: draining ? 1 : 0,
   })
-  return c.body(body, 200, { [HTTP_HEADERS.contentType]: MIME_TYPE.prometheus })
+  return c.body(body, HTTP_STATUS.ok, { [HTTP_HEADERS.contentType]: MIME_TYPE.prometheus })
 })
 
 app.get(API_ROUTES.configPublic, (c) =>
@@ -199,7 +205,7 @@ app.post(API_ROUTES.authRegister, async (c) => {
   const ip = clientIp(c)
   const rl = rateLimitInfo(`register:${ip}`, 10, 15 * 60_000)
   if (!rl.ok) {
-    return c.json({ error: 'Too many attempts. Try later.' }, 429, rateLimitHeaders(rl))
+    return c.json({ error: 'Too many attempts. Try later.' }, HTTP_STATUS.tooManyRequests, rateLimitHeaders(rl))
   }
   inc(METRIC_NAMES.authRegisterAttempts)
 
@@ -221,8 +227,8 @@ app.post(API_ROUTES.authRegister, async (c) => {
   }
   if (await isBanned(null, ip)) return c.json({ error: 'Access denied.' }, HTTP_STATUS.forbidden)
 
-  const gender = typeof body.gender === 'string' ? body.gender : 'other'
-  const country = typeof body.country === 'string' ? body.country : 'any'
+  const gender = typeof body.gender === 'string' ? body.gender : DEFAULT_GENDER
+  const country = typeof body.country === 'string' ? body.country : DEFAULT_COUNTRY
   const language = typeof body.language === 'string' ? body.language : DEFAULT_LANGUAGE
   const interests = Array.isArray(body.interests) ? JSON.stringify(body.interests.slice(0, 10)) : '[]'
 
@@ -291,7 +297,7 @@ app.post(API_ROUTES.authLogin, async (c) => {
   const ip = clientIp(c)
   const rl = rateLimitInfo(`login:${ip}`, 20, 15 * 60_000)
   if (!rl.ok) {
-    return c.json({ error: 'Too many attempts. Try later.' }, 429, rateLimitHeaders(rl))
+    return c.json({ error: 'Too many attempts. Try later.' }, HTTP_STATUS.tooManyRequests, rateLimitHeaders(rl))
   }
   inc(METRIC_NAMES.authLoginAttempts)
 
@@ -314,7 +320,7 @@ app.post(API_ROUTES.authLogin, async (c) => {
     return c.json({ error: 'Your account needs a valid 18+ birthday.' }, HTTP_STATUS.forbidden)
   }
   if (config.features.requireEmailVerified && !Number(row.email_verified)) {
-    return c.json({ error: 'Verify your email before signing in.', code: 'email_unverified' }, HTTP_STATUS.forbidden)
+    return c.json({ error: 'Verify your email before signing in.', code: SERVER_ERROR_CODE.emailUnverified }, HTTP_STATUS.forbidden)
   }
   const token = await createSession(userId)
   const user = await userFromToken(token)
@@ -465,23 +471,23 @@ app.delete(API_ROUTES.blockById(':id'), async (c) => {
   return c.json({ ok: true })
 })
 
-app.post('/api/reports', async (c) => {
+app.post(API_ROUTES.reports, async (c) => {
   const ip = clientIp(c)
   if (!rateLimit(`report:${ip}`, 15, 60_000)) return c.json({ error: 'Too many reports' }, HTTP_STATUS.tooManyRequests)
   const user = await userFromToken(getBearer(c))
   const body = await c.req.json<{ reason?: ReportReason; detail?: string; roomId?: string }>()
-  const reasons: ReportReason[] = ['nudity', 'harassment', 'hate', 'spam', 'underage', 'violence', 'other']
+  const reasons: ReportReason[] = [...REPORT_REASONS]
   if (!body.reason || !reasons.includes(body.reason)) return c.json({ error: 'Invalid reason' }, HTTP_STATUS.badRequest)
   await db.execute({
     sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail) VALUES (?, ?, ?, ?, ?)',
-    args: [user?.id ?? null, ip, body.roomId ?? null, body.reason, body.detail?.slice(0, HTTP_STATUS.internalServerError) ?? null],
+    args: [user?.id ?? null, ip, body.roomId ?? null, body.reason, body.detail?.slice(0, 500) ?? null],
   })
   inc(METRIC_NAMES.reportsTotal)
   void noteReport(body.reason)
   return c.json({ ok: true })
 })
 
-app.get('/api/admin/overview', async (c) => {
+app.get(API_ROUTES.adminOverview, async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   try {
     const stats = queueStats()
@@ -536,7 +542,7 @@ app.get('/api/admin/overview', async (c) => {
   }
 })
 
-app.get('/api/admin/reports', async (c) => {
+app.get(API_ROUTES.adminReports, async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const status = c.req.query('status')
   const result =
@@ -549,7 +555,7 @@ app.get('/api/admin/reports', async (c) => {
   return c.json({ reports: result.rows })
 })
 
-app.patch('/api/admin/reports/:id', async (c) => {
+app.patch(API_ROUTES.adminReportById(':id'), async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ status?: string }>()
@@ -560,7 +566,7 @@ app.patch('/api/admin/reports/:id', async (c) => {
   return c.json({ ok: true })
 })
 
-app.get('/api/admin/reports.csv', async (c) => {
+app.get(API_ROUTES.adminReportsCsv, async (c) => {
   if (!requireAdmin(c)) return c.text('Forbidden', HTTP_STATUS.forbidden)
   const result = await db.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 1000')
   const headers = [...REPORT_CSV_HEADERS]
@@ -572,13 +578,13 @@ app.get('/api/admin/reports.csv', async (c) => {
   for (const row of result.rows) {
     lines.push(headers.map((h) => escape((row as Record<string, unknown>)[h])).join(','))
   }
-  return c.body(lines.join('\n') + '\n', 200, {
+  return c.body(lines.join('\n') + '\n', HTTP_STATUS.ok, {
     [HTTP_HEADERS.contentType]: MIME_TYPE.csv,
     'content-disposition': 'attachment; filename="reports.csv"',
   })
 })
 
-app.post('/api/ratings', async (c) => {
+app.post(API_ROUTES.ratings, async (c) => {
   const ip = clientIp(c)
   if (!rateLimit(`rating:${ip}`, 40, 60_000)) return c.json({ error: 'Too many requests' }, HTTP_STATUS.tooManyRequests)
   const user = await userFromToken(getBearer(c))
@@ -601,13 +607,13 @@ app.post('/api/ratings', async (c) => {
   return c.json({ ok: true })
 })
 
-app.get('/api/admin/bans', async (c) => {
+app.get(API_ROUTES.adminBans, async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const result = await db.execute('SELECT * FROM bans ORDER BY id DESC LIMIT 200')
   return c.json({ bans: result.rows })
 })
 
-app.get('/api/admin/users', async (c) => {
+app.get(API_ROUTES.adminUsers, async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const q = c.req.query('q')?.trim()
   if (q) {
@@ -624,7 +630,7 @@ app.get('/api/admin/users', async (c) => {
   return c.json({ users: result.rows })
 })
 
-app.post('/api/admin/ban', async (c) => {
+app.post(API_ROUTES.adminBan, async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const body = await c.req.json<{ userId?: number; ip?: string; reason?: string; hours?: number }>()
   const expires = body.hours != null ? new Date(Date.now() + body.hours * 3600_000).toISOString() : null
@@ -640,7 +646,7 @@ app.post('/api/admin/ban', async (c) => {
   return c.json({ ok: true })
 })
 
-app.delete('/api/admin/ban/:id', async (c) => {
+app.delete(API_ROUTES.adminBanById(':id'), async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const id = Number(c.req.param('id'))
   if (!id) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
@@ -648,7 +654,7 @@ app.delete('/api/admin/ban/:id', async (c) => {
   return c.json({ ok: true })
 })
 
-app.delete('/api/auth/account', async (c) => {
+app.delete(API_ROUTES.authAccount, async (c) => {
   const user = await userFromToken(getBearer(c))
   if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   await db.execute({ sql: 'UPDATE sessions SET revoked = 1 WHERE user_id = ?', args: [user.id] })
@@ -659,7 +665,7 @@ app.delete('/api/auth/account', async (c) => {
 
 // Production: serve Vite build for SPA (including /admin)
 app.get('*', async (c) => {
-  if (c.req.path.startsWith('/api') || c.req.path === '/ws') return c.notFound()
+  if (c.req.path.startsWith(API_PREFIX) || c.req.path === WS_PATH) return c.notFound()
   const res = await serveStatic(c.req.path)
   if (res) return res
   return c.text('Not found — run npm run build or use Vite dev server', HTTP_STATUS.notFound)
@@ -749,7 +755,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
       return
     }
     const partner = getPartner(socket)
-    const text = message.payload?.text?.slice(0, HTTP_STATUS.internalServerError)
+    const text = message.payload?.text?.slice(0, 500)
     if (partner && text) {
       send(partner, {
         type: WS_MESSAGE_TYPE.chat,
@@ -778,7 +784,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
         sessionKey,
         room?.id ?? null,
         message.reason,
-        message.detail?.slice(0, HTTP_STATUS.internalServerError) ?? null,
+        message.detail?.slice(0, 500) ?? null,
       ],
     })
     inc(METRIC_NAMES.reportsTotal)
@@ -839,7 +845,7 @@ httpServer.on('error', (err: NodeJS.ErrnoException) => {
   process.exit(1)
 })
 
-const wss = new WebSocketServer({ server: httpServer, path: '/ws' })
+const wss = new WebSocketServer({ server: httpServer, path: WS_PATH })
 // Listen errors also surface on the WebSocketServer when it shares the HTTP server.
 wss.on('error', (err: Error) => {
   const code = (err as NodeJS.ErrnoException).code

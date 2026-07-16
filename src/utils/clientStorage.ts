@@ -1,5 +1,5 @@
 import type { Gender, MatchPreferences } from '../../shared/types'
-import { GENDERS, STORAGE_KEYS } from '../../shared/constants'
+import { DEFAULT_GENDER, GENDERS, STORAGE_KEYS } from '../../shared/constants'
 import type { PublicUser } from '../api'
 import { isAdult } from './age'
 
@@ -92,7 +92,7 @@ export function getStartWizardStep(): 0 | 1 | 2 {
 const genders = GENDERS as readonly Gender[]
 
 function asGender(v: string | undefined | null): Gender {
-  return v && genders.includes(v as Gender) ? (v as Gender) : 'any'
+  return v && genders.includes(v as Gender) ? (v as Gender) : DEFAULT_GENDER
 }
 
 /** Mirror account age/consent into local storage; optional match prefs from profile. */

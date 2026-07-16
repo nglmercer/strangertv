@@ -66,6 +66,8 @@ export const API_ROUTES = {
   adminBanById: (id: number | string) => `/api/admin/ban/${id}`,
 } as const
 
+export const API_PREFIX = '/api'
+
 export const WS_PATH = '/ws'
 
 export const ADMIN_PATH = '/admin'
@@ -219,6 +221,7 @@ export const HTTP_HEADERS = {
   permissionsPolicy: 'permissions-policy',
   strictTransportSecurity: 'strict-transport-security',
   contentSecurityPolicy: 'content-security-policy',
+  cacheControl: 'cache-control',
 } as const
 
 export const BEARER_PREFIX = 'Bearer '

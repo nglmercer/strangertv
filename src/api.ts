@@ -1,5 +1,5 @@
 import type { Gender, MatchPreferences } from '../shared/types'
-import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
+import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 
 const tokenKey = STORAGE_KEYS.token
 const userKey = STORAGE_KEYS.user
@@ -131,8 +131,8 @@ export function loadPrefs(): MatchPreferences {
   return {
     country: DEFAULT_COUNTRY,
     language: DEFAULT_LANGUAGE,
-    gender: 'any',
-    lookingFor: 'any',
+    gender: DEFAULT_GENDER,
+    lookingFor: DEFAULT_GENDER,
     interests: [],
   }
 }
