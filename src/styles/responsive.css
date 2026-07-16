@@ -82,13 +82,33 @@
     margin-top: 6px;
   }
 
+  .local-empty-layout {
+    padding: 18px;
+    gap: 12px;
+  }
+
+  .local-empty-icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .local-empty-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+
   .local-actions {
-    gap: 4px;
+    gap: 6px;
   }
 
   .local-action {
-    padding: 5px 10px;
+    padding: 7px 14px;
     font-size: 11px;
+  }
+
+  .local-action svg {
+    width: 13px;
+    height: 13px;
   }
 
   .profile-row {
@@ -167,7 +187,7 @@
     transform: rotate(-1deg) scale(0.75);
   }
 
-  .video.local .stage-empty .empty {
+  .video.local .stage-empty .local-preview-hint {
     display: none;
   }
 }

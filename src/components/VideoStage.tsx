@@ -114,21 +114,43 @@ export function VideoStage({
           <video ref={localVideo} autoplay playsinline muted aria-label={t.labelYou} />
           {!hasLocalStream && (
             <div class="stage-empty local">
-              <div class="empty">
+              <div class="local-empty-layout">
+                <span class="local-empty-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2.5" y="5.5" width="13" height="13" rx="2.5" />
+                    <path d="M15.5 10l5.5-3v10l-5.5-3" />
+                    <line x1="3" y1="3" x2="21" y2="21" stroke-width="1.8" />
+                  </svg>
+                </span>
                 <p class="local-preview-hint">{t.localPreviewHint}</p>
-              </div>
-              <div class="local-actions">
-                <button type="button" class="local-action ghost" onClick={onPreferences}>
-                  {t.preferences}
-                </button>
-                {user && (
-                  <button type="button" class="local-action ghost" onClick={onSettings}>
-                    {t.settings}
+                <div class="local-actions">
+                  <button type="button" class="local-action ghost" onClick={onPreferences}>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="3" />
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                    </svg>
+                    <span>{t.preferences}</span>
                   </button>
-                )}
-                <button type="button" class="local-action" onClick={onAuthClick}>
-                  {user ? t.signOut : t.signIn}
-                </button>
+                  {user && (
+                    <button type="button" class="local-action ghost" onClick={onSettings}>
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      <span>{t.settings}</span>
+                    </button>
+                  )}
+                  <button type="button" class="local-action" onClick={onAuthClick}>
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      {user ? (
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+                      ) : (
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
+                      )}
+                    </svg>
+                    <span>{user ? t.signOut : t.signIn}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
