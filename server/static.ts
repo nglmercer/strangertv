@@ -1,20 +1,21 @@
 import { readFile } from 'node:fs/promises'
 import { join, extname, normalize } from 'node:path'
 import { existsSync } from 'node:fs'
+import { CACHE_CONTROL, HTTP_HEADERS, MIME_TYPE } from '../shared/constants'
 
 const MIME: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.ico': 'image/x-icon',
-  '.json': 'application/json',
-  '.webmanifest': 'application/manifest+json',
-  '.txt': 'text/plain; charset=utf-8',
-  '.woff2': 'font/woff2',
-  '.map': 'application/json',
+  '.html': MIME_TYPE.html,
+  '.js': MIME_TYPE.javascript,
+  '.css': MIME_TYPE.css,
+  '.svg': MIME_TYPE.svg,
+  '.png': MIME_TYPE.png,
+  '.jpg': MIME_TYPE.jpg,
+  '.ico': MIME_TYPE.ico,
+  '.json': MIME_TYPE.json,
+  '.webmanifest': MIME_TYPE.webmanifest,
+  '.txt': MIME_TYPE.plain,
+  '.woff2': MIME_TYPE.woff2,
+  '.map': MIME_TYPE.json,
 }
 
 export function createStaticHandler(distDir: string, publicDir?: string) {
@@ -26,13 +27,13 @@ export function createStaticHandler(distDir: string, publicDir?: string) {
     if (!filePath.startsWith(base)) return new Response('Forbidden', { status: 403 })
     try {
       const data = await readFile(filePath)
-      const type = MIME[extname(filePath)] ?? 'application/octet-stream'
+      const type = MIME[extname(filePath)] ?? MIME_TYPE.octetStream
       const isHtml = rel.endsWith('.html')
       const isWellKnown = rel.includes('.well-known') || rel.endsWith('.txt') || rel.endsWith('.webmanifest')
       return new Response(data, {
         headers: {
-          'content-type': type,
-          'cache-control': isHtml || isWellKnown ? 'no-cache' : 'public, max-age=31536000, immutable',
+          [HTTP_HEADERS.contentType]: type,
+          'cache-control': isHtml || isWellKnown ? CACHE_CONTROL.noCache : CACHE_CONTROL.immutable,
         },
       })
     } catch {
@@ -57,7 +58,7 @@ export function createStaticHandler(distDir: string, publicDir?: string) {
     try {
       const index = await readFile(join(root, 'index.html'))
       return new Response(index, {
-        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-cache' },
+        headers: { [HTTP_HEADERS.contentType]: MIME_TYPE.html, 'cache-control': CACHE_CONTROL.noCache },
       })
     } catch {
       return null

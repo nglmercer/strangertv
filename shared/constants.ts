@@ -233,6 +233,20 @@ export const MIME_TYPE = {
   prometheus: 'text/plain; version=0.0.4; charset=utf-8',
   csv: 'text/csv; charset=utf-8',
   octetStream: 'application/octet-stream',
+  javascript: 'application/javascript; charset=utf-8',
+  css: 'text/css; charset=utf-8',
+  svg: 'image/svg+xml',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  ico: 'image/x-icon',
+  webmanifest: 'application/manifest+json',
+  woff2: 'font/woff2',
+} as const
+
+/** Cache-Control header values. */
+export const CACHE_CONTROL = {
+  noCache: 'no-cache',
+  immutable: 'public, max-age=31536000, immutable',
 } as const
 
 // ---------------------------------------------------------------------------

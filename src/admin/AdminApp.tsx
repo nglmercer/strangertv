@@ -10,6 +10,7 @@ import {
   REPORT_STATUS_FILTER,
   ReportStatusFilter,
   STORAGE_KEYS,
+  TIMING_MS,
 } from '../../shared/constants'
 
 type Overview = {
@@ -114,7 +115,7 @@ export function AdminApp() {
   useEffect(() => {
     void load()
     if (!key) return
-    const iv = window.setInterval(() => void load(), 15_000)
+    const iv = window.setInterval(() => void load(), TIMING_MS.healthPoll)
     return () => clearInterval(iv)
   }, [key, load])
 

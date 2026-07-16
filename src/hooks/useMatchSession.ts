@@ -200,7 +200,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     if (!waitingSince.current) waitingSince.current = Date.now()
     const iv = window.setInterval(() => {
       if (!waitingSince.current) return
-      setLongWait(Date.now() - waitingSince.current > 45_000)
+      setLongWait(Date.now() - waitingSince.current > TIMING_MS.longWait)
     }, 5000)
     return () => clearInterval(iv)
   }, [finding, matched])

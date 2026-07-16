@@ -51,7 +51,7 @@ export function useMatchSocket(handlers: Handlers) {
       stopHeartbeat()
       heartbeatTimer.current = window.setInterval(() => {
         send({ type: WS_MESSAGE_TYPE.queueHeartbeat })
-      }, 12_000)
+      }, TIMING_MS.wsHeartbeat)
     }
 
     ws.onclose = () => {

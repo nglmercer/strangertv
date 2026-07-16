@@ -60,6 +60,7 @@ import {
   DEFAULT_LANGUAGE,
   EMAIL_SUBJECT,
   HTTP_HEADERS,
+  HTTP_STATUS,
   METRIC_NAMES,
   MIME_TYPE,
   PEER_LEFT_REASON,
@@ -101,7 +102,7 @@ app.use(
   }),
 )
 
-app.get('/api/docs', (c) => c.json(openApiDocument(appUrl)))
+app.get(API_ROUTES.docs, (c) => c.json(openApiDocument(appUrl)))
 
 const getBearer = (c: { req: { header: (n: string) => string | undefined } }) => {
   const h = c.req.header(HTTP_HEADERS.authorization)
@@ -126,7 +127,7 @@ function resolveVersion(): string {
 }
 const APP_VERSION = resolveVersion()
 
-app.get('/api/health', (c) => {
+app.get(API_ROUTES.health, (c) => {
   const stats = queueStats()
   return c.json({
     ok: !draining && dbOk,
@@ -142,32 +143,32 @@ app.get('/api/health', (c) => {
 })
 
 /** Liveness: process is up (k8s livenessProbe). */
-app.get('/api/health/live', (c) => c.json({ ok: true, version: APP_VERSION }))
+app.get(API_ROUTES.healthLive, (c) => c.json({ ok: true, version: APP_VERSION }))
 
 /** Readiness: accept traffic (k8s readinessProbe). */
-app.get('/api/health/ready', async (c) => {
-  if (draining) return c.json({ ok: false, reason: 'draining' }, 503)
+app.get(API_ROUTES.healthReady, async (c) => {
+  if (draining) return c.json({ ok: false, reason: 'draining' }, HTTP_STATUS.serviceUnavailable)
   try {
     await db.execute('SELECT 1')
     dbOk = true
   } catch {
     dbOk = false
-    return c.json({ ok: false, reason: 'database' }, 503)
+    return c.json({ ok: false, reason: 'database' }, HTTP_STATUS.serviceUnavailable)
   }
   return c.json({ ok: true })
 })
 
-app.get('/api/metrics', (c) => {
+app.get(API_ROUTES.metrics, (c) => {
   if (!config.metricsPublic && !requireAdmin(c)) {
-    return c.json({ error: 'Forbidden' }, 403)
+    return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   }
   const stats = queueStats()
   return c.json({ ...snapshot(), queue: stats, draining })
 })
 
-app.get('/api/metrics/prometheus', (c) => {
+app.get(API_ROUTES.metricsPrometheus, (c) => {
   if (!config.metricsPublic && !requireAdmin(c)) {
-    return c.text('Forbidden', 403)
+    return c.text('Forbidden', HTTP_STATUS.forbidden)
   }
   const stats = queueStats()
   const body = prometheusText({
@@ -178,7 +179,7 @@ app.get('/api/metrics/prometheus', (c) => {
   return c.body(body, 200, { [HTTP_HEADERS.contentType]: MIME_TYPE.prometheus })
 })
 
-app.get('/api/config/public', (c) =>
+app.get(API_ROUTES.configPublic, (c) =>
   c.json({
     features: {
       anonymousMatch: config.features.anonymousMatch,
@@ -188,13 +189,13 @@ app.get('/api/config/public', (c) =>
   }),
 )
 
-app.get('/api/ice', async (c) => {
+app.get(API_ROUTES.ice, async (c) => {
   const ip = clientIp(c)
-  if (!rateLimit(`ice:${ip}`, 30, 60_000)) return c.json({ error: 'Too many requests' }, 429)
+  if (!rateLimit(`ice:${ip}`, 30, 60_000)) return c.json({ error: 'Too many requests' }, HTTP_STATUS.tooManyRequests)
   return c.json(getIceServers())
 })
 
-app.post('/api/auth/register', async (c) => {
+app.post(API_ROUTES.authRegister, async (c) => {
   const ip = clientIp(c)
   const rl = rateLimitInfo(`register:${ip}`, 10, 15 * 60_000)
   if (!rl.ok) {
@@ -213,12 +214,12 @@ app.post('/api/auth/register', async (c) => {
   }>()
   const { email, password, birthDate } = body
   if (!validCredentials(email, password)) {
-    return c.json({ error: 'Use a valid email and an 8+ character password.' }, 400)
+    return c.json({ error: 'Use a valid email and an 8+ character password.' }, HTTP_STATUS.badRequest)
   }
   if (typeof birthDate !== 'string' || !isAdult(birthDate)) {
-    return c.json({ error: 'You must be 18 or older to register.' }, 400)
+    return c.json({ error: 'You must be 18 or older to register.' }, HTTP_STATUS.badRequest)
   }
-  if (await isBanned(null, ip)) return c.json({ error: 'Access denied.' }, 403)
+  if (await isBanned(null, ip)) return c.json({ error: 'Access denied.' }, HTTP_STATUS.forbidden)
 
   const gender = typeof body.gender === 'string' ? body.gender : 'other'
   const country = typeof body.country === 'string' ? body.country : 'any'
@@ -261,32 +262,32 @@ app.post('/api/auth/register', async (c) => {
       201,
     )
   } catch {
-    return c.json({ error: 'That email is already registered.' }, 409)
+    return c.json({ error: 'That email is already registered.' }, HTTP_STATUS.conflict)
   }
 })
 
-app.post('/api/auth/verify-email', async (c) => {
+app.post(API_ROUTES.authVerifyEmail, async (c) => {
   const { token } = await c.req.json<{ token?: string }>()
-  if (typeof token !== 'string' || !token) return c.json({ error: 'Invalid token.' }, 400)
+  if (typeof token !== 'string' || !token) return c.json({ error: 'Invalid token.' }, HTTP_STATUS.badRequest)
   const ok = await verifyEmailToken(token)
-  if (!ok) return c.json({ error: 'Invalid or expired token.' }, 400)
+  if (!ok) return c.json({ error: 'Invalid or expired token.' }, HTTP_STATUS.badRequest)
   inc(METRIC_NAMES.emailVerified)
   return c.json({ ok: true })
 })
 
-app.post('/api/auth/resend-verification', async (c) => {
+app.post(API_ROUTES.authResendVerification, async (c) => {
   const user = await userFromToken(getBearer(c))
-  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   if (user.email_verified) return c.json({ ok: true, already: true })
   const ip = clientIp(c)
-  if (!rateLimit(`reverify:${ip}`, 5, 15 * 60_000)) return c.json({ error: 'Too many attempts.' }, 429)
+  if (!rateLimit(`reverify:${ip}`, 5, 15 * 60_000)) return c.json({ error: 'Too many attempts.' }, HTTP_STATUS.tooManyRequests)
   const verifyToken = await createEmailVerificationToken(user.id)
   const mail = verifyEmailBody(verifyToken, appUrl)
   await sendEmail({ to: user.email, subject: EMAIL_SUBJECT.verify, text: mail.text, html: mail.html })
   return c.json({ ok: true, ...(config.isProd ? {} : { devVerifyToken: verifyToken }) })
 })
 
-app.post('/api/auth/login', async (c) => {
+app.post(API_ROUTES.authLogin, async (c) => {
   const ip = clientIp(c)
   const rl = rateLimitInfo(`login:${ip}`, 20, 15 * 60_000)
   if (!rl.ok) {
@@ -295,7 +296,7 @@ app.post('/api/auth/login', async (c) => {
   inc(METRIC_NAMES.authLoginAttempts)
 
   const { email, password } = await c.req.json<{ email?: unknown; password?: unknown }>()
-  if (!validCredentials(email, password)) return c.json({ error: 'Invalid email or password.' }, 400)
+  if (!validCredentials(email, password)) return c.json({ error: 'Invalid email or password.' }, HTTP_STATUS.badRequest)
 
   const result = await db.execute({
     sql: 'SELECT id, password_hash, birth_date, email_verified FROM users WHERE email = ?',
@@ -304,16 +305,16 @@ app.post('/api/auth/login', async (c) => {
   const row = result.rows[0]
   const hash = row?.password_hash
   if (typeof hash !== 'string' || !(await verifyPassword(String(password), hash))) {
-    return c.json({ error: 'Invalid email or password.' }, 401)
+    return c.json({ error: 'Invalid email or password.' }, HTTP_STATUS.unauthorized)
   }
   const userId = Number(row.id)
-  if (await isBanned(userId, ip)) return c.json({ error: 'This account is banned.' }, 403)
+  if (await isBanned(userId, ip)) return c.json({ error: 'This account is banned.' }, HTTP_STATUS.forbidden)
   const birthDate = typeof row.birth_date === 'string' ? row.birth_date : null
   if (!birthDate || !isAdult(birthDate)) {
-    return c.json({ error: 'Your account needs a valid 18+ birthday.' }, 403)
+    return c.json({ error: 'Your account needs a valid 18+ birthday.' }, HTTP_STATUS.forbidden)
   }
   if (config.features.requireEmailVerified && !Number(row.email_verified)) {
-    return c.json({ error: 'Verify your email before signing in.', code: 'email_unverified' }, 403)
+    return c.json({ error: 'Verify your email before signing in.', code: 'email_unverified' }, HTTP_STATUS.forbidden)
   }
   const token = await createSession(userId)
   const user = await userFromToken(token)
@@ -321,31 +322,31 @@ app.post('/api/auth/login', async (c) => {
   return c.json({ user: user ? publicUser(user) : null, token })
 })
 
-app.post('/api/auth/logout', async (c) => {
+app.post(API_ROUTES.authLogout, async (c) => {
   const token = getBearer(c)
   if (token) await revokeSession(token)
   return c.json({ ok: true })
 })
 
-app.post('/api/auth/refresh', async (c) => {
+app.post(API_ROUTES.authRefresh, async (c) => {
   const token = getBearer(c)
-  if (!token) return c.json({ error: 'Unauthorized' }, 401)
+  if (!token) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   const next = await refreshSession(token)
-  if (!next) return c.json({ error: 'Unauthorized' }, 401)
+  if (!next) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   const user = await userFromToken(next)
   inc(METRIC_NAMES.authRefreshOk)
   return c.json({ token: next, user: user ? publicUser(user) : null })
 })
 
-app.get('/api/auth/me', async (c) => {
+app.get(API_ROUTES.authMe, async (c) => {
   const user = await userFromToken(getBearer(c))
-  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   return c.json({ user: publicUser(user) })
 })
 
-app.patch('/api/auth/preferences', async (c) => {
+app.patch(API_ROUTES.authPreferences, async (c) => {
   const user = await userFromToken(getBearer(c))
-  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   const body = await c.req.json<{
     gender?: string
     country?: string
@@ -367,9 +368,9 @@ app.patch('/api/auth/preferences', async (c) => {
   return c.json({ user: updated ? publicUser(updated) : null })
 })
 
-app.post('/api/auth/password-reset/request', async (c) => {
+app.post(API_ROUTES.authPasswordResetRequest, async (c) => {
   const ip = clientIp(c)
-  if (!rateLimit(`reset:${ip}`, 5, 15 * 60_000)) return c.json({ error: 'Too many attempts.' }, 429)
+  if (!rateLimit(`reset:${ip}`, 5, 15 * 60_000)) return c.json({ error: 'Too many attempts.' }, HTTP_STATUS.tooManyRequests)
   const { email } = await c.req.json<{ email?: string }>()
   let devResetToken: string | undefined
   if (typeof email === 'string') {
@@ -396,10 +397,10 @@ app.post('/api/auth/password-reset/request', async (c) => {
   return c.json({ ok: true, ...(devResetToken ? { devResetToken } : {}) })
 })
 
-app.post('/api/auth/password-reset/confirm', async (c) => {
+app.post(API_ROUTES.authPasswordResetConfirm, async (c) => {
   const { token, password } = await c.req.json<{ token?: string; password?: string }>()
   if (typeof token !== 'string' || typeof password !== 'string' || password.length < 8) {
-    return c.json({ error: 'Invalid request.' }, 400)
+    return c.json({ error: 'Invalid request.' }, HTTP_STATUS.badRequest)
   }
   const result = await db.execute({
     sql: `SELECT id, user_id FROM password_reset_tokens
@@ -407,7 +408,7 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
     args: [hashToken(token)],
   })
   const row = result.rows[0]
-  if (!row) return c.json({ error: 'Invalid or expired token.' }, 400)
+  if (!row) return c.json({ error: 'Invalid or expired token.' }, HTTP_STATUS.badRequest)
   await db.execute({
     sql: 'UPDATE users SET password_hash = ? WHERE id = ?',
     args: [await hashPassword(password), Number(row.user_id)],
@@ -418,11 +419,11 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
   return c.json({ ok: true })
 })
 
-app.post('/api/blocks', async (c) => {
+app.post(API_ROUTES.blocks, async (c) => {
   const user = await userFromToken(getBearer(c))
-  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   const { blockedId } = await c.req.json<{ blockedId?: number }>()
-  if (!blockedId || blockedId === user.id) return c.json({ error: 'Invalid target' }, 400)
+  if (!blockedId || blockedId === user.id) return c.json({ error: 'Invalid target' }, HTTP_STATUS.badRequest)
   await db.execute({
     sql: 'INSERT OR IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?, ?)',
     args: [user.id, blockedId],
@@ -431,9 +432,9 @@ app.post('/api/blocks', async (c) => {
   return c.json({ ok: true })
 })
 
-app.get('/api/blocks', async (c) => {
+app.get(API_ROUTES.blocks, async (c) => {
   const user = await userFromToken(getBearer(c))
-  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   const result = await db.execute({
     sql: `SELECT b.blocked_id AS id, u.email, b.created_at
           FROM blocks b
@@ -451,11 +452,11 @@ app.get('/api/blocks', async (c) => {
   })
 })
 
-app.delete('/api/blocks/:id', async (c) => {
+app.delete(API_ROUTES.blockById(':id'), async (c) => {
   const user = await userFromToken(getBearer(c))
-  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   const blockedId = Number(c.req.param('id'))
-  if (!blockedId) return c.json({ error: 'Invalid id' }, 400)
+  if (!blockedId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
   await db.execute({
     sql: 'DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?',
     args: [user.id, blockedId],
@@ -466,14 +467,14 @@ app.delete('/api/blocks/:id', async (c) => {
 
 app.post('/api/reports', async (c) => {
   const ip = clientIp(c)
-  if (!rateLimit(`report:${ip}`, 15, 60_000)) return c.json({ error: 'Too many reports' }, 429)
+  if (!rateLimit(`report:${ip}`, 15, 60_000)) return c.json({ error: 'Too many reports' }, HTTP_STATUS.tooManyRequests)
   const user = await userFromToken(getBearer(c))
   const body = await c.req.json<{ reason?: ReportReason; detail?: string; roomId?: string }>()
   const reasons: ReportReason[] = ['nudity', 'harassment', 'hate', 'spam', 'underage', 'violence', 'other']
-  if (!body.reason || !reasons.includes(body.reason)) return c.json({ error: 'Invalid reason' }, 400)
+  if (!body.reason || !reasons.includes(body.reason)) return c.json({ error: 'Invalid reason' }, HTTP_STATUS.badRequest)
   await db.execute({
     sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail) VALUES (?, ?, ?, ?, ?)',
-    args: [user?.id ?? null, ip, body.roomId ?? null, body.reason, body.detail?.slice(0, 500) ?? null],
+    args: [user?.id ?? null, ip, body.roomId ?? null, body.reason, body.detail?.slice(0, HTTP_STATUS.internalServerError) ?? null],
   })
   inc(METRIC_NAMES.reportsTotal)
   void noteReport(body.reason)
@@ -481,7 +482,7 @@ app.post('/api/reports', async (c) => {
 })
 
 app.get('/api/admin/overview', async (c) => {
-  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   try {
     const stats = queueStats()
     const users = await db.execute('SELECT COUNT(*) AS n FROM users')
@@ -531,12 +532,12 @@ app.get('/api/admin/overview', async (c) => {
     })
   } catch (err) {
     logger.error('admin.overview_failed', { err: String(err) })
-    return c.json({ error: 'Overview failed' }, 500)
+    return c.json({ error: 'Overview failed' }, HTTP_STATUS.internalServerError)
   }
 })
 
 app.get('/api/admin/reports', async (c) => {
-  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const status = c.req.query('status')
   const result =
     status === REPORT_STATUS_FILTER.open || status === REPORT_STATUS_FILTER.resolved
@@ -549,18 +550,18 @@ app.get('/api/admin/reports', async (c) => {
 })
 
 app.patch('/api/admin/reports/:id', async (c) => {
-  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ status?: string }>()
   if (!id || (body.status !== REPORT_STATUS_FILTER.open && body.status !== REPORT_STATUS_FILTER.resolved)) {
-    return c.json({ error: 'Invalid request' }, 400)
+    return c.json({ error: 'Invalid request' }, HTTP_STATUS.badRequest)
   }
   await db.execute({ sql: 'UPDATE reports SET status = ? WHERE id = ?', args: [body.status, id] })
   return c.json({ ok: true })
 })
 
 app.get('/api/admin/reports.csv', async (c) => {
-  if (!requireAdmin(c)) return c.text('Forbidden', 403)
+  if (!requireAdmin(c)) return c.text('Forbidden', HTTP_STATUS.forbidden)
   const result = await db.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 1000')
   const headers = [...REPORT_CSV_HEADERS]
   const escape = (v: unknown) => {
@@ -572,19 +573,19 @@ app.get('/api/admin/reports.csv', async (c) => {
     lines.push(headers.map((h) => escape((row as Record<string, unknown>)[h])).join(','))
   }
   return c.body(lines.join('\n') + '\n', 200, {
-    'content-type': 'text/csv; charset=utf-8',
+    [HTTP_HEADERS.contentType]: MIME_TYPE.csv,
     'content-disposition': 'attachment; filename="reports.csv"',
   })
 })
 
 app.post('/api/ratings', async (c) => {
   const ip = clientIp(c)
-  if (!rateLimit(`rating:${ip}`, 40, 60_000)) return c.json({ error: 'Too many requests' }, 429)
+  if (!rateLimit(`rating:${ip}`, 40, 60_000)) return c.json({ error: 'Too many requests' }, HTTP_STATUS.tooManyRequests)
   const user = await userFromToken(getBearer(c))
   const body = await c.req.json<{ roomId?: string; score?: number }>()
   const score = Number(body.score)
   if (!Number.isInteger(score) || score < 1 || score > 5) {
-    return c.json({ error: 'Score must be 1–5.' }, 400)
+    return c.json({ error: 'Score must be 1–5.' }, HTTP_STATUS.badRequest)
   }
   const roomId = body.roomId?.slice(0, 64) || `anon_${ip}_${Date.now()}`
   try {
@@ -593,7 +594,7 @@ app.post('/api/ratings', async (c) => {
       args: [roomId, user?.id ?? null, ip, score],
     })
   } catch {
-    return c.json({ error: 'Already rated this match.' }, 409)
+    return c.json({ error: 'Already rated this match.' }, HTTP_STATUS.conflict)
   }
   inc(METRIC_NAMES.ratingsTotal)
   inc(`rating_score_${score}`)
@@ -601,13 +602,13 @@ app.post('/api/ratings', async (c) => {
 })
 
 app.get('/api/admin/bans', async (c) => {
-  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const result = await db.execute('SELECT * FROM bans ORDER BY id DESC LIMIT 200')
   return c.json({ bans: result.rows })
 })
 
 app.get('/api/admin/users', async (c) => {
-  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const q = c.req.query('q')?.trim()
   if (q) {
     const result = await db.execute({
@@ -624,7 +625,7 @@ app.get('/api/admin/users', async (c) => {
 })
 
 app.post('/api/admin/ban', async (c) => {
-  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const body = await c.req.json<{ userId?: number; ip?: string; reason?: string; hours?: number }>()
   const expires = body.hours != null ? new Date(Date.now() + body.hours * 3600_000).toISOString() : null
   await db.execute({
@@ -640,16 +641,16 @@ app.post('/api/admin/ban', async (c) => {
 })
 
 app.delete('/api/admin/ban/:id', async (c) => {
-  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
+  if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, HTTP_STATUS.forbidden)
   const id = Number(c.req.param('id'))
-  if (!id) return c.json({ error: 'Invalid id' }, 400)
+  if (!id) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
   await db.execute({ sql: 'DELETE FROM bans WHERE id = ?', args: [id] })
   return c.json({ ok: true })
 })
 
 app.delete('/api/auth/account', async (c) => {
   const user = await userFromToken(getBearer(c))
-  if (!user) return c.json({ error: 'Unauthorized' }, 401)
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
   await db.execute({ sql: 'UPDATE sessions SET revoked = 1 WHERE user_id = ?', args: [user.id] })
   await db.execute({ sql: 'DELETE FROM blocks WHERE blocker_id = ? OR blocked_id = ?', args: [user.id, user.id] })
   await db.execute({ sql: 'DELETE FROM users WHERE id = ?', args: [user.id] })
@@ -661,7 +662,7 @@ app.get('*', async (c) => {
   if (c.req.path.startsWith('/api') || c.req.path === '/ws') return c.notFound()
   const res = await serveStatic(c.req.path)
   if (res) return res
-  return c.text('Not found — run npm run build or use Vite dev server', 404)
+  return c.text('Not found — run npm run build or use Vite dev server', HTTP_STATUS.notFound)
 })
 
 function asSocket(ws: WebSocket): SocketLike {
@@ -748,7 +749,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
       return
     }
     const partner = getPartner(socket)
-    const text = message.payload?.text?.slice(0, 500)
+    const text = message.payload?.text?.slice(0, HTTP_STATUS.internalServerError)
     if (partner && text) {
       send(partner, {
         type: WS_MESSAGE_TYPE.chat,
@@ -777,7 +778,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
         sessionKey,
         room?.id ?? null,
         message.reason,
-        message.detail?.slice(0, 500) ?? null,
+        message.detail?.slice(0, HTTP_STATUS.internalServerError) ?? null,
       ],
     })
     inc(METRIC_NAMES.reportsTotal)
@@ -856,7 +857,7 @@ wss.on('connection', (ws, req) => {
     return
   }
   const ip =
-    (req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+    (req.headers[HTTP_HEADERS.xForwardedFor]?.toString().split(',')[0]?.trim() ||
       req.socket.remoteAddress ||
       'unknown') ?? 'unknown'
   const sessionKey = createHash('sha256')
@@ -898,6 +899,10 @@ const shutdown = (signal: string) => {
     setTimeout(() => process.exit(0), 2000).unref?.()
   }, config.drainMs).unref?.()
 }
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+
 
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))

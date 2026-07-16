@@ -1,5 +1,5 @@
 /** Short pleasant blip when a match is found (Web Audio, no asset files). */
-import { TIMING_MS } from '../shared/constants'
+import { TIMING_MS } from '../../shared/constants'
 
 export function playMatchSound() {
   try {
