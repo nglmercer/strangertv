@@ -203,6 +203,30 @@
   font-size: 13px;
 }
 
+.local-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 3;
+}
+
+.local-action {
+  background: var(--accent);
+  border: 0;
+  color: #fff;
+  border-radius: 4px;
+  padding: 7px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.local-action.ghost {
+  background: transparent;
+  border: 1px solid #444;
+  color: #ddd;
+}
+
 /* Connection quality: icon only; details on hover/focus */
 .quality-badge {
   position: absolute;

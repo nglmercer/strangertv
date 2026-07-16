@@ -5,6 +5,7 @@ import { QUALITY_TIER } from '../../shared/constants'
 import { formatDuration } from '../utils/format'
 import type { LinkStats } from '../utils/webrtcQuality'
 import { QualityBadge } from './QualityBadge'
+import type { PublicUser } from '../api'
 
 export function VideoStage({
   t,
@@ -22,6 +23,10 @@ export function VideoStage({
   localVideo,
   remoteVideo,
   hasLocalStream,
+  user,
+  onPreferences,
+  onSettings,
+  onAuthClick,
 }: {
   t: Messages
   finding: boolean
@@ -38,6 +43,10 @@ export function VideoStage({
   localVideo: RefObject<HTMLVideoElement>
   remoteVideo: RefObject<HTMLVideoElement>
   hasLocalStream: boolean
+  user: PublicUser | null
+  onPreferences: () => void
+  onSettings: () => void
+  onAuthClick: () => void
 }) {
   const emptyTitle = finding ? status || t.searchingTitle : t.idleTitle
   const emptyBody = finding
@@ -105,6 +114,19 @@ export function VideoStage({
             <div class="stage-empty local">
               <div class="empty">
                 <p class="local-preview-hint">{t.localPreviewHint}</p>
+              </div>
+              <div class="local-actions">
+                <button type="button" class="local-action ghost" onClick={onPreferences}>
+                  {t.preferences}
+                </button>
+                {user && (
+                  <button type="button" class="local-action ghost" onClick={onSettings}>
+                    {t.settings}
+                  </button>
+                )}
+                <button type="button" class="local-action" onClick={onAuthClick}>
+                  {user ? t.signOut : t.signIn}
+                </button>
               </div>
             </div>
           )}

@@ -166,6 +166,13 @@ export function App() {
           localVideo={session.localVideo}
           remoteVideo={session.remoteVideo}
           hasLocalStream={Boolean(session.media.streamRef.current)}
+          user={user}
+          onPreferences={() => {
+            setPrefsTab(PREFS_TAB.match)
+            setPreferences(true)
+          }}
+          onSettings={() => setSettings(true)}
+          onAuthClick={onAuthClick}
         />
         <CallBar
           t={tr}
