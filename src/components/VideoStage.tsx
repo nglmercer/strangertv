@@ -1,6 +1,7 @@
 import type { RefObject } from 'preact'
 import { countryLabel, interestLabel, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
+import { QUALITY_TIER } from '../../shared/constants'
 import { formatDuration } from '../utils/format'
 import type { LinkStats } from '../utils/webrtcQuality'
 import { QualityBadge } from './QualityBadge'
@@ -111,7 +112,7 @@ export function VideoStage({
         </article>
       </div>
 
-      {quality === 'failed' && matched && (
+      {quality === QUALITY_TIER.failed && matched && (
         <p class="stage-error" role="alert">
           {t.connectionFailed}
         </p>

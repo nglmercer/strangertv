@@ -1,4 +1,14 @@
 import type { Gender, MatchPreferences, ServerMessage } from '../shared/types'
+import {
+  DEFAULT_COUNTRY,
+  DEFAULT_GENDER,
+  DEFAULT_LANGUAGE,
+  GENDERS,
+  METRIC_NAMES,
+  PEER_LEFT_REASON,
+  SERVER_ERROR_CODE,
+  WS_MESSAGE_TYPE,
+} from '../shared/constants'
 import { inc, observeMs } from './metrics'
 
 export type SocketLike = {
@@ -109,16 +119,16 @@ export function send(socket: SocketLike, message: ServerMessage) {
 }
 
 function genderOk(lookingFor: Gender, peerGender: Gender) {
-  if (lookingFor === 'any' || peerGender === 'any') return true
+  if (lookingFor === DEFAULT_GENDER || peerGender === DEFAULT_GENDER) return true
   return lookingFor === peerGender
 }
 
 function countryOk(a: string, b: string) {
-  return a === 'any' || b === 'any' || a === b
+  return a === DEFAULT_COUNTRY || b === DEFAULT_COUNTRY || a === b
 }
 
 function languageOk(a: string, b: string) {
-  return a === 'any' || b === 'any' || a === b
+  return a === DEFAULT_LANGUAGE || b === DEFAULT_LANGUAGE || a === b
 }
 
 function interestScore(a: string[], b: string[]) {
@@ -147,11 +157,10 @@ function score(a: QueuePeer, b: QueuePeer) {
 export function normalizePreferences(raw: unknown): MatchPreferences | null {
   if (!raw || typeof raw !== 'object') return null
   const p = raw as Record<string, unknown>
-  const country = typeof p.country === 'string' ? p.country.slice(0, 8) : 'any'
-  const language = typeof p.language === 'string' ? p.language.slice(0, 16) : 'any'
-  const genders: Gender[] = ['any', 'male', 'female', 'other']
-  const gender = genders.includes(p.gender as Gender) ? (p.gender as Gender) : 'any'
-  const lookingFor = genders.includes(p.lookingFor as Gender) ? (p.lookingFor as Gender) : 'any'
+  const country = typeof p.country === 'string' ? p.country.slice(0, 8) : DEFAULT_COUNTRY
+  const language = typeof p.language === 'string' ? p.language.slice(0, 16) : DEFAULT_LANGUAGE
+  const gender = GENDERS.includes(p.gender as Gender) ? (p.gender as Gender) : DEFAULT_GENDER
+  const lookingFor = GENDERS.includes(p.lookingFor as Gender) ? (p.lookingFor as Gender) : DEFAULT_GENDER
   const interests = Array.isArray(p.interests)
     ? p.interests.filter((x): x is string => typeof x === 'string').slice(0, 10)
     : []
@@ -180,7 +189,7 @@ export function leaveRoom(socket: SocketLike, notifyPartner = true, reason?: str
 
 export function fullRemove(socket: SocketLike) {
   removeFromQueue(socket)
-  leaveRoom(socket, true, 'disconnect')
+  leaveRoom(socket, true, PEER_LEFT_REASON.disconnect)
 }
 
 export function queueStats() {
@@ -206,7 +215,7 @@ export function joinQueue(
   opts: { userId?: number; sessionKey: string },
 ) {
   removeFromQueue(socket)
-  leaveRoom(socket, true, 'requeue')
+  leaveRoom(socket, true, PEER_LEFT_REASON.requeue)
 
   const self: QueuePeer = {
     socket,
@@ -261,14 +270,14 @@ export function joinQueue(
       sharedInterests,
     })
     const waitMs = Date.now() - partner.joinedAt
-    observeMs('match_wait', waitMs)
-    inc('matches_total')
+    observeMs(METRIC_NAMES.matchWait, waitMs)
+    inc(METRIC_NAMES.matchesTotal)
     broadcastStats()
     return
   }
 
   waiting.push(self)
-  inc('queue_joins')
+  inc(METRIC_NAMES.queueJoins)
   send(socket, {
     type: 'queue:waiting',
     position: waiting.length,
@@ -303,7 +312,7 @@ export function purgeStale(maxAgeMs = 45_000) {
     const peer = waiting[i]!
     if (now - peer.lastBeat > maxAgeMs) {
       waiting.splice(i, 1)
-      send(peer.socket, { type: 'error', code: 'queue_timeout', message: 'Queue timed out. Try again.' })
+      send(peer.socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.queueTimeout, message: 'Queue timed out. Try again.' })
       peerMeta.delete(peer.socket)
     }
   }

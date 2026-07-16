@@ -1,13 +1,14 @@
 import { useState } from 'preact/hooks'
 import type { Locale, MatchPreferences } from '../../shared/types'
 import type { Messages } from '../i18n'
+import { PREFS_TAB, PrefsTab } from '../../shared/constants'
 import type { MediaErrorCode } from '../utils/mediaErrors'
 import { Modal } from './Modal'
 import { DevicesPrefsTab } from './preferences/DevicesPrefsTab'
 import { LocalePrefsTab } from './preferences/LocalePrefsTab'
 import { MatchPrefsTab } from './preferences/MatchPrefsTab'
 
-export type PrefsTabId = 'match' | 'devices' | 'language'
+export type PrefsTabId = PrefsTab
 
 export function PreferencesModal({
   t,
@@ -48,12 +49,12 @@ export function PreferencesModal({
   initialTab?: PrefsTabId
   onClose: () => void
 }) {
-  const [tab, setTab] = useState<PrefsTabId>(() => initialTab ?? (errorCode ? 'devices' : 'match'))
+  const [tab, setTab] = useState<PrefsTabId>(() => initialTab ?? (errorCode ? PREFS_TAB.devices : PREFS_TAB.match))
 
   const tabs: { id: PrefsTabId; label: string }[] = [
-    { id: 'match', label: t.prefsTabMatch },
-    { id: 'devices', label: t.prefsTabDevices },
-    { id: 'language', label: t.prefsTabLanguage },
+    { id: PREFS_TAB.match, label: t.prefsTabMatch },
+    { id: PREFS_TAB.devices, label: t.prefsTabDevices },
+    { id: PREFS_TAB.language, label: t.prefsTabLanguage },
   ]
 
   return (
@@ -79,8 +80,8 @@ export function PreferencesModal({
         ))}
       </div>
 
-      {tab === 'match' && <MatchPrefsTab t={t} prefs={prefs} setPrefs={setPrefs} />}
-      {tab === 'devices' && (
+      {tab === PREFS_TAB.match && <MatchPrefsTab t={t} prefs={prefs} setPrefs={setPrefs} />}
+      {tab === PREFS_TAB.devices && (
         <DevicesPrefsTab
           t={t}
           devices={devices}
@@ -96,7 +97,7 @@ export function PreferencesModal({
           streamVersion={streamVersion}
         />
       )}
-      {tab === 'language' && <LocalePrefsTab t={t} locale={locale} setLocale={setLocale} />}
+      {tab === PREFS_TAB.language && <LocalePrefsTab t={t} locale={locale} setLocale={setLocale} />}
 
       <button class="match full" onClick={onClose}>
         {t.save}

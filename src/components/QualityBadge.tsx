@@ -42,7 +42,7 @@ export function QualityBadge({
   stats?: LinkStats | null
   t: Messages
 }) {
-  if (quality === 'idle') return null
+  if (quality === QUALITY_TIER.idle) return null
   const text = formatDetail(t, quality, stats)
 
   return (
@@ -54,7 +54,7 @@ export function QualityBadge({
       title={text}
     >
       <svg class="quality-icon" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="3" y="14" width="3.5" height="7" rx="1" fill="currentColor" opacity={quality === 'failed' ? 0.25 : 0.9} />
+        <rect x="3" y="14" width="3.5" height="7" rx="1" fill="currentColor" opacity={quality === QUALITY_TIER.failed ? 0.25 : 0.9} />
         <rect
           x="8.5"
           y="10"
@@ -62,7 +62,7 @@ export function QualityBadge({
           height="11"
           rx="1"
           fill="currentColor"
-          opacity={quality === 'connecting' || quality === 'failed' ? 0.3 : 0.95}
+          opacity={quality === QUALITY_TIER.connecting || quality === QUALITY_TIER.failed ? 0.3 : 0.95}
         />
         <rect
           x="14"
@@ -71,7 +71,7 @@ export function QualityBadge({
           height="15"
           rx="1"
           fill="currentColor"
-          opacity={quality === 'good' ? 1 : quality === 'poor' ? 0.35 : 0.2}
+          opacity={quality === QUALITY_TIER.good ? 1 : quality === QUALITY_TIER.poor ? 0.35 : 0.2}
         />
         <rect
           x="19.5"
@@ -80,9 +80,9 @@ export function QualityBadge({
           height="19"
           rx="1"
           fill="currentColor"
-          opacity={quality === 'good' ? 1 : 0.18}
+          opacity={quality === QUALITY_TIER.good ? 1 : 0.18}
         />
-        {quality === 'failed' && (
+        {quality === QUALITY_TIER.failed && (
           <path d="M4 4l16 16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
         )}
       </svg>

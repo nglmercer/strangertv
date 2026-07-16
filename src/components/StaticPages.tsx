@@ -1,15 +1,16 @@
 import { Modal } from './Modal'
 import type { Messages } from '../i18n'
+import { PAGE_ID } from '../../shared/constants'
 
-export type PageId = 'rules' | 'safety' | 'privacy' | 'terms' | null
+export type PageId = (typeof PAGE_ID)[keyof typeof PAGE_ID] | null
 
 export function StaticPage({ page, t, onClose }: { page: PageId; t: Messages; onClose: () => void }) {
   if (!page) return null
   const titles: Record<Exclude<PageId, null>, string> = {
-    rules: t.rules,
-    safety: t.safety,
-    privacy: t.privacy,
-    terms: t.terms,
+    [PAGE_ID.rules]: t.rules,
+    [PAGE_ID.safety]: t.safety,
+    [PAGE_ID.privacy]: t.privacy,
+    [PAGE_ID.terms]: t.terms,
   }
 
   return (

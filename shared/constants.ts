@@ -260,6 +260,7 @@ export const REPORT_REASONS = [
 
 export const DEFAULT_COUNTRY = 'any'
 export const DEFAULT_LANGUAGE = 'any'
+export const DEFAULT_GENDER = 'any'
 
 // ---------------------------------------------------------------------------
 // Admin report filter statuses
@@ -323,6 +324,7 @@ export const FEATURE_FLAG_ENV = {
 export const METRIC_NAMES = {
   matchesTotal: 'matches_total',
   queueJoins: 'queue_joins',
+  matchWait: 'match_wait',
   wsConnections: 'ws_connections',
   reportsTotal: 'reports_total',
   reportsUnderage: 'reports_underage',
@@ -341,6 +343,14 @@ export const CONSENT_KIND = {
 } as const
 
 export const BAN_REASON_DEFAULT = 'moderation'
+
+// ---------------------------------------------------------------------------
+// Email subjects
+// ---------------------------------------------------------------------------
+export const EMAIL_SUBJECT = {
+  verify: 'Verify your stranger email',
+  reset: 'Reset your stranger password',
+} as const
 
 // ---------------------------------------------------------------------------
 // Admin report CSV column headers

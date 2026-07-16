@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Messages } from '../i18n'
 import type { Quality } from '../types/ui'
+import { QUALITY_TIER } from '../../shared/constants'
 
 type Props = {
   t: Messages
@@ -175,7 +176,7 @@ export function CallBar({
               <Icon d={icons.block} size={18} />
               <span>{canBlock ? t.blockPeer : t.signInToBlock}</span>
             </button>
-            {quality === 'failed' && (
+            {quality === QUALITY_TIER.failed && (
               <button
                 type="button"
                 role="menuitem"
