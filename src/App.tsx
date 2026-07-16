@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'preact/hooks'
 import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
-import { PREFS_TAB, PrefsTab, STORAGE_KEYS } from '../shared/constants'
+import { PREFS_TAB, PrefsTab, STORAGE_KEYS, GENDER } from '../shared/constants'
 import { authApi, clearSession, getStoredUser, loadPrefs, savePrefs, socialApi, type PublicUser } from './api'
 import { AppFooter } from './components/AppFooter'
 import { AppModals } from './components/AppModals'
@@ -136,13 +136,13 @@ export function App() {
   )
 
   const genderEmoji =
-    prefs.gender === 'male' ? '👨' : prefs.gender === 'female' ? '👩' : prefs.gender === 'other' ? '🧑' : '🌐'
+    prefs.gender === GENDER.male ? '👨' : prefs.gender === GENDER.female ? '👩' : prefs.gender === GENDER.other ? '🧑' : '🌐'
   const lookingLabel =
-    prefs.lookingFor === 'male'
+    prefs.lookingFor === GENDER.male
       ? tr.male
-      : prefs.lookingFor === 'female'
+      : prefs.lookingFor === GENDER.female
         ? tr.female
-        : prefs.lookingFor === 'other'
+        : prefs.lookingFor === GENDER.other
           ? tr.other
           : tr.everyone
 

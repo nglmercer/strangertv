@@ -1,5 +1,6 @@
 import type { Messages } from '../i18n'
 import type { PageId } from './StaticPages'
+import { PAGE_ID } from '../../shared/constants'
 
 export function AppFooter({
   t,
@@ -17,11 +18,11 @@ export function AppFooter({
       <span>
         {t.footerAge}
         {' · '}
-        <button type="button" class="linkish" onClick={() => onOpenPage('privacy')}>
+        <button type="button" class="linkish" onClick={() => onOpenPage(PAGE_ID.privacy)}>
           {t.privacy}
         </button>
         {' · '}
-        <button type="button" class="linkish" onClick={() => onOpenPage('terms')}>
+        <button type="button" class="linkish" onClick={() => onOpenPage(PAGE_ID.terms)}>
           {t.terms}
         </button>
         {appVersion ? ` · ${t.version}${appVersion}` : ''}

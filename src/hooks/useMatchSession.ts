@@ -4,7 +4,7 @@ import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
-import { PEER_LEFT_REASON, SignalKind, STORAGE_KEYS, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
+import { PEER_LEFT_REASON, QUALITY_TIER, SignalKind, STORAGE_KEYS, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
 import { useWebRTC } from './useWebRTC'
@@ -210,7 +210,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   }, [chat])
 
   useEffect(() => {
-    if (!matched || webrtc.quality === 'idle') return
+    if (!matched || webrtc.quality === QUALITY_TIER.idle) return
     match.send({
       type: WS_MESSAGE_TYPE.telemetryQuality,
       roomId: roomId ?? undefined,

@@ -125,7 +125,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
       pc.onconnectionstatechange = applyState
 
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === 'failed') {
+        if (pc.iceConnectionState === RTC_STATE.failed) {
           setQuality('failed')
           void (async () => {
             try {

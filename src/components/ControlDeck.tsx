@@ -1,5 +1,6 @@
 import type { MatchPreferences } from '../../shared/types'
 import { countryLabel, type Messages } from '../i18n'
+import { DEFAULT_COUNTRY } from '../../shared/constants'
 
 export function ControlDeck({
   t,
@@ -24,7 +25,7 @@ export function ControlDeck({
   onOpenPrefs: () => void
   onToggleAutoNext: () => void
 }) {
-  const countryDisplay = prefs.country === 'any' ? '🌐' : prefs.country
+  const countryDisplay = prefs.country === DEFAULT_COUNTRY ? '🌐' : prefs.country
 
   return (
     <div class="deck">

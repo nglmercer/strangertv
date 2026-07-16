@@ -1,5 +1,5 @@
 import { logger } from './logger'
-import { EMAIL_SUBJECT, HTTP_HEADERS, MIME_TYPE } from '../shared/constants'
+import { EMAIL_SUBJECT, HTTP_HEADERS, MIME_TYPE, URL_PARAM } from '../shared/constants'
 
 /**
  * Password-reset / verification mailer.
@@ -53,14 +53,14 @@ export async function sendEmail(opts: {
 }
 
 export function resetEmailBody(token: string, appUrl: string) {
-  const link = `${appUrl.replace(/\/$/, '')}/?reset=${encodeURIComponent(token)}`
+  const link = `${appUrl.replace(/\/$/, '')}/?${URL_PARAM.reset}=${encodeURIComponent(token)}`
   const text = `${EMAIL_SUBJECT.reset}\n\nToken: ${token}\nOr open: ${link}\n\nThis link expires in 1 hour.`
   const html = `<p>${EMAIL_SUBJECT.reset}</p><p><a href="${link}">Reset password</a></p><p>Or use token: <code>${token}</code></p><p>Expires in 1 hour.</p>`
   return { text, html, link }
 }
 
 export function verifyEmailBody(token: string, appUrl: string) {
-  const link = `${appUrl.replace(/\/$/, '')}/?verify=${encodeURIComponent(token)}`
+  const link = `${appUrl.replace(/\/$/, '')}/?${URL_PARAM.verify}=${encodeURIComponent(token)}`
   const text = `${EMAIL_SUBJECT.verify}\n\nOpen: ${link}\n\nThis link expires in 48 hours.`
   const html = `<p>${EMAIL_SUBJECT.verify}</p><p><a href="${link}">Verify email</a></p><p>Expires in 48 hours.</p>`
   return { text, html, link }

@@ -5,7 +5,7 @@ import {
   type Gender,
   type MatchPreferences,
 } from '../../../shared/types'
-import { GENDERS } from '../../../shared/constants'
+import { GENDER, GENDERS } from '../../../shared/constants'
 import { countryLabel, interestLabel, matchLangLabel, type Messages } from '../../i18n'
 
 export function MatchPrefsTab({
@@ -18,7 +18,7 @@ export function MatchPrefsTab({
   setPrefs: (p: MatchPreferences) => void
 }) {
   const genderLabel = (g: Gender) =>
-    g === 'male' ? t.male : g === 'female' ? t.female : g === 'other' ? t.other : t.any
+    g === GENDER.male ? t.male : g === GENDER.female ? t.female : g === GENDER.other ? t.other : t.any
 
   const toggleInterest = (tag: string) => {
     const has = prefs.interests.includes(tag)

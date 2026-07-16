@@ -250,7 +250,7 @@ export function AdminApp() {
         ))}
       </nav>
 
-      {tab === 'overview' && overview && (
+      {tab === ADMIN_TAB.overview && overview && (
         <section class="admin-grid">
           <article class="stat">
             <strong>{overview.queue.online}</strong>
@@ -312,7 +312,7 @@ export function AdminApp() {
         </section>
       )}
 
-      {tab === 'reports' && (
+      {tab === ADMIN_TAB.reports && (
         <section class="admin-card table-wrap">
           <div class="reports-head">
             <h2>{tr.reports}</h2>
@@ -394,7 +394,7 @@ export function AdminApp() {
         </section>
       )}
 
-      {tab === 'bans' && (
+      {tab === ADMIN_TAB.bans && (
         <section class="admin-card">
           <h2>{tr.bans}</h2>
           <form class="ban-form" onSubmit={submitBan}>
@@ -464,7 +464,7 @@ export function AdminApp() {
         </section>
       )}
 
-      {tab === 'users' && (
+      {tab === ADMIN_TAB.users && (
         <section class="admin-card">
           <h2>{tr.users}</h2>
           <div class="row">

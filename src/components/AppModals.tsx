@@ -3,7 +3,7 @@ import { authApi, socialApi, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
 import type { MediaErrorCode } from '../utils/mediaErrors'
 import { AuthModal } from './AuthModal'
-import { PreferencesModal } from './PreferencesModal'
+import { PreferencesModal, type PrefsTabId } from './PreferencesModal'
 import { ProfileModal } from './ProfileModal'
 import { RatingPrompt } from './RatingPrompt'
 import { ReportModal } from './ReportModal'
@@ -81,7 +81,7 @@ export function AppModals({
   page: PageId
   setPage: (p: PageId) => void
   media: MediaSlice
-  prefsInitialTab?: 'match' | 'devices' | 'language'
+  prefsInitialTab?: PrefsTabId
   onBeginMatch: () => void
   onReport: (reason: ReportReason, detail: string) => void
   onDeviceChange: (kind: 'video' | 'audio', id: string) => void

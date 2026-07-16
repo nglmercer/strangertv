@@ -2,6 +2,7 @@ import type { RefObject } from 'preact'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import type { PageId } from './StaticPages'
+import { PAGE_ID } from '../../shared/constants'
 
 export function ChatPanel({
   t,
@@ -30,11 +31,11 @@ export function ChatPanel({
         <p>
           {t.notice}
           {' '}
-          <button type="button" class="linkish" onClick={() => onOpenPage('rules')}>
+          <button type="button" class="linkish" onClick={() => onOpenPage(PAGE_ID.rules)}>
             {t.rules}
           </button>
           {' · '}
-          <button type="button" class="linkish" onClick={() => onOpenPage('safety')}>
+          <button type="button" class="linkish" onClick={() => onOpenPage(PAGE_ID.safety)}>
             {t.safety}
           </button>
         </p>

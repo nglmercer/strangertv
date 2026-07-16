@@ -70,6 +70,12 @@ export const API_PREFIX = '/api'
 
 export const WS_PATH = '/ws'
 
+/** URL query-parameter names for deep links (email verify / password reset). */
+export const URL_PARAM = {
+  reset: 'reset',
+  verify: 'verify',
+} as const
+
 export const ADMIN_PATH = '/admin'
 export const ADMIN_HASH = '#admin'
 
@@ -265,6 +271,14 @@ export const STUN_SERVERS: string[] = [
 // ---------------------------------------------------------------------------
 export const LOCALES = ['en', 'es', 'pt'] as const satisfies readonly Locale[]
 export const GENDERS = ['any', 'male', 'female', 'other'] as const satisfies readonly Gender[]
+
+/** Individual gender values (for comparisons in display mappings). */
+export const GENDER = {
+  any: 'any',
+  male: 'male',
+  female: 'female',
+  other: 'other',
+} as const
 export const REPORT_REASONS = [
   'nudity',
   'harassment',
@@ -376,6 +390,10 @@ export const BAN_REASON_DEFAULT = 'moderation'
 // ---------------------------------------------------------------------------
 // Email subjects
 // ---------------------------------------------------------------------------
+export const ALERT_TYPE = {
+  underageReport: 'underage_report',
+  reportSpike: 'report_spike',
+} as const
 export const EMAIL_SUBJECT = {
   verify: 'Verify your stranger email',
   reset: 'Reset your stranger password',
@@ -393,6 +411,8 @@ export const TIMING_MS = {
   longWait: 45_000,
   /** Client health/overview poll interval. */
   healthPoll: 15_000,
+  /** Client bootstrap health poll interval. */
+  healthPollClient: 20_000,
 } as const
 
 // ---------------------------------------------------------------------------

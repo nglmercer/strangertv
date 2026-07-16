@@ -9,6 +9,7 @@ import {
   type PublicUser,
 } from '../api'
 import { detectLocale, t as translate } from '../i18n'
+import { TIMING_MS, URL_PARAM } from '../../shared/constants'
 
 type Options = {
   setUser: (u: PublicUser | null) => void
@@ -32,13 +33,13 @@ export function useSessionBootstrap({
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
-    const reset = params.get('reset')
+    const reset = params.get(URL_PARAM.reset)
     if (reset) {
       setResetToken(reset)
       setAuth(true)
       history.replaceState({}, '', location.pathname)
     }
-    const verify = params.get('verify')
+    const verify = params.get(URL_PARAM.verify)
     if (verify) {
       void authApi
         .verifyEmail(verify)
@@ -89,7 +90,7 @@ export function useSessionBootstrap({
           setWaitingCount(h.waiting)
         }
       })
-    }, 20_000)
+    }, TIMING_MS.healthPollClient)
     return () => clearInterval(iv)
   }, [setUser, setAuth, setResetToken, setStatus, setOnline, setWaitingCount])
 
