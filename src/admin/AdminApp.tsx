@@ -12,7 +12,7 @@ import {
   STORAGE_KEYS,
   TIMING_MS,
 } from '../../shared/constants'
-import { get, remove, set } from '../../utils/storage'
+import { get, remove, set } from '../utils/storage'
 
 type Overview = {
   queue: { waiting: number; online: number }

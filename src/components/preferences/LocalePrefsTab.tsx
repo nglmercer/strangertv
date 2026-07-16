@@ -1,6 +1,6 @@
 import type { Locale } from '../../../shared/types'
 import { LOCALES } from '../../../shared/constants'
-import { setStoredLocale } from '../../../utils/storage'
+import { setStoredLocale } from '../../utils/storage'
 import type { Messages } from '../../i18n'
 
 export function LocalePrefsTab({

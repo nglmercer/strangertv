@@ -1,7 +1,8 @@
 import { useState } from 'preact/hooks'
-import { authApi, setSession, type PublicUser } from '../api'
+import { authApi, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
 import { isAdult } from '../utils/age'
+import { setSession } from '../utils/storage'
 import { get, set, storageKeys, applyUserToClient } from '../utils/clientStorage'
 import { Modal } from './Modal'
 

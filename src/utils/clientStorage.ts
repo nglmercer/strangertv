@@ -2,7 +2,7 @@ import type { Gender, MatchPreferences } from '../../shared/types'
 import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, GENDERS, STORAGE_KEYS } from '../../shared/constants'
 import { type PublicUser, get, getBool, getFlag, set, setBool, setFlag } from './storage'
 
-export { get, set, storageKeys, STORAGE_KEYS }
+export { get, set }
 import { isAdult } from './age'
 
 /** Bump when legal copy changes so users re-accept terms. */

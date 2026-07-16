@@ -1,6 +1,6 @@
 import type { Locale } from '../../shared/types'
 import { DEFAULT_LOCALE, LOCALES } from '../../shared/constants'
-import { getStoredLocale } from '../../utils/storage'
+import { getStoredLocale } from '../utils/storage'
 import { en, type Messages } from './en'
 import { es } from './es'
 import { pt } from './pt'

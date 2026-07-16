@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'preact/hooks'
-import { authApi, clearSession, socialApi, type PublicUser } from '../api'
-import { isMatchNotifyEnabled, isMatchSoundEnabled, setMatchNotifyEnabled, setMatchSoundEnabled } from '../../utils/storage'
+import { authApi, socialApi, type PublicUser } from '../api'
+import { isMatchNotifyEnabled, isMatchSoundEnabled, setMatchNotifyEnabled, setMatchSoundEnabled, clearSession } from '../utils/storage'
 import type { Messages } from '../i18n'
 import { requestNotifyPermission } from '../utils/notify'
 import { Modal } from './Modal'

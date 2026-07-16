@@ -1,5 +1,5 @@
 import type { Gender, MatchPreferences } from '../shared/types'
-import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STUN_SERVERS } from '../shared/constants'
+import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
   clearSession,
@@ -8,7 +8,9 @@ import {
   getToken,
   setJSON,
   setSession,
-} from './storage'
+} from './utils/storage'
+
+export { clearSession, getStoredUser, getToken, setSession }
 
 export type { PublicUser }
 
