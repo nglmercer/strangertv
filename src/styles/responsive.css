@@ -39,8 +39,9 @@
     min-height: 0;
   }
 
-  .brand-mark {
-    transform: rotate(-1deg) scale(0.85);
+  .brand-mark-3d {
+    width: min(200px, 46vw);
+    height: min(200px, 46vw);
   }
 
   .stage-empty {
@@ -183,8 +184,9 @@
     grid-template-rows: min(35vh, 280px) min(24vh, 150px);
   }
 
-  .brand-mark {
-    transform: rotate(-1deg) scale(0.75);
+  .brand-mark-3d {
+    width: min(175px, 44vw);
+    height: min(175px, 44vw);
   }
 
   .video.local .stage-empty .local-preview-hint {

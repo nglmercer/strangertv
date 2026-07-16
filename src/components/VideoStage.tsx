@@ -7,6 +7,7 @@ import { formatDuration } from '../utils/format'
 import type { LinkStats } from '../utils/webrtcQuality'
 import { QualityBadge } from './QualityBadge'
 import type { PublicUser } from '../api'
+import { BrandMark3D } from './brandmark/BrandMark3D'
 
 export function VideoStage({
   t,
@@ -77,11 +78,7 @@ export function VideoStage({
           {!hasRemote && (
             <div class="stage-empty">
               <StaticNoise opacity={0.42} density={0.5} cellSize={3} />
-              <div class="brand-mark" aria-hidden="true">
-                <span class="brand-mark-glow" />
-                <strong>✦</strong>
-                <b>{t.brand}</b>
-              </div>
+              <BrandMark3D />
               {finding && (
                 <div class="pulse-ring" aria-hidden="true">
                   <span />

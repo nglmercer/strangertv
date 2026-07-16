@@ -149,57 +149,24 @@
   border-radius: 50%;
 }
 
-.brand-mark {
+.brand-mark-3d {
   position: relative;
   z-index: 2;
-  width: min(200px, 48vw);
-  aspect-ratio: 1.15;
-  border-radius: 28px;
-  background: linear-gradient(145deg, #f1784a 0%, #e85a32 55%, #c94a2a 100%);
-  color: #fff;
-  display: grid;
-  place-content: center;
-  text-align: center;
-  box-shadow: 0 12px 0 #9a3a22, 0 18px 40px #0008;
-  transform: rotate(-2deg);
-}
-
-.brand-mark-glow {
-  position: absolute;
-  inset: 12px;
-  border-radius: 20px;
-  background: #fff;
-  opacity: 0.96;
-  z-index: 0;
-}
-
-.brand-mark strong,
-.brand-mark b {
-  position: relative;
-  z-index: 1;
+  width: min(280px, 62vw);
+  height: min(280px, 62vw);
   display: block;
-  line-height: 1;
+  cursor: grab;
+  touch-action: none;
 }
 
-.brand-mark strong {
-  font-size: clamp(42px, 8vw, 56px);
-  color: #ef6238;
-  letter-spacing: -4px;
-}
-
-.brand-mark b {
-  margin-top: 4px;
-  font-size: clamp(18px, 4vw, 22px);
-  font-weight: 700;
-  color: #2f9d74;
-  letter-spacing: 0.12em;
-  text-transform: lowercase;
+.brand-mark-3d:active {
+  cursor: grabbing;
 }
 
 .pulse-ring {
   position: absolute;
-  width: min(220px, 55vw);
-  height: min(220px, 55vw);
+  width: min(280px, 62vw);
+  height: min(280px, 62vw);
   z-index: 1;
   pointer-events: none;
 }
