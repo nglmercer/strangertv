@@ -32,12 +32,20 @@ export function clientIp(c: HeaderCtx): string {
 }
 
 /** Client IP from a raw incoming HTTP request (used by the WS upgrade path). */
-export function ipFromReq(req: { headers: Record<string, string | string[] | undefined> }): string {
+export function ipFromReq(req: {
+  headers: Record<string, string | string[] | undefined>
+  socket?: { remoteAddress?: string }
+}): string {
   const xff = req.headers[HTTP_HEADERS_XFF]
   const xffStr = Array.isArray(xff) ? xff[0] : xff
   const realIp = req.headers[HTTP_HEADERS_X_REAL_IP]
   const realIpStr = Array.isArray(realIp) ? realIp[0] : realIp
-  return (xffStr?.toString().split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown') ?? 'unknown'
+  return (
+    xffStr?.toString().split(',')[0]?.trim() ||
+    realIpStr?.toString() ||
+    req.socket?.remoteAddress ||
+    'unknown'
+  )
 }
 
 const HTTP_HEADERS_AUTHORIZATION = 'authorization'

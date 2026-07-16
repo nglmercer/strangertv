@@ -5,6 +5,8 @@ import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE } from '../shared/con
 import { parseInterests } from '../shared/json'
 import { isAdult } from '../shared/age'
 
+export { isAdult }
+
 const scrypt = promisify(scryptCallback)
 const SESSION_DAYS = 14
 

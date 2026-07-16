@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server'
 import { randomBytes, createHash } from 'node:crypto'
 import type { Server as HttpServer } from 'node:http'
+import { join } from 'node:path'
 import { Hono } from 'hono'
 import { compress } from 'hono/compress'
 import { cors } from 'hono/cors'
