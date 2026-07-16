@@ -1,13 +1,15 @@
 .stage-wrap {
   position: relative;
   background: #080808;
+  flex: 1 1 0;
+  min-height: 0;
 }
 
 .stage {
   position: relative;
   background: #080808;
-  height: calc(100vh - 285px);
-  min-height: 410px;
+  height: 100%;
+  min-height: 0;
   padding: 18px 18px 0;
 }
 

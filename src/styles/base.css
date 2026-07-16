@@ -29,8 +29,9 @@ textarea {
 }
 
 .app {
-  min-height: 100vh;
+  height: 100dvh;
   background: #f3f3f3;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
