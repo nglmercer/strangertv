@@ -1,20 +1,12 @@
 import type { Gender, MatchPreferences } from '../../shared/types'
+import { GENDERS, STORAGE_KEYS } from '../../shared/constants'
 import type { PublicUser } from '../api'
 import { isAdult } from './age'
 
 /** Bump when legal copy changes so users re-accept terms. */
 export const TERMS_VERSION = 'v1'
 
-export const storageKeys = {
-  profileComplete: 'stranger-profile-complete',
-  birthDate: 'stranger-birth-date',
-  termsAccepted: 'stranger-terms-accepted',
-  setupComplete: 'stranger-setup-complete',
-  devicesReady: 'stranger-devices-ready',
-  videoDevice: 'stranger-video-device-id',
-  audioDevice: 'stranger-audio-device-id',
-  prefs: 'stranger-prefs',
-} as const
+export const storageKeys = STORAGE_KEYS
 
 function get(key: string): string | null {
   try {
@@ -97,7 +89,7 @@ export function getStartWizardStep(): 0 | 1 | 2 {
   return 2
 }
 
-const genders: Gender[] = ['any', 'male', 'female', 'other']
+const genders = GENDERS as readonly Gender[]
 
 function asGender(v: string | undefined | null): Gender {
   return v && genders.includes(v as Gender) ? (v as Gender) : 'any'

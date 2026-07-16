@@ -53,6 +53,21 @@ import { requireAdmin, securityHeaders } from './security'
 import { createStaticHandler } from './static'
 import { getIceServers } from './turn'
 import type { ClientMessage, ReportReason } from '../shared/types'
+import {
+  BAN_REASON_DEFAULT,
+  BEARER_PREFIX,
+  CONSENT_KIND,
+  DEFAULT_LANGUAGE,
+  HTTP_HEADERS,
+  METRIC_NAMES,
+  MIME_TYPE,
+  PEER_LEFT_REASON,
+  REPORT_CSV_HEADERS,
+  REPORT_STATUS_FILTER,
+  SERVER_ERROR_CODE,
+  WS_CLOSE_CODE,
+  WS_MESSAGE_TYPE,
+} from '../shared/constants'
 
 await migrate()
 {
@@ -88,14 +103,14 @@ app.use(
 app.get('/api/docs', (c) => c.json(openApiDocument(appUrl)))
 
 const getBearer = (c: { req: { header: (n: string) => string | undefined } }) => {
-  const h = c.req.header('authorization')
-  if (h?.startsWith('Bearer ')) return h.slice(7)
-  return c.req.header('x-session-token') ?? null
+  const h = c.req.header(HTTP_HEADERS.authorization)
+  if (h?.startsWith(BEARER_PREFIX)) return h.slice(BEARER_PREFIX.length)
+  return c.req.header(HTTP_HEADERS.xSessionToken) ?? null
 }
 
 const clientIp = (c: { req: { header: (n: string) => string | undefined } }) =>
-  c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
-  c.req.header('x-real-ip') ??
+  c.req.header(HTTP_HEADERS.xForwardedFor)?.split(',')[0]?.trim() ??
+  c.req.header(HTTP_HEADERS.xRealIp) ??
   'unknown'
 
 function resolveVersion(): string {
@@ -159,7 +174,7 @@ app.get('/api/metrics/prometheus', (c) => {
     queue_online: stats.online,
     draining: draining ? 1 : 0,
   })
-  return c.body(body, 200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' })
+  return c.body(body, 200, { [HTTP_HEADERS.contentType]: MIME_TYPE.prometheus })
 })
 
 app.get('/api/config/public', (c) =>
@@ -206,7 +221,7 @@ app.post('/api/auth/register', async (c) => {
 
   const gender = typeof body.gender === 'string' ? body.gender : 'other'
   const country = typeof body.country === 'string' ? body.country : 'any'
-  const language = typeof body.language === 'string' ? body.language : 'en'
+  const language = typeof body.language === 'string' ? body.language : DEFAULT_LANGUAGE
   const interests = Array.isArray(body.interests) ? JSON.stringify(body.interests.slice(0, 10)) : '[]'
 
   try {
@@ -223,7 +238,7 @@ app.post('/api/auth/register', async (c) => {
     const token = await createSession(userId)
     await db.execute({
       sql: 'INSERT INTO consents (user_id, kind) VALUES (?, ?)',
-      args: [userId, 'terms_age'],
+      args: [userId, CONSENT_KIND.termsAge],
     })
     const verifyToken = await createEmailVerificationToken(userId)
     const mail = verifyEmailBody(verifyToken, appUrl)
@@ -473,7 +488,7 @@ app.get('/api/admin/overview', async (c) => {
     let openReports = 0
     try {
       const open = await db.execute(
-        `SELECT COUNT(*) AS n FROM reports WHERE COALESCE(status, 'open') = 'open'`,
+        `SELECT COUNT(*) AS n FROM reports WHERE COALESCE(status, ${REPORT_STATUS_FILTER.open}) = ${REPORT_STATUS_FILTER.open}`,
       )
       openReports = Number(open.rows[0]?.n ?? 0)
     } catch {
@@ -496,7 +511,7 @@ app.get('/api/admin/overview', async (c) => {
     let underageOpen = 0
     try {
       const u = await db.execute(
-        `SELECT COUNT(*) AS n FROM reports WHERE reason = 'underage' AND COALESCE(status, 'open') = 'open'`,
+        `SELECT COUNT(*) AS n FROM reports WHERE reason = 'underage' AND COALESCE(status, ${REPORT_STATUS_FILTER.open}) = ${REPORT_STATUS_FILTER.open}`,
       )
       underageOpen = Number(u.rows[0]?.n ?? 0)
     } catch {
@@ -523,7 +538,7 @@ app.get('/api/admin/reports', async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
   const status = c.req.query('status')
   const result =
-    status === 'open' || status === 'resolved'
+    status === REPORT_STATUS_FILTER.open || status === REPORT_STATUS_FILTER.resolved
       ? await db.execute({
           sql: 'SELECT * FROM reports WHERE status = ? ORDER BY id DESC LIMIT 200',
           args: [status],
@@ -536,7 +551,7 @@ app.patch('/api/admin/reports/:id', async (c) => {
   if (!requireAdmin(c)) return c.json({ error: 'Forbidden' }, 403)
   const id = Number(c.req.param('id'))
   const body = await c.req.json<{ status?: string }>()
-  if (!id || (body.status !== 'open' && body.status !== 'resolved')) {
+  if (!id || (body.status !== REPORT_STATUS_FILTER.open && body.status !== REPORT_STATUS_FILTER.resolved)) {
     return c.json({ error: 'Invalid request' }, 400)
   }
   await db.execute({ sql: 'UPDATE reports SET status = ? WHERE id = ?', args: [body.status, id] })
@@ -546,7 +561,7 @@ app.patch('/api/admin/reports/:id', async (c) => {
 app.get('/api/admin/reports.csv', async (c) => {
   if (!requireAdmin(c)) return c.text('Forbidden', 403)
   const result = await db.execute('SELECT * FROM reports ORDER BY id DESC LIMIT 1000')
-  const headers = ['id', 'reporter_id', 'reporter_session', 'room_id', 'reason', 'detail', 'status', 'created_at']
+  const headers = [...REPORT_CSV_HEADERS]
   const escape = (v: unknown) => {
     const s = v == null ? '' : String(v)
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
@@ -613,7 +628,7 @@ app.post('/api/admin/ban', async (c) => {
   const expires = body.hours != null ? new Date(Date.now() + body.hours * 3600_000).toISOString() : null
   await db.execute({
     sql: 'INSERT INTO bans (user_id, ip, reason, expires_at) VALUES (?, ?, ?, ?)',
-    args: [body.userId ?? null, body.ip ?? null, body.reason ?? 'moderation', expires],
+    args: [body.userId ?? null, body.ip ?? null, body.reason ?? BAN_REASON_DEFAULT, expires],
   })
   if (body.userId) {
     await db.execute({ sql: 'UPDATE sessions SET revoked = 1 WHERE user_id = ?', args: [body.userId] })
@@ -661,31 +676,31 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     return
   }
 
-  if (message.type === 'queue:heartbeat') {
+  if (message.type === WS_MESSAGE_TYPE.queueHeartbeat) {
     heartbeat(socket)
     return
   }
 
-  if (message.type === 'queue:join' || message.type === 'room:next') {
+  if (message.type === WS_MESSAGE_TYPE.queueJoin || message.type === WS_MESSAGE_TYPE.roomNext) {
     if (draining) {
-      send(socket, { type: 'server:draining', message: 'Server is restarting. Try again shortly.' })
+      send(socket, { type: WS_MESSAGE_TYPE.serverDraining, message: 'Server is restarting. Try again shortly.' })
       return
     }
     if (!rateLimit(`wsjoin:${ip}`, 40, 60_000)) {
-      send(socket, { type: 'error', code: 'rate_limit', message: 'Slow down.' })
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.rateLimit, message: 'Slow down.' })
       return
     }
     if (await isBanned(null, ip)) {
-      send(socket, { type: 'error', code: 'banned', message: 'Access denied.' })
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.banned, message: 'Access denied.' })
       return
     }
     if (!config.features.anonymousMatch && !message.token) {
-      send(socket, { type: 'error', code: 'auth_required', message: 'Sign in to match.' })
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to match.' })
       return
     }
     const prefs = normalizePreferences(message.preferences)
     if (!prefs) {
-      send(socket, { type: 'error', code: 'bad_prefs', message: 'Invalid preferences.' })
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Invalid preferences.' })
       return
     }
     let userId: number | undefined
@@ -693,49 +708,49 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
       const user = await userFromToken(message.token)
       if (user) {
         if (await isBanned(user.id, ip)) {
-          send(socket, { type: 'error', code: 'banned', message: 'Access denied.' })
+          send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.banned, message: 'Access denied.' })
           return
         }
         if (config.features.requireEmailVerified && !user.email_verified) {
-          send(socket, { type: 'error', code: 'email_unverified', message: 'Verify your email first.' })
+          send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.emailUnverified, message: 'Verify your email first.' })
           return
         }
         userId = user.id
       }
     }
-    if (message.type === 'room:next') {
-      leaveRoom(socket, true, 'next')
+    if (message.type === WS_MESSAGE_TYPE.roomNext) {
+      leaveRoom(socket, true, PEER_LEFT_REASON.next)
       inc('room_next')
     }
     joinQueue(socket, prefs, { userId, sessionKey })
     return
   }
 
-  if (message.type === 'queue:leave' || message.type === 'room:leave') {
+  if (message.type === WS_MESSAGE_TYPE.queueLeave || message.type === WS_MESSAGE_TYPE.roomLeave) {
     removeFromQueue(socket)
-    leaveRoom(socket, true, 'leave')
+    leaveRoom(socket, true, PEER_LEFT_REASON.leave)
     return
   }
 
-  if (message.type === 'signal') {
+  if (message.type === WS_MESSAGE_TYPE.signal) {
     const partner = getPartner(socket)
     if (partner && message.payload) {
-      send(partner, { type: 'signal', payload: message.payload })
+      send(partner, { type: WS_MESSAGE_TYPE.signal, payload: message.payload })
       inc('signals_relayed')
     }
     return
   }
 
-  if (message.type === 'chat') {
+  if (message.type === WS_MESSAGE_TYPE.chat) {
     if (!rateLimit(`wschat:${ip}`, 30, 60_000)) {
-      send(socket, { type: 'error', code: 'rate_limit', message: 'Slow down chat.' })
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.rateLimit, message: 'Slow down chat.' })
       return
     }
     const partner = getPartner(socket)
     const text = message.payload?.text?.slice(0, 500)
     if (partner && text) {
       send(partner, {
-        type: 'chat',
+        type: WS_MESSAGE_TYPE.chat,
         payload: { text, time: message.payload.time || new Date().toISOString() },
       })
       inc('chats_relayed')
@@ -743,12 +758,12 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     return
   }
 
-  if (message.type === 'report') {
+  if (message.type === WS_MESSAGE_TYPE.report) {
     if (!rateLimit(`wsreport:${ip}`, 10, 60_000)) return
     if (!config.features.guestReports) {
       const meta = getMeta(socket)
       if (!meta?.userId) {
-        send(socket, { type: 'error', code: 'auth_required', message: 'Sign in to report.' })
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to report.' })
         return
       }
     }
@@ -764,16 +779,16 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
         message.detail?.slice(0, 500) ?? null,
       ],
     })
-    inc('reports_total')
+    inc(METRIC_NAMES.reportsTotal)
     void noteReport(message.reason)
     const partner = getPartner(socket)
-    leaveRoom(socket, true, 'reported')
-    send(socket, { type: 'report:ack' })
+    leaveRoom(socket, true, PEER_LEFT_REASON.reported)
+    send(socket, { type: WS_MESSAGE_TYPE.reportAck })
     if (partner) leaveRoom(partner, false)
     return
   }
 
-  if (message.type === 'block') {
+  if (message.type === WS_MESSAGE_TYPE.block) {
     const meta = getMeta(socket)
     const peerId = getPartnerUserId(socket)
     if (meta?.userId && peerId) {
@@ -785,16 +800,16 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
       inc('blocks_total')
     }
     const partner = getPartner(socket)
-    leaveRoom(socket, true, 'blocked')
-    send(socket, { type: 'block:ack' })
+    leaveRoom(socket, true, PEER_LEFT_REASON.blocked)
+    send(socket, { type: WS_MESSAGE_TYPE.blockAck })
     if (partner) leaveRoom(partner, false)
     return
   }
 
-  if (message.type === 'telemetry:quality') {
+  if (message.type === WS_MESSAGE_TYPE.telemetryQuality) {
     if (!config.features.qualityTelemetry) return
     if (!rateLimit(`telemetry:${ip}`, 60, 60_000)) return
-    inc(`webrtc_quality_${message.quality}`)
+    inc(METRIC_NAMES.webrtcQuality(message.quality))
     logger.debug('webrtc.quality', {
       roomId: message.roomId,
       quality: message.quality,
@@ -835,8 +850,8 @@ wss.on('error', (err: Error) => {
 
 wss.on('connection', (ws, req) => {
   if (draining) {
-    ws.send(JSON.stringify({ type: 'server:draining', message: 'Server is restarting.' }))
-    ws.close(1012, 'service restart')
+    ws.send(JSON.stringify({ type: WS_MESSAGE_TYPE.serverDraining, message: 'Server is restarting.' }))
+    ws.close(WS_CLOSE_CODE.serviceRestart, 'service restart')
     return
   }
   const ip =
@@ -864,7 +879,7 @@ const shutdown = (signal: string) => {
   logger.info('server.draining', { signal, drainMs: config.drainMs })
 
   const payload = JSON.stringify({
-    type: 'server:draining',
+    type: WS_MESSAGE_TYPE.serverDraining,
     message: 'Server is restarting. Please reconnect shortly.',
   })
   for (const client of wss.clients) {

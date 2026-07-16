@@ -1,4 +1,5 @@
 import type { Quality } from '../types/ui'
+import { QUALITY_TIER, RTC_STATE } from '../../shared/constants'
 
 /** Live link metrics from RTCPeerConnection.getStats() (not mocked). */
 export type LinkStats = {
@@ -39,7 +40,7 @@ export async function readLinkStats(
   let hasRtp = false
 
   report.forEach((stat) => {
-    if (stat.type === 'candidate-pair' && (stat as RTCIceCandidatePairStats).state === 'succeeded') {
+    if (stat.type === 'candidate-pair' && (stat as RTCIceCandidatePairStats).state === RTC_STATE.succeeded) {
       const pair = stat as RTCIceCandidatePairStats & { currentRoundTripTime?: number }
       // Prefer nominated / selected pair
       const selected =
@@ -101,19 +102,19 @@ export function qualityFromLink(
   connectionState: RTCPeerConnectionState,
   stats: LinkStats,
 ): Quality {
-  if (connectionState === 'failed' || connectionState === 'closed') return 'failed'
-  if (connectionState === 'new' || connectionState === 'connecting') return 'connecting'
-  if (connectionState === 'disconnected') return 'poor'
+  if (connectionState === RTC_STATE.failed || connectionState === RTC_STATE.closed) return QUALITY_TIER.failed
+  if (connectionState === RTC_STATE.new || connectionState === RTC_STATE.connecting) return QUALITY_TIER.connecting
+  if (connectionState === RTC_STATE.disconnected) return QUALITY_TIER.poor
 
   // connected
   const rtt = stats.rttMs
   const loss = stats.lossPct
-  if (rtt != null && rtt >= 450) return 'poor'
-  if (loss != null && loss >= 4) return 'poor'
-  if (rtt != null && rtt >= 280 && loss != null && loss >= 1.5) return 'poor'
+  if (rtt != null && rtt >= 450) return QUALITY_TIER.poor
+  if (loss != null && loss >= 4) return QUALITY_TIER.poor
+  if (rtt != null && rtt >= 280 && loss != null && loss >= 1.5) return QUALITY_TIER.poor
   // Very low bitrate with loss often means stalled video
-  if (stats.bitrateKbps != null && stats.bitrateKbps < 40 && loss != null && loss >= 2) return 'poor'
-  return 'good'
+  if (stats.bitrateKbps != null && stats.bitrateKbps < 40 && loss != null && loss >= 2) return QUALITY_TIER.poor
+  return QUALITY_TIER.good
 }
 
 export const emptyLinkStats: LinkStats = {

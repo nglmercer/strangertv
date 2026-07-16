@@ -4,6 +4,7 @@ import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
+import { PEER_LEFT_REASON, SignalKind, STORAGE_KEYS, WS_MESSAGE_TYPE } from '../../shared/constants'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
 import { useWebRTC } from './useWebRTC'
@@ -57,9 +58,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   const mediaRef = useRef(media)
   mediaRef.current = media
 
-  const signalOut = useRef<(payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }) => void>(
-    () => undefined,
-  )
+  const signalOut = useRef<(payload: { kind: SignalKind; data: unknown }) => void>(() => undefined)
   const onSignalOut = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }) => {
     signalOut.current(payload)
   }, [])
@@ -100,8 +99,8 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       setQueuePos(undefined)
       setSharedInterests(meta?.sharedInterests ?? [])
       setPeerCountry(meta?.peerCountry && meta.peerCountry !== 'any' ? meta.peerCountry : '')
-      if (localStorage.getItem('stranger-match-sound') !== '0') playMatchSound()
-      if (localStorage.getItem('stranger-match-notify') === '1') {
+      if (localStorage.getItem(STORAGE_KEYS.matchSound) !== '0') playMatchSound()
+      if (localStorage.getItem(STORAGE_KEYS.matchNotify) === '1') {
         notifyMatch(trRef.current.brand, trRef.current.connecting)
       }
       const stream = mediaRef.current.streamRef.current
@@ -117,14 +116,14 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       }
       const t = trRef.current
       const statusMsg =
-        reason === 'blocked' || reason === 'reported'
+        reason === PEER_LEFT_REASON.blocked || reason === PEER_LEFT_REASON.reported
           ? t.peerLeftBlocked
-          : reason === 'next'
+          : reason === PEER_LEFT_REASON.next
             ? t.peerLeftNext
-            : reason === 'leave'
+            : reason === PEER_LEFT_REASON.leave
               ? t.peerLeftLeave
               : t.peerLeft
-      if (autoNextRef.current && reason !== 'blocked' && reason !== 'reported') {
+      if (autoNextRef.current && reason !== PEER_LEFT_REASON.blocked && reason !== PEER_LEFT_REASON.reported) {
         setFinding(true)
         onStatus(t.requeueing)
         setChat([])
@@ -175,7 +174,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
 
   const matchRef = useRef(match)
   matchRef.current = match
-  signalOut.current = (payload) => match.send({ type: 'signal', payload })
+  signalOut.current = (payload) => match.send({ type: WS_MESSAGE_TYPE.signal, payload })
 
   useEffect(() => {
     if (!matched) {
@@ -213,7 +212,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   useEffect(() => {
     if (!matched || webrtc.quality === 'idle') return
     match.send({
-      type: 'telemetry:quality',
+      type: WS_MESSAGE_TYPE.telemetryQuality,
       roomId: roomId ?? undefined,
       quality: webrtc.quality,
     })
@@ -281,7 +280,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       if (!text || !matched) return
       const time = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
       setChat((m) => [...m, { text, time, mine: true }])
-      match.send({ type: 'chat', payload: { text, time } })
+      match.send({ type: WS_MESSAGE_TYPE.chat, payload: { text, time } })
       setChatText('')
     },
     [chatText, matched, match],

@@ -1,11 +1,12 @@
 import { createHmac, randomBytes } from 'node:crypto'
+import { STUN_SERVERS } from '../shared/constants'
 
 /**
  * Optional TURN: set TURN_SECRET + TURN_URLS (comma-separated).
  * Uses time-limited credentials (coturn REST style).
  */
 export function getIceServers() {
-  const stun = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }]
+  const stun = STUN_SERVERS.map((url) => ({ urls: url }))
   const secret = process.env.TURN_SECRET
   const urls = (process.env.TURN_URLS ?? '')
     .split(',')

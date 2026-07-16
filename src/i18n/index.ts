@@ -1,4 +1,5 @@
 import type { Locale } from '../../shared/types'
+import { LOCALES, STORAGE_KEYS } from '../../shared/constants'
 import { en, type Messages } from './en'
 import { es } from './es'
 import { pt } from './pt'
@@ -10,8 +11,8 @@ export function t(locale: Locale): Messages {
 }
 
 export function detectLocale(): Locale {
-  const stored = localStorage.getItem('stranger-locale')
-  if (stored === 'en' || stored === 'es' || stored === 'pt') return stored
+  const stored = localStorage.getItem(STORAGE_KEYS.locale)
+  if ((LOCALES as readonly string[]).includes(stored ?? '')) return stored as Locale
   const nav = navigator.language.slice(0, 2)
   if (nav === 'es' || nav === 'pt') return nav
   return 'en'

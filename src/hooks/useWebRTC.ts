@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'preact/hooks'
 import { fetchIceServers } from '../api'
 import type { Quality } from '../types/ui'
+import { QUALITY_TIER, RTC_STATE, SignalKind } from '../../shared/constants'
 import {
   emptyLinkStats,
   qualityFromLink,
@@ -8,7 +9,7 @@ import {
   type LinkStats,
 } from '../utils/webrtcQuality'
 
-type SignalPayload = { kind: 'offer' | 'answer' | 'candidate'; data: unknown }
+type SignalPayload = { kind: SignalKind; data: unknown }
 
 const STATS_INTERVAL_MS = 2000
 
@@ -90,7 +91,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
     (pc: RTCPeerConnection, asOfferer: boolean, remoteVideo: HTMLVideoElement | null) => {
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          onSignal({ kind: 'candidate', data: event.candidate.toJSON() })
+          onSignal({ kind: SIGNAL_KIND.candidate, data: event.candidate.toJSON() })
         }
       }
 
@@ -128,7 +129,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
               if (asOfferer) {
                 const offer = await pc.createOffer({ iceRestart: true })
                 await pc.setLocalDescription(offer)
-                onSignal({ kind: 'offer', data: offer })
+                onSignal({ kind: SIGNAL_KIND.offer, data: offer })
               }
             } catch {
               /* ignore */
@@ -157,7 +158,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
       if (asOfferer) {
         const offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
-        onSignal({ kind: 'offer', data: offer })
+        onSignal({ kind: SIGNAL_KIND.offer, data: offer })
       }
 
       return pc
@@ -167,7 +168,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
 
   const handleSignal = useCallback(
     async (payload: SignalPayload, stream: MediaStream | null, remoteVideo: HTMLVideoElement | null) => {
-      if (payload.kind === 'offer') {
+      if (payload.kind === SIGNAL_KIND.offer) {
         let pc = pcRef.current
         if (!pc) {
           if (!stream) return
@@ -178,11 +179,11 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
         await flushCandidates(pc)
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
-        onSignal({ kind: 'answer', data: answer })
+        onSignal({ kind: SIGNAL_KIND.answer, data: answer })
         return
       }
 
-      if (payload.kind === 'answer') {
+      if (payload.kind === SIGNAL_KIND.answer) {
         const pc = pcRef.current
         if (!pc) return
         await pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
@@ -191,7 +192,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
         return
       }
 
-      if (payload.kind === 'candidate') {
+      if (payload.kind === SIGNAL_KIND.candidate) {
         const candidate = payload.data as RTCIceCandidateInit
         const pc = pcRef.current
         if (!pc || !remoteReady.current) {

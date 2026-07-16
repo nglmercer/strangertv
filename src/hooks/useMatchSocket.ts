@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { getToken, wsUrl } from '../api'
 import type { ClientMessage, MatchPreferences, ServerMessage } from '../../shared/types'
+import { WS_MESSAGE_TYPE } from '../../shared/constants'
 
 type Handlers = {
   onWaiting?: (position?: number, online?: number) => void
@@ -49,7 +50,7 @@ export function useMatchSocket(handlers: Handlers) {
       setConnected(true)
       stopHeartbeat()
       heartbeatTimer.current = window.setInterval(() => {
-        send({ type: 'queue:heartbeat' })
+        send({ type: WS_MESSAGE_TYPE.queueHeartbeat })
       }, 12_000)
     }
 
@@ -71,37 +72,37 @@ export function useMatchSocket(handlers: Handlers) {
       }
       const h = handlersRef.current
       switch (msg.type) {
-        case 'queue:waiting':
+        case WS_MESSAGE_TYPE.queueWaiting:
           h.onWaiting?.(msg.position, msg.online)
           break
-        case 'room:matched':
+        case WS_MESSAGE_TYPE.roomMatched:
           h.onMatched?.(msg.roomId, msg.role, {
             peerCountry: msg.peerCountry,
             sharedInterests: msg.sharedInterests,
           })
           break
-        case 'room:peer-left':
+        case WS_MESSAGE_TYPE.roomPeerLeft:
           h.onPeerLeft?.(msg.reason)
           break
-        case 'signal':
+        case WS_MESSAGE_TYPE.signal:
           h.onSignal?.(msg.payload)
           break
-        case 'chat':
+        case WS_MESSAGE_TYPE.chat:
           h.onChat?.(msg.payload.text, msg.payload.time)
           break
-        case 'stats':
+        case WS_MESSAGE_TYPE.stats:
           h.onStats?.(msg.online, msg.waiting)
           break
-        case 'error':
+        case WS_MESSAGE_TYPE.error:
           h.onError?.(msg.code, msg.message)
           break
-        case 'report:ack':
+        case WS_MESSAGE_TYPE.reportAck:
           h.onReportAck?.()
           break
-        case 'block:ack':
+        case WS_MESSAGE_TYPE.blockAck:
           h.onBlockAck?.()
           break
-        case 'server:draining':
+        case WS_MESSAGE_TYPE.serverDraining:
           h.onDraining?.(msg.message)
           break
       }
@@ -114,7 +115,7 @@ export function useMatchSocket(handlers: Handlers) {
     (preferences: MatchPreferences) => {
       const ws = ensureSocket()
       const payload: ClientMessage = {
-        type: 'queue:join',
+        type: WS_MESSAGE_TYPE.queueJoin,
         preferences,
         token: getToken() ?? undefined,
       }
@@ -135,25 +136,25 @@ export function useMatchSocket(handlers: Handlers) {
   const next = useCallback(
     (preferences: MatchPreferences) => {
       ensureSocket()
-      send({ type: 'room:next', preferences, token: getToken() ?? undefined })
+      send({ type: WS_MESSAGE_TYPE.roomNext, preferences, token: getToken() ?? undefined })
     },
     [ensureSocket, send],
   )
 
   const leave = useCallback(() => {
-    send({ type: 'room:leave' })
-    send({ type: 'queue:leave' })
+    send({ type: WS_MESSAGE_TYPE.roomLeave })
+    send({ type: WS_MESSAGE_TYPE.queueLeave })
   }, [send])
 
   const report = useCallback(
     (reason: import('../../shared/types').ReportReason, detail?: string) => {
-      send({ type: 'report', reason, detail })
+      send({ type: WS_MESSAGE_TYPE.report, reason, detail })
     },
     [send],
   )
 
   const block = useCallback(() => {
-    send({ type: 'block' })
+    send({ type: WS_MESSAGE_TYPE.block })
   }, [send])
 
   useEffect(() => {
