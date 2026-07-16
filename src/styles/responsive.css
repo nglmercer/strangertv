@@ -82,6 +82,15 @@
     margin-top: 6px;
   }
 
+  .local-actions {
+    gap: 4px;
+  }
+
+  .local-action {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
   .profile-row {
     align-items: flex-start;
     flex-direction: column;
@@ -156,5 +165,9 @@
 
   .brand-mark {
     transform: rotate(-1deg) scale(0.75);
+  }
+
+  .video.local .stage-empty .empty {
+    display: none;
   }
 }

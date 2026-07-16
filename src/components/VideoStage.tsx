@@ -2,6 +2,7 @@ import type { RefObject } from 'preact'
 import { countryLabel, interestLabel, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
 import { QUALITY_TIER } from '../../shared/constants'
+import { StaticNoise } from './StaticNoise'
 import { formatDuration } from '../utils/format'
 import type { LinkStats } from '../utils/webrtcQuality'
 import { QualityBadge } from './QualityBadge'
@@ -75,6 +76,7 @@ export function VideoStage({
           <video ref={remoteVideo} autoplay playsinline aria-label={t.labelStranger} />
           {!hasRemote && (
             <div class="stage-empty">
+              <StaticNoise opacity={0.42} density={0.5} cellSize={3} />
               <div class="brand-mark" aria-hidden="true">
                 <span class="brand-mark-glow" />
                 <strong>✦</strong>
