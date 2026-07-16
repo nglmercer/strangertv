@@ -1,16 +1,17 @@
 import type { Context, Next } from 'hono'
+import { HTTP_HEADERS } from '../shared/constants'
 
 export async function securityHeaders(c: Context, next: Next) {
   await next()
-  c.res.headers.set('X-Content-Type-Options', 'nosniff')
-  c.res.headers.set('X-Frame-Options', 'DENY')
-  c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  c.res.headers.set('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()')
+  c.res.headers.set(HTTP_HEADERS.xContentTypeOptions, 'nosniff')
+  c.res.headers.set(HTTP_HEADERS.xFrameOptions, 'DENY')
+  c.res.headers.set(HTTP_HEADERS.referrerPolicy, 'strict-origin-when-cross-origin')
+  c.res.headers.set(HTTP_HEADERS.permissionsPolicy, 'camera=(self), microphone=(self), geolocation=()')
   if (process.env.NODE_ENV === 'production') {
-    c.res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    c.res.headers.set(HTTP_HEADERS.strictTransportSecurity, 'max-age=31536000; includeSubDomains')
     // Allow same-origin WS + media; tighten further behind a reverse proxy if needed
     c.res.headers.set(
-      'Content-Security-Policy',
+      HTTP_HEADERS.contentSecurityPolicy,
       [
         "default-src 'self'",
         "script-src 'self'",
@@ -26,6 +27,6 @@ export async function securityHeaders(c: Context, next: Next) {
 }
 
 export function requireAdmin(c: Context): boolean {
-  const key = c.req.header('x-admin-key')
+  const key = c.req.header(HTTP_HEADERS.xAdminKey)
   return Boolean(process.env.ADMIN_KEY && key === process.env.ADMIN_KEY)
 }

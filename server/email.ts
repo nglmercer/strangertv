@@ -1,4 +1,5 @@
 import { logger } from './logger'
+import { EMAIL_SUBJECT, HTTP_HEADERS, MIME_TYPE } from '../shared/constants'
 
 /**
  * Password-reset / verification mailer.
@@ -20,7 +21,7 @@ export async function sendEmail(opts: {
     try {
       const res = await fetch(webhook, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { [HTTP_HEADERS.contentType]: MIME_TYPE.json },
         body: JSON.stringify({ from, ...opts }),
       })
       if (!res.ok) throw new Error(`webhook ${res.status}`)
@@ -53,14 +54,14 @@ export async function sendEmail(opts: {
 
 export function resetEmailBody(token: string, appUrl: string) {
   const link = `${appUrl.replace(/\/$/, '')}/?reset=${encodeURIComponent(token)}`
-  const text = `Reset your stranger password.\n\nToken: ${token}\nOr open: ${link}\n\nThis link expires in 1 hour.`
-  const html = `<p>Reset your <strong>stranger</strong> password.</p><p><a href="${link}">Reset password</a></p><p>Or use token: <code>${token}</code></p><p>Expires in 1 hour.</p>`
+  const text = `${EMAIL_SUBJECT.reset}\n\nToken: ${token}\nOr open: ${link}\n\nThis link expires in 1 hour.`
+  const html = `<p>${EMAIL_SUBJECT.reset}</p><p><a href="${link}">Reset password</a></p><p>Or use token: <code>${token}</code></p><p>Expires in 1 hour.</p>`
   return { text, html, link }
 }
 
 export function verifyEmailBody(token: string, appUrl: string) {
   const link = `${appUrl.replace(/\/$/, '')}/?verify=${encodeURIComponent(token)}`
-  const text = `Verify your stranger email.\n\nOpen: ${link}\n\nThis link expires in 48 hours.`
-  const html = `<p>Verify your <strong>stranger</strong> email.</p><p><a href="${link}">Verify email</a></p><p>Expires in 48 hours.</p>`
+  const text = `${EMAIL_SUBJECT.verify}\n\nOpen: ${link}\n\nThis link expires in 48 hours.`
+  const html = `<p>${EMAIL_SUBJECT.verify}</p><p><a href="${link}">Verify email</a></p><p>Expires in 48 hours.</p>`
   return { text, html, link }
 }

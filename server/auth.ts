@@ -1,6 +1,7 @@
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
 import { db } from './db'
+import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE } from '../shared/constants'
 
 const scrypt = promisify(scryptCallback)
 const SESSION_DAYS = 14
@@ -130,9 +131,9 @@ export function publicUser(u: UserRow) {
     id: u.id,
     email: u.email,
     birthDate: u.birth_date,
-    gender: u.gender ?? 'other',
-    country: u.country ?? 'any',
-    language: u.language ?? 'en',
+    gender: u.gender ?? DEFAULT_GENDER,
+    country: u.country ?? DEFAULT_COUNTRY,
+    language: u.language ?? DEFAULT_LANGUAGE,
     interests,
     emailVerified: Boolean(u.email_verified),
   }

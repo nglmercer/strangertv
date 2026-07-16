@@ -1,5 +1,7 @@
 /** Central env-backed feature flags and runtime config. */
 
+import { FEATURE_FLAG_ENV } from '../shared/constants'
+
 function bool(name: string, fallback = false) {
   const v = process.env[name]
   if (v == null || v === '') return fallback
@@ -26,13 +28,13 @@ export const config = {
   logLevel: process.env.LOG_LEVEL ?? 'info',
   features: {
     /** Allow anonymous match without login */
-    anonymousMatch: bool('FEATURE_ANONYMOUS_MATCH', true),
+    anonymousMatch: bool(FEATURE_FLAG_ENV.anonymousMatch, true),
     /** Accept reports from unauthenticated clients */
-    guestReports: bool('FEATURE_GUEST_REPORTS', true),
+    guestReports: bool(FEATURE_FLAG_ENV.guestReports, true),
     /** Server accepts client WebRTC quality samples */
-    qualityTelemetry: bool('FEATURE_QUALITY_TELEMETRY', true),
+    qualityTelemetry: bool(FEATURE_FLAG_ENV.qualityTelemetry, true),
     /** Require verified email for login/match when signed in */
-    requireEmailVerified: bool('FEATURE_REQUIRE_EMAIL_VERIFIED', false),
+    requireEmailVerified: bool(FEATURE_FLAG_ENV.requireEmailVerified, false),
   },
   drainMs: num('SHUTDOWN_DRAIN_MS', 8_000),
 }

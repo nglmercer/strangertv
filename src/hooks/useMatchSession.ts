@@ -4,7 +4,7 @@ import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
-import { PEER_LEFT_REASON, SignalKind, STORAGE_KEYS, WS_MESSAGE_TYPE } from '../../shared/constants'
+import { PEER_LEFT_REASON, SignalKind, STORAGE_KEYS, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
 import { useWebRTC } from './useWebRTC'
@@ -127,7 +127,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
         setFinding(true)
         onStatus(t.requeueing)
         setChat([])
-        window.setTimeout(() => matchRef.current?.next(prefsRef.current), 400)
+        window.setTimeout(() => matchRef.current?.next(prefsRef.current), TIMING_MS.requeueDelay)
       } else {
         setFinding(false)
         onStatus(statusMsg)

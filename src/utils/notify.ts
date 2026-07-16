@@ -1,4 +1,6 @@
 /** Short pleasant blip when a match is found (Web Audio, no asset files). */
+import { TIMING_MS } from '../shared/constants'
+
 export function playMatchSound() {
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
@@ -17,7 +19,7 @@ export function playMatchSound() {
     osc.start()
     osc.stop(ctx.currentTime + 0.28)
     void ctx.resume()
-    setTimeout(() => void ctx.close(), 400)
+    setTimeout(() => void ctx.close(), TIMING_MS.requeueDelay)
   } catch {
     /* ignore */
   }

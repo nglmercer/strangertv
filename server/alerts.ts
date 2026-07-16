@@ -1,4 +1,5 @@
 import { logger } from './logger'
+import { HTTP_HEADERS, METRIC_NAMES, MIME_TYPE } from '../shared/constants'
 import { inc } from './metrics'
 
 const windowMs = 5 * 60_000
@@ -13,10 +14,10 @@ async function postAlert(payload: Record<string, unknown>) {
   try {
     await fetch(url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { [HTTP_HEADERS.contentType]: MIME_TYPE.json },
       body: JSON.stringify({ ...payload, ts: new Date().toISOString() }),
     })
-    inc('alerts_sent')
+    inc(METRIC_NAMES.alertsSent)
     logger.warn('alerts.sent', payload)
   } catch (err) {
     logger.error('alerts.webhook_failed', { err: String(err) })
@@ -33,7 +34,7 @@ export async function noteReport(reason?: string) {
   while (reportTimes.length && now - reportTimes[0]! > windowMs) reportTimes.shift()
 
   if (reason === 'underage') {
-    inc('reports_underage')
+    inc(METRIC_NAMES.reportsUnderage)
     await postAlert({
       type: 'underage_report',
       priority: 'critical',

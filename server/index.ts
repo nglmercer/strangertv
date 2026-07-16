@@ -58,6 +58,7 @@ import {
   BEARER_PREFIX,
   CONSENT_KIND,
   DEFAULT_LANGUAGE,
+  EMAIL_SUBJECT,
   HTTP_HEADERS,
   METRIC_NAMES,
   MIME_TYPE,
@@ -199,7 +200,7 @@ app.post('/api/auth/register', async (c) => {
   if (!rl.ok) {
     return c.json({ error: 'Too many attempts. Try later.' }, 429, rateLimitHeaders(rl))
   }
-  inc('auth_register_attempts')
+  inc(METRIC_NAMES.authRegisterAttempts)
 
   const body = await c.req.json<{
     email?: unknown
@@ -244,12 +245,12 @@ app.post('/api/auth/register', async (c) => {
     const mail = verifyEmailBody(verifyToken, appUrl)
     await sendEmail({
       to: email.toLowerCase(),
-      subject: 'Verify your stranger email',
+      subject: EMAIL_SUBJECT.verify,
       text: mail.text,
       html: mail.html,
     })
     const user = await userFromToken(token)
-    inc('auth_register_ok')
+    inc(METRIC_NAMES.authRegisterOk)
     logger.info('auth.register', { userId })
     return c.json(
       {
@@ -269,7 +270,7 @@ app.post('/api/auth/verify-email', async (c) => {
   if (typeof token !== 'string' || !token) return c.json({ error: 'Invalid token.' }, 400)
   const ok = await verifyEmailToken(token)
   if (!ok) return c.json({ error: 'Invalid or expired token.' }, 400)
-  inc('email_verified')
+  inc(METRIC_NAMES.emailVerified)
   return c.json({ ok: true })
 })
 
@@ -281,7 +282,7 @@ app.post('/api/auth/resend-verification', async (c) => {
   if (!rateLimit(`reverify:${ip}`, 5, 15 * 60_000)) return c.json({ error: 'Too many attempts.' }, 429)
   const verifyToken = await createEmailVerificationToken(user.id)
   const mail = verifyEmailBody(verifyToken, appUrl)
-  await sendEmail({ to: user.email, subject: 'Verify your stranger email', text: mail.text, html: mail.html })
+  await sendEmail({ to: user.email, subject: EMAIL_SUBJECT.verify, text: mail.text, html: mail.html })
   return c.json({ ok: true, ...(config.isProd ? {} : { devVerifyToken: verifyToken }) })
 })
 
@@ -291,7 +292,7 @@ app.post('/api/auth/login', async (c) => {
   if (!rl.ok) {
     return c.json({ error: 'Too many attempts. Try later.' }, 429, rateLimitHeaders(rl))
   }
-  inc('auth_login_attempts')
+  inc(METRIC_NAMES.authLoginAttempts)
 
   const { email, password } = await c.req.json<{ email?: unknown; password?: unknown }>()
   if (!validCredentials(email, password)) return c.json({ error: 'Invalid email or password.' }, 400)
@@ -316,7 +317,7 @@ app.post('/api/auth/login', async (c) => {
   }
   const token = await createSession(userId)
   const user = await userFromToken(token)
-  inc('auth_login_ok')
+  inc(METRIC_NAMES.authLoginOk)
   return c.json({ user: user ? publicUser(user) : null, token })
 })
 
@@ -332,7 +333,7 @@ app.post('/api/auth/refresh', async (c) => {
   const next = await refreshSession(token)
   if (!next) return c.json({ error: 'Unauthorized' }, 401)
   const user = await userFromToken(next)
-  inc('auth_refresh_ok')
+  inc(METRIC_NAMES.authRefreshOk)
   return c.json({ token: next, user: user ? publicUser(user) : null })
 })
 
@@ -384,12 +385,12 @@ app.post('/api/auth/password-reset/request', async (c) => {
       const body = resetEmailBody(token, appUrl)
       await sendEmail({
         to: email.toLowerCase(),
-        subject: 'Reset your stranger password',
+        subject: EMAIL_SUBJECT.reset,
         text: body.text,
         html: body.html,
       })
       if (process.env.NODE_ENV !== 'production') devResetToken = token
-      inc('password_reset_requests')
+      inc(METRIC_NAMES.passwordResetRequests)
     }
   }
   return c.json({ ok: true, ...(devResetToken ? { devResetToken } : {}) })
@@ -413,7 +414,7 @@ app.post('/api/auth/password-reset/confirm', async (c) => {
   })
   await db.execute({ sql: 'UPDATE password_reset_tokens SET used = 1 WHERE id = ?', args: [Number(row.id)] })
   await db.execute({ sql: 'UPDATE sessions SET revoked = 1 WHERE user_id = ?', args: [Number(row.user_id)] })
-  inc('password_reset_ok')
+  inc(METRIC_NAMES.passwordResetOk)
   return c.json({ ok: true })
 })
 
@@ -474,7 +475,7 @@ app.post('/api/reports', async (c) => {
     sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail) VALUES (?, ?, ?, ?, ?)',
     args: [user?.id ?? null, ip, body.roomId ?? null, body.reason, body.detail?.slice(0, 500) ?? null],
   })
-  inc('reports_total')
+  inc(METRIC_NAMES.reportsTotal)
   void noteReport(body.reason)
   return c.json({ ok: true })
 })
@@ -594,7 +595,7 @@ app.post('/api/ratings', async (c) => {
   } catch {
     return c.json({ error: 'Already rated this match.' }, 409)
   }
-  inc('ratings_total')
+  inc(METRIC_NAMES.ratingsTotal)
   inc(`rating_score_${score}`)
   return c.json({ ok: true })
 })
@@ -633,7 +634,7 @@ app.post('/api/admin/ban', async (c) => {
   if (body.userId) {
     await db.execute({ sql: 'UPDATE sessions SET revoked = 1 WHERE user_id = ?', args: [body.userId] })
   }
-  inc('bans_total')
+  inc(METRIC_NAMES.bansTotal)
   logger.warn('admin.ban', { userId: body.userId, ip: body.ip, reason: body.reason })
   return c.json({ ok: true })
 })
@@ -720,7 +721,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     }
     if (message.type === WS_MESSAGE_TYPE.roomNext) {
       leaveRoom(socket, true, PEER_LEFT_REASON.next)
-      inc('room_next')
+      inc(METRIC_NAMES.roomNext)
     }
     joinQueue(socket, prefs, { userId, sessionKey })
     return
@@ -736,7 +737,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     const partner = getPartner(socket)
     if (partner && message.payload) {
       send(partner, { type: WS_MESSAGE_TYPE.signal, payload: message.payload })
-      inc('signals_relayed')
+      inc(METRIC_NAMES.signalsRelayed)
     }
     return
   }
@@ -753,7 +754,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
         type: WS_MESSAGE_TYPE.chat,
         payload: { text, time: message.payload.time || new Date().toISOString() },
       })
-      inc('chats_relayed')
+      inc(METRIC_NAMES.chatsRelayed)
     }
     return
   }
@@ -797,7 +798,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
         args: [meta.userId, peerId],
       })
       blockPair(meta.userId, peerId)
-      inc('blocks_total')
+      inc(METRIC_NAMES.blocksTotal)
     }
     const partner = getPartner(socket)
     leaveRoom(socket, true, PEER_LEFT_REASON.blocked)
@@ -862,7 +863,7 @@ wss.on('connection', (ws, req) => {
     .update(`${ip}:${Date.now()}:${Math.random()}`)
     .digest('hex')
     .slice(0, 16)
-  inc('ws_connections')
+  inc(METRIC_NAMES.wsConnections)
 
   ws.on('message', (data) => {
     void handleWsMessage(ws, ip, sessionKey, String(data))
@@ -900,3 +901,4 @@ const shutdown = (signal: string) => {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
+

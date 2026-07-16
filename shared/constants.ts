@@ -328,11 +328,23 @@ export const METRIC_NAMES = {
   wsConnections: 'ws_connections',
   reportsTotal: 'reports_total',
   reportsUnderage: 'reports_underage',
+  ratingsTotal: 'ratings_total',
   ratingScore: (score: number | string) => `rating_score_${score}`,
   webrtcQuality: (quality: string) => `webrtc_quality_${quality}`,
   alertsSent: 'alerts_sent',
+  bansTotal: 'bans_total',
+  blocksTotal: 'blocks_total',
+  roomNext: 'room_next',
+  signalsRelayed: 'signals_relayed',
+  chatsRelayed: 'chats_relayed',
+  authRegisterAttempts: 'auth_register_attempts',
   authRegisterOk: 'auth_register_ok',
+  authLoginAttempts: 'auth_login_attempts',
   authLoginOk: 'auth_login_ok',
+  authRefreshOk: 'auth_refresh_ok',
+  passwordResetRequests: 'password_reset_requests',
+  passwordResetOk: 'password_reset_ok',
+  emailVerified: 'email_verified',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -350,6 +362,20 @@ export const BAN_REASON_DEFAULT = 'moderation'
 export const EMAIL_SUBJECT = {
   verify: 'Verify your stranger email',
   reset: 'Reset your stranger password',
+} as const
+
+// ---------------------------------------------------------------------------
+// Timing constants (ms)
+// ---------------------------------------------------------------------------
+export const TIMING_MS = {
+  /** Delay before auto re-queuing / closing a transient UI after peer leaves. */
+  requeueDelay: 400,
+  /** Interval between client→server WebSocket heartbeats. */
+  wsHeartbeat: 12_000,
+  /** Threshold for "long wait" in the match queue. */
+  longWait: 45_000,
+  /** Client health/overview poll interval. */
+  healthPoll: 15_000,
 } as const
 
 // ---------------------------------------------------------------------------

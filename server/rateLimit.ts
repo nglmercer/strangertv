@@ -1,3 +1,5 @@
+import { HTTP_HEADERS } from '../shared/constants'
+
 type Bucket = { count: number; resetAt: number }
 
 const buckets = new Map<string, Bucket>()
@@ -30,9 +32,9 @@ export function rateLimitInfo(key: string, limit: number, windowMs: number): Rat
 
 export function rateLimitHeaders(info: RateLimitResult): Record<string, string> {
   return {
-    'X-RateLimit-Limit': String(info.limit),
-    'X-RateLimit-Remaining': String(info.remaining),
-    'X-RateLimit-Reset': String(Math.ceil(info.resetAt / 1000)),
+    [HTTP_HEADERS.xRateLimitLimit]: String(info.limit),
+    [HTTP_HEADERS.xRateLimitRemaining]: String(info.remaining),
+    [HTTP_HEADERS.xRateLimitReset]: String(Math.ceil(info.resetAt / 1000)),
   }
 }
 
