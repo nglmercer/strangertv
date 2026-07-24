@@ -68,6 +68,7 @@ export const API_ROUTES = {
   friends: '/api/friends',
   friendsRequest: '/api/friends/request',
   friendById: (id: number | string, action?: string) => `/api/friends/${id}${action ? `/${action}` : ''}`,
+  usersSearch: '/api/users/search',
   // Follows
   follows: '/api/follows',
   followByUser: (id: number | string) => `/api/follows/${id}`,

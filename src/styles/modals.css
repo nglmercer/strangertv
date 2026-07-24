@@ -376,3 +376,148 @@
   color: #444;
   margin: 0;
 }
+
+.friend-modal {
+  width: min(520px, 100%);
+}
+
+.friend-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 4px 0 14px;
+  padding: 3px;
+  background: #f0f0f0;
+  border-radius: 10px;
+}
+
+.friend-tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  padding: 9px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.friend-tab.on {
+  background: #fff;
+  color: #1a1a1a;
+  box-shadow: 0 1px 3px #0002;
+}
+
+.friend-badge {
+  background: var(--green);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.friend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: #f7f7f7;
+  border-radius: 10px;
+}
+
+.friend-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.friend-email {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-country {
+  font-size: 11px;
+  color: #888;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.friend-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.friend-btn.accept {
+  background: var(--green);
+  color: #fff;
+}
+
+.friend-btn.invite {
+  background: #e8f4ff;
+  color: #2977b7;
+}
+
+.friend-btn.danger {
+  background: #fce8e8;
+  color: #c53030;
+}
+
+.friend-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.friend-empty {
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+  padding: 24px 0;
+}
+
+.friend-search {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.friend-search-row {
+  display: flex;
+  gap: 8px;
+}
+
+.friend-search-row input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+}

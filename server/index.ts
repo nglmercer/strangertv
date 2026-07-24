@@ -21,6 +21,7 @@ import {
   validCredentials,
   verifyEmailToken,
   verifyPassword,
+  type UserRow,
 } from './auth'
 import { openApiDocument } from './openapi'
 import { requestIdMiddleware } from './requestId'
@@ -663,6 +664,24 @@ app.delete(API_ROUTES.friendById(':id'), async (c) => {
   if (!friendId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
   await removeFriend(friendId, user.id)
   return c.json({ ok: true })
+})
+
+// ---------------------------------------------------------------------------
+// Users API
+// ---------------------------------------------------------------------------
+
+app.get(API_ROUTES.usersSearch, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const email = c.req.query('email')?.trim()
+  if (!email) return c.json({ error: 'Email required' }, HTTP_STATUS.badRequest)
+  const result = await db.execute({
+    sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE email = ? AND id != ?',
+    args: [email, user.id],
+  })
+  const row = result.rows[0]
+  if (!row) return c.json({ user: null })
+  return c.json({ user: publicUser(row as unknown as UserRow) })
 })
 
 // ---------------------------------------------------------------------------

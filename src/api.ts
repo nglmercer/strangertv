@@ -83,6 +83,7 @@ export const friendsApi = {
   decline: (friendId: number) =>
     api<{ ok: boolean }>(API_ROUTES.friendById(friendId, 'decline'), { method: 'PATCH' }),
   remove: (friendId: number) => api<{ ok: boolean }>(API_ROUTES.friendById(friendId), { method: 'DELETE' }),
+  search: (email: string) => api<{ user: PublicUser | null }>(`${API_ROUTES.usersSearch}?email=${encodeURIComponent(email)}`),
 }
 
 export const followsApi = {

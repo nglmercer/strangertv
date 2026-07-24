@@ -192,6 +192,8 @@ export const en = {
   noFriends: 'No friends yet. Send a request to connect.',
   noRequests: 'No pending requests.',
   searchFriends: 'Search by email',
+  search: 'Search',
+  searchFailed: 'User not found.',
   micOptions: 'Microphone options',
   camOptions: 'Camera options',
   videoSettings: 'Video settings',

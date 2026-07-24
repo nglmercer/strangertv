@@ -193,6 +193,8 @@ export const pt: Messages = {
   noFriends: 'Ainda não tem amigos. Envie uma solicitação para conectar.',
   noRequests: 'Sem solicitações pendentes.',
   searchFriends: 'Buscar por e-mail',
+  search: 'Buscar',
+  searchFailed: 'Usuário não encontrado.',
   micOptions: 'Opções do microfone',
   camOptions: 'Opções da câmera',
   videoSettings: 'Ajustes de vídeo',
