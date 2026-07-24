@@ -28,7 +28,6 @@
 
   .stage {
     height: auto;
-    padding: 8px 8px 56px;
     min-height: 0;
   }
 
@@ -188,11 +187,11 @@
   }
 
   .chat-footer-info {
-    font-size: 8px;
+    font-size: 1rem;
   }
 
   .notice {
-    font-size: 11px;
+    font-size: 1rem;
     padding: 8px 0;
     margin: 0 10px;
   }

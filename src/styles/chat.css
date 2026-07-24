@@ -51,7 +51,7 @@
   flex-wrap: wrap;
   gap: 4px 10px;
   justify-content: center;
-  font: 9px 'DM Mono', monospace;
+  font: 0.6rem 'DM Mono', monospace;
   color: #aaa;
   padding: 6px 0 2px;
 }

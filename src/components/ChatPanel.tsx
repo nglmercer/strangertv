@@ -59,7 +59,6 @@ export function ChatPanel({
                 {t.terms}
               </button>
             </span>
-            {appVersion && <span>{t.version}{appVersion}</span>}
             {userEmail && <span>{t.signedInAs} {userEmail}</span>}
           </div>
         )}
