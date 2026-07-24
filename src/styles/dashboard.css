@@ -109,20 +109,20 @@
 }
 
 .deck-dropdown.open .deck-dropdown-trigger {
-  border-radius: 15px 15px 0 0;
+  border-radius: 0 0 15px 15px;
 }
 
 .deck-dropdown-menu {
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 0;
   right: 0;
   z-index: 20;
   background: #fafafa;
   border: 1px solid #ddd;
-  border-top: 0;
-  border-radius: 0 0 15px 15px;
-  box-shadow: 0 8px 24px #0002;
+  border-bottom: 0;
+  border-radius: 15px 15px 0 0;
+  box-shadow: 0 -8px 24px #0002;
   max-height: 240px;
   overflow-y: auto;
   display: flex;

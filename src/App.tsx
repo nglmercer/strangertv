@@ -216,11 +216,13 @@ export function App() {
           onAddFriend={() => setFriendManager(true)}
         />
       </div>
-        <FriendManager
-          t={tr}
-          user={user}
-          onClose={() => setFriendManager(false)}
-        />
+        {friendManager && (
+          <FriendManager
+            t={tr}
+            user={user}
+            onClose={() => setFriendManager(false)}
+          />
+        )}
 
 
       <section class="dashboard">
