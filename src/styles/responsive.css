@@ -12,7 +12,7 @@
 
 @media (max-width: 760px) {
   .video video {
-    object-fit: contain;
+    object-fit: cover;
   }
   .app {
     height: auto;
@@ -33,7 +33,7 @@
 
   .video-grid {
     grid-template-columns: 1fr;
-    grid-template-rows: min(40vh, 320px) min(28vh, 180px);
+    grid-template-rows: min(42dvh, 360px) min(42dvh, 360px);
     gap: 4px;
   }
 
@@ -207,7 +207,7 @@
 
 @media (max-width: 480px) {
   .video video {
-    object-fit: contain;
+    object-fit: cover;
   }
   .deck {
     grid-template-columns: repeat(2, 1fr);
@@ -219,7 +219,7 @@
   }
 
   .video-grid {
-    grid-template-rows: min(35vh, 280px) min(24vh, 150px);
+    grid-template-rows: min(35vh, 260px) min(35vh, 260px);
   }
 
   .brand-mark-3d {
