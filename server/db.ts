@@ -156,6 +156,26 @@ export async function migrate() {
     )
   `)
 
+  // Messages table — persistent friend-to-friend chat
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sender_id INTEGER NOT NULL,
+      recipient_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (sender_id) REFERENCES users(id),
+      FOREIGN KEY (recipient_id) REFERENCES users(id)
+    )
+  `)
+  try {
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS messages_pair ON messages (sender_id, recipient_id, created_at)',
+    )
+  } catch {
+    /* ignore */
+  }
+
   const columns = ['birth_date', 'gender', 'country', 'language', 'interests']
   for (const col of columns) {
     try {

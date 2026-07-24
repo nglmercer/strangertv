@@ -62,6 +62,7 @@ import {
   respondInvitation,
   cancelInvitation,
 } from './friends'
+import { sendMessage, getConversation, areFriends } from './messages'
 import { inc, prometheusText, snapshot } from './metrics'
 import { rateLimit, rateLimitHeaders, rateLimitInfo } from './rateLimit'
 import { requireAdmin, securityHeaders } from './security'
@@ -667,6 +668,45 @@ app.delete(API_ROUTES.friendById(':id'), async (c) => {
 })
 
 // ---------------------------------------------------------------------------
+// Messages API
+// ---------------------------------------------------------------------------
+
+app.get(API_ROUTES.messages, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const friendId = Number(c.req.query('friendId'))
+  if (!friendId) return c.json({ error: 'friendId required' }, HTTP_STATUS.badRequest)
+  if (!(await areFriends(user.id, friendId))) {
+    return c.json({ error: 'Not friends' }, HTTP_STATUS.forbidden)
+  }
+  const limit = Math.min(Number(c.req.query('limit')) || 50, 100)
+  const beforeId = c.req.query('beforeId') ? Number(c.req.query('beforeId')) : undefined
+  const messages = await getConversation(user.id, friendId, limit, beforeId)
+  return c.json({ messages })
+})
+
+app.post(API_ROUTES.messages, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  if (!rateLimit(`msg:${user.id}`, 30, 60_000)) {
+    return c.json({ error: 'Rate limit exceeded' }, HTTP_STATUS.tooManyRequests)
+  }
+  const { friendId, text } = await c.req.json<{ friendId?: number; text?: string }>()
+  if (!friendId || !text) return c.json({ error: 'friendId and text required' }, HTTP_STATUS.badRequest)
+  if (friendId === user.id) return c.json({ error: 'Cannot message yourself' }, HTTP_STATUS.badRequest)
+  if (!(await areFriends(user.id, friendId))) {
+    return c.json({ error: 'Not friends' }, HTTP_STATUS.forbidden)
+  }
+  const message = await sendMessage(user.id, friendId, text)
+  // Real-time delivery if recipient is online
+  const targetSocket = getSocketForUser(friendId)
+  if (targetSocket) {
+    send(targetSocket, { type: WS_MESSAGE_TYPE.messageNew, message })
+  }
+  return c.json({ message })
+})
+
+// ---------------------------------------------------------------------------
 // Users API
 // ---------------------------------------------------------------------------
 
@@ -1094,6 +1134,49 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     const meta = getMeta(socket)
     if (!meta?.userId) return
     await respondInvitation(message.invitationId, meta.userId, 'decline')
+    return
+  }
+
+  // ---------------------------------------------------------------------------
+  // Messages WS handlers
+  // ---------------------------------------------------------------------------
+
+  if (message.type === WS_MESSAGE_TYPE.messageSend) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) {
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to send messages.' })
+      return
+    }
+    if (!rateLimit(`wsmsg:${meta.userId}`, 30, 60_000)) {
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.rateLimit, message: 'Slow down messages.' })
+      return
+    }
+    const friendId = Number(message.friendId)
+    const text = String(message.text ?? '').slice(0, 500)
+    if (!friendId || !text) return
+    if (friendId === meta.userId) return
+    if (!(await areFriends(meta.userId, friendId))) {
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Not friends.' })
+      return
+    }
+    const msg = await sendMessage(meta.userId, friendId, text)
+    const targetSocket = getSocketForUser(friendId)
+    if (targetSocket) {
+      send(targetSocket, { type: WS_MESSAGE_TYPE.messageNew, message: msg })
+    }
+    return
+  }
+
+  if (message.type === WS_MESSAGE_TYPE.messageHistory) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) return
+    const friendId = Number(message.friendId)
+    if (!friendId) return
+    if (!(await areFriends(meta.userId, friendId))) return
+    const limit = Math.min(Number(message.limit) || 50, 100)
+    const beforeId = message.beforeId ? Number(message.beforeId) : undefined
+    const messages = await getConversation(meta.userId, friendId, limit, beforeId)
+    send(socket, { type: WS_MESSAGE_TYPE.messageHistory, friendId, messages })
     return
   }
 

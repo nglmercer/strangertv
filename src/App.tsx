@@ -177,11 +177,7 @@ export function App() {
           }}
           onSettings={() => setSettings(true)}
           onAuthClick={onAuthClick}
-          onAddFriend={() => {
-            if (session.peerUserId) {
-              void friendsApi.request(session.peerUserId)
-            }
-          }}
+          onAddFriend={() => setFriendManager(true)}
           onFollow={() => {
             if (session.peerUserId) {
               void followsApi.follow(session.peerUserId)

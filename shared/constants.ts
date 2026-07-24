@@ -75,6 +75,8 @@ export const API_ROUTES = {
   // Invitations
   invitations: '/api/invitations',
   invitationById: (id: number | string, action?: string) => `/api/invitations/${id}${action ? `/${action}` : ''}`,
+  // Messages
+  messages: '/api/messages',
 } as const
 
 export const API_PREFIX = '/api'
@@ -114,6 +116,8 @@ export const WS_MESSAGE_TYPE = {
   invitationSend: 'invitation:send',
   invitationAccept: 'invitation:accept',
   invitationDecline: 'invitation:decline',
+  messageSend: 'message:send',
+  messageHistory: 'message:history',
   // server -> client
   queueWaiting: 'queue:waiting',
   roomMatched: 'room:matched',
@@ -133,6 +137,7 @@ export const WS_MESSAGE_TYPE = {
   invitationAccepted: 'invitation:accepted',
   invitationDeclined: 'invitation:declined',
   invitationList: 'invitation:list',
+  messageNew: 'message:new',
 } as const
 
 export type WsMessageType = (typeof WS_MESSAGE_TYPE)[keyof typeof WS_MESSAGE_TYPE]

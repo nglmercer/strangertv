@@ -66,6 +66,14 @@ export type Invitation = {
   inviterUser: PublicUser
 }
 
+export type Message = {
+  id: number
+  senderId: number
+  recipientId: number
+  text: string
+  createdAt: string
+}
+
 export type ClientMessage =
   | { type: 'queue:join'; preferences: MatchPreferences; token?: string }
   | { type: 'queue:leave' }
@@ -85,6 +93,8 @@ export type ClientMessage =
   | { type: 'invitation:send'; userId: number; roomId: string }
   | { type: 'invitation:accept'; invitationId: number; roomId: string }
   | { type: 'invitation:decline'; invitationId: number }
+  | { type: 'message:send'; friendId: number; text: string }
+  | { type: 'message:history'; friendId: number; limit?: number; beforeId?: number }
   | {
       type: 'telemetry:quality'
       roomId?: string
@@ -124,6 +134,8 @@ export type ServerMessage =
   | { type: 'invitation:accepted'; invitationId: number; roomId: string }
   | { type: 'invitation:declined'; invitationId: number }
   | { type: 'invitation:list'; invitations: Array<{ id: number; inviter: PublicUser; roomId: string; status: InvitationStatus; expiresAt: string }> }
+  | { type: 'message:new'; message: Message }
+  | { type: 'message:history'; friendId: number; messages: Message[] }
 
 /** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [

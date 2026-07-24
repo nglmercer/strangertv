@@ -11,7 +11,7 @@
     "start": "tsx server/index.ts",
     "start:prod": "NODE_ENV=production APP_VERSION=$npm_package_version tsx server/index.ts",
     "check": "tsc -b --pretty false",
-    "test": "tsx --test server/auth.test.ts server/matchmaking.test.ts server/blocks.test.ts server/config.test.ts",
+    "test": "tsx --test server/auth.test.ts server/matchmaking.test.ts server/blocks.test.ts server/config.test.ts server/messages.test.ts",
     "test:integration": "tsx --test server/api.integration.test.ts",
     "test:e2e": "playwright test",
     "test:all": "npm run check && npm test && npm run test:integration && npm run build && CI=1 npm run test:e2e",
