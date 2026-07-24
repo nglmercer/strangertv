@@ -106,6 +106,7 @@ export function loadPrefs(): MatchPreferences {
     gender: DEFAULT_GENDER,
     lookingFor: DEFAULT_GENDER,
     interests: [],
+    allowMatchWithSameUsers: true,
   }
 }
 

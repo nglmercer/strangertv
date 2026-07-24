@@ -120,6 +120,7 @@ export function applyUserToClient(user: PublicUser): {
     gender: asGender(user.gender),
     lookingFor,
     interests: Array.isArray(user.interests) ? user.interests.slice(0, 5) : [],
+    allowMatchWithSameUsers: stored?.allowMatchWithSameUsers ?? true,
   }
 
   return { profileComplete, prefs }

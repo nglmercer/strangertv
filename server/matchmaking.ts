@@ -143,7 +143,7 @@ function interestScore(a: string[], b: string[]) {
 function compatible(a: QueuePeer, b: QueuePeer) {
   if (a.socket === b.socket) return false
   if (isBlockedPair(a.userId, b.userId)) return false
-  if (isRecentPair(a, b)) return false
+  if (!a.preferences.allowMatchWithSameUsers && isRecentPair(a, b)) return false
   const pa = a.preferences
   const pb = b.preferences
   if (!countryOk(pa.country, pb.country)) return false
@@ -167,7 +167,8 @@ export function normalizePreferences(raw: unknown): MatchPreferences | null {
   const interests = Array.isArray(p.interests)
     ? p.interests.filter((x): x is string => typeof x === 'string').slice(0, 10)
     : []
-  return { country, language, gender, lookingFor, interests }
+  const allowMatchWithSameUsers = typeof p.allowMatchWithSameUsers === 'boolean' ? p.allowMatchWithSameUsers : true
+  return { country, language, gender, lookingFor, interests, allowMatchWithSameUsers }
 }
 
 export function removeFromQueue(socket: SocketLike) {

@@ -26,6 +26,10 @@ export function MatchPrefsTab({
     setPrefs({ ...prefs, interests })
   }
 
+  const toggleAllowSameUsers = () => {
+    setPrefs({ ...prefs, allowMatchWithSameUsers: !prefs.allowMatchWithSameUsers })
+  }
+
   return (
     <div class="prefs-tab-panel" role="tabpanel">
       <label>
@@ -86,6 +90,14 @@ export function MatchPrefsTab({
           ))}
         </div>
       </fieldset>
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          checked={prefs.allowMatchWithSameUsers}
+          onChange={toggleAllowSameUsers}
+        />
+        <span>{t.allowMatchWithSameUsers}</span>
+      </label>
     </div>
   )
 }

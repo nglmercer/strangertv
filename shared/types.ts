@@ -10,6 +10,7 @@ export type MatchPreferences = {
   gender: Gender
   lookingFor: Gender
   interests: string[]
+  allowMatchWithSameUsers: boolean
 }
 
 export type ReportReason =

@@ -16,6 +16,7 @@ export const en = {
   gender: 'I am',
   lookingFor: 'Looking for',
   interests: 'Interests',
+  allowMatchWithSameUsers: 'Allow matching with previously skipped users',
   save: 'Save preferences',
   login: 'Welcome back',
   register: 'Create account',

@@ -98,6 +98,10 @@ export function StartMatchModal({
     onConfirm()
   }
 
+  const toggleAllowSameUsers = () => {
+    setPrefs({ ...prefs, allowMatchWithSameUsers: !prefs.allowMatchWithSameUsers })
+  }
+
   return (
     <Modal onClose={onClose} className="modal start-modal" labelledBy="start-title">
       <button type="button" class="modal-close" onClick={onClose} aria-label={t.close}>
@@ -186,6 +190,14 @@ export function StartMatchModal({
               </button>
             ))}
           </div>
+          <label class="toggle-label">
+            <input
+              type="checkbox"
+              checked={prefs.allowMatchWithSameUsers}
+              onChange={toggleAllowSameUsers}
+            />
+            <span>{t.allowMatchWithSameUsers}</span>
+          </label>
           <button class="match full" onClick={finish}>
             {t.continueAnon}
           </button>

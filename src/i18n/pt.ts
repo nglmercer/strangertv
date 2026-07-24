@@ -18,6 +18,7 @@ export const pt: Messages = {
   gender: 'Eu sou',
   lookingFor: 'Procurando',
   interests: 'Interesses',
+  allowMatchWithSameUsers: 'Permitir correspondência com usuários já pulados',
   save: 'Salvar preferências',
   login: 'Bem-vindo de volta',
   register: 'Criar conta',

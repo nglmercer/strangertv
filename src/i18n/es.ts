@@ -18,6 +18,7 @@ export const es: Messages = {
   gender: 'Soy',
   lookingFor: 'Busco',
   interests: 'Intereses',
+  allowMatchWithSameUsers: 'Permitir emparejar con usuarios ya omitidos',
   save: 'Guardar preferencias',
   login: 'Bienvenido',
   register: 'Crear cuenta',

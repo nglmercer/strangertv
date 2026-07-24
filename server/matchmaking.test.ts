@@ -82,7 +82,7 @@ describe('joinQueue matching', () => {
   it('avoids immediate rematch of same sessions', () => {
     const a1 = mockSocket()
     const b1 = mockSocket()
-    const prefs = normalizePreferences({ country: 'any', language: 'any', gender: 'any', lookingFor: 'any' })!
+    const prefs = normalizePreferences({ country: 'any', language: 'any', gender: 'any', lookingFor: 'any', allowMatchWithSameUsers: false })!
     joinQueue(a1, prefs, { sessionKey: 's-a' })
     joinQueue(b1, prefs, { sessionKey: 's-b' })
     assert.equal(queueStats().waiting, 0)
@@ -95,6 +95,26 @@ describe('joinQueue matching', () => {
     joinQueue(b2, prefs, { sessionKey: 's-b' })
     // both waiting — not rematched due to cooldown
     assert.equal(queueStats().waiting, 2)
+    fullRemove(a2)
+    fullRemove(b2)
+  })
+
+  it('allows immediate rematch when allowMatchWithSameUsers is true', () => {
+    const a1 = mockSocket()
+    const b1 = mockSocket()
+    const prefs = normalizePreferences({ country: 'any', language: 'any', gender: 'any', lookingFor: 'any', allowMatchWithSameUsers: true })!
+    joinQueue(a1, prefs, { sessionKey: 's-a' })
+    joinQueue(b1, prefs, { sessionKey: 's-b' })
+    assert.equal(queueStats().waiting, 0)
+    fullRemove(a1)
+    fullRemove(b1)
+
+    const a2 = mockSocket()
+    const b2 = mockSocket()
+    joinQueue(a2, prefs, { sessionKey: 's-a' })
+    joinQueue(b2, prefs, { sessionKey: 's-b' })
+    // matched again — cooldown bypassed when preference is enabled
+    assert.equal(queueStats().waiting, 0)
     fullRemove(a2)
     fullRemove(b2)
   })
