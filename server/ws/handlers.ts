@@ -313,15 +313,16 @@ export function createWsHandler(state: WsState) {
       const friendId = Number(message.friendId)
       const text = String(message.text ?? '').slice(0, 500)
       if (!friendId || !text) return
-      if (friendId === meta.userId) return
       if (!(await hasRelationship(meta.userId, friendId))) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'No relationship.' })
         return
       }
       const msg = await sendMessage(meta.userId, friendId, text)
-      const targetSocket = getSocketForUser(friendId)
-      if (targetSocket) {
-        send(targetSocket, { type: WS_MESSAGE_TYPE.messageNew, message: msg })
+      if (friendId !== meta.userId) {
+        const targetSocket = getSocketForUser(friendId)
+        if (targetSocket) {
+          send(targetSocket, { type: WS_MESSAGE_TYPE.messageNew, message: msg })
+        }
       }
       return
     }

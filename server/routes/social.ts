@@ -108,7 +108,6 @@ export function registerSocialRoutes(app: Hono, send: (socket: SocketLike, msg: 
     }
     const { friendId, text } = await c.req.json<{ friendId?: number; text?: string }>()
     if (!friendId || !text) return c.json({ error: 'friendId and text required' }, HTTP_STATUS.badRequest)
-    if (friendId === user.id) return c.json({ error: 'Cannot message yourself' }, HTTP_STATUS.badRequest)
     if (!(await hasRelationship(user.id, friendId))) {
       return c.json({ error: 'No relationship' }, HTTP_STATUS.forbidden)
     }

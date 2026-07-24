@@ -23,6 +23,7 @@ export async function isFollowing(followerId: number, followedId: number, db: Cl
 }
 
 export async function hasRelationship(userId: number, otherId: number, db: Client = defaultDb): Promise<boolean> {
+  if (userId === otherId) return true
   if (await areFriends(userId, otherId, db)) return true
   if (await isFollowing(userId, otherId, db)) return true
   if (await isFollowing(otherId, userId, db)) return true
@@ -30,6 +31,7 @@ export async function hasRelationship(userId: number, otherId: number, db: Clien
 }
 
 export async function getRelationship(userId: number, otherId: number, db: Client = defaultDb): Promise<RelationshipStatus> {
+  if (userId === otherId) return 'friend'
   if (await areFriends(userId, otherId, db)) return 'friend'
   const [aFollowsB, bFollowsA] = await Promise.all([
     isFollowing(userId, otherId, db),
@@ -41,9 +43,6 @@ export async function getRelationship(userId: number, otherId: number, db: Clien
 }
 
 export async function sendMessage(senderId: number, recipientId: number, text: string, db: Client = defaultDb) {
-  if (senderId === recipientId) {
-    throw new Error('Cannot send message to yourself')
-  }
   if (!(await hasRelationship(senderId, recipientId, db))) {
     throw new Error('No relationship')
   }

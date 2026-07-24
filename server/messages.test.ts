@@ -116,12 +116,15 @@ describe('messages', () => {
     assert.ok(msg.id > 0)
   })
 
-  it('sendMessage rejects non-friends', async () => {
+  it('sendMessage rejects strangers', async () => {
     await assert.rejects(() => sendMessage(userA, userC, 'hello', db))
   })
 
-  it('sendMessage rejects self-messaging', async () => {
-    await assert.rejects(() => sendMessage(userA, userA, 'hello', db))
+  it('sendMessage allows self-messaging', async () => {
+    const msg = await sendMessage(userA, userA, 'my note', db)
+    assert.equal(msg.text, 'my note')
+    assert.equal(msg.senderId, userA)
+    assert.equal(msg.recipientId, userA)
   })
 
   it('sendMessage truncates long text', async () => {
@@ -141,6 +144,23 @@ describe('messages', () => {
     assert.equal(msgs[0].text, 'first')
     assert.equal(msgs[1].text, 'second')
     assert.equal(msgs[2].text, 'third')
+  })
+
+  it('getConversation returns self-messages', async () => {
+    await sendMessage(userA, userA, 'note one', db)
+    await sendMessage(userA, userA, 'note two', db)
+    const msgs = await getConversation(userA, userA, 50, undefined, db)
+    assert.equal(msgs.length, 2)
+    assert.equal(msgs[0].text, 'note one')
+    assert.equal(msgs[1].text, 'note two')
+  })
+
+  it('hasRelationship returns true for self', async () => {
+    assert.equal(await hasRelationship(userA, userA, db), true)
+  })
+
+  it('getRelationship returns friend for self', async () => {
+    assert.equal(await getRelationship(userA, userA, db), 'friend')
   })
 
   it('getConversation only returns messages between the pair', async () => {

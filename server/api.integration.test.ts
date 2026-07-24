@@ -231,6 +231,34 @@ describe('API integration', () => {
     assert.equal(convBody.messages[0].text, 'hey from follow')
   })
 
+  it('self-messaging: send and fetch own messages', async () => {
+    const email = `self_${Date.now()}@example.com`
+    const reg = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12', birthDate: '1990-01-01' }),
+    })
+    assert.equal(reg.status, 201)
+    const body = (await reg.json()) as { token: string; user: { id: number } }
+
+    // Send message to self
+    const sendRes = await fetch(`${BASE}${API_ROUTES.messages}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${body.token}` },
+      body: JSON.stringify({ friendId: body.user.id, text: 'my reminder' }),
+    })
+    assert.equal(sendRes.status, 200)
+
+    // Fetch self-conversation
+    const convRes = await fetch(`${BASE}${API_ROUTES.messages}?friendId=${body.user.id}`, {
+      headers: { authorization: `Bearer ${body.token}` },
+    })
+    assert.equal(convRes.status, 200)
+    const convBody = (await convRes.json()) as { messages: Array<{ text: string }> }
+    assert.equal(convBody.messages.length, 1)
+    assert.equal(convBody.messages[0].text, 'my reminder')
+  })
+
   it('health includes version and ratings accept scores', async () => {
     const health = await fetch(`${BASE}${API_ROUTES.health}`)
     const h = (await health.json()) as { version?: string }
