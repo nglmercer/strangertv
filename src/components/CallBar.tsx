@@ -21,12 +21,16 @@ type Props = {
   videoId: string
   audioId: string
   user: PublicUser | null
+  fullscreen: boolean
   onMute: () => void
   onCamera: () => void
   onReport: () => void
   onBlock: () => void
   onRetryIce: () => void
   onFullscreen: () => void
+  onStart: () => void
+  onStop: () => void
+  onNext: () => void
   onDeviceChange: (kind: 'video' | 'audio', id: string) => void
   onOpenDeviceSettings: () => void
   onRefreshDevices: () => void
@@ -53,12 +57,16 @@ export function CallBar({
   videoId,
   audioId,
   user,
+  fullscreen,
   onMute,
   onCamera,
   onReport,
   onBlock,
   onRetryIce,
   onFullscreen,
+  onStart,
+  onStop,
+  onNext,
   onDeviceChange,
   onOpenDeviceSettings,
   onRefreshDevices,
@@ -87,8 +95,7 @@ export function CallBar({
     }
   }, [menu])
 
-  if (!finding && !matched) return null
-
+  const isActive = finding || matched
   const muteLabel = muted ? t.unmute : t.mute
   const camLabel = cameraOn ? t.camOff : t.camOn
 
@@ -235,6 +242,44 @@ export function CallBar({
           </div>
         )}
       </div>
+
+      {fullscreen && (
+        <div class="call-fullscreen-controls">
+          {!finding && !matched && (
+            <button
+              type="button"
+              class="call-btn icon call-fullscreen-btn"
+              onClick={onStart}
+              aria-label={t.start}
+              title={t.start}
+            >
+              <Icon d={icons.start} size={18} />
+            </button>
+          )}
+          {finding && !matched && (
+            <button
+              type="button"
+              class="call-btn icon call-fullscreen-btn"
+              onClick={onNext}
+              aria-label={t.skipNext}
+              title={t.skipNext}
+            >
+              <Icon d={icons.next} size={18} />
+            </button>
+          )}
+          {matched && (
+            <button
+              type="button"
+              class="call-btn icon call-fullscreen-btn"
+              onClick={onStop}
+              aria-label={t.stop}
+              title={t.stop}
+            >
+              <Icon d={icons.stop} size={18} />
+            </button>
+          )}
+        </div>
+      )}
 
       <div class={`call-more ${menu === 'more' ? 'open' : ''}`}>
         <button

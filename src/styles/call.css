@@ -31,6 +31,11 @@
   bottom: 18px;
 }
 
+.stage-wrap:fullscreen .call-bar,
+.stage-wrap:-webkit-full-screen .call-bar {
+  bottom: 24px;
+}
+
 .call-btn {
   border: 0;
   background: #2a2a2acc;
@@ -179,6 +184,54 @@
 
 .call-menu-item.is-selected {
   color: #c8f5df;
+}
+
+.call-fullscreen-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.call-fullscreen-btn {
+  background: #2a2a2acc;
+  color: #eee;
+  border-radius: 999px;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease;
+}
+
+.call-fullscreen-btn.start {
+  background: var(--green);
+  color: #053;
+}
+
+.call-fullscreen-btn.start:hover:not(:disabled) {
+  background: var(--green-dark);
+  color: #031;
+}
+
+.call-fullscreen-btn:hover:not(:disabled) {
+  background: #3a3a3aee;
+  transform: translateY(-1px);
+}
+
+.call-fullscreen-btn:focus-visible {
+  outline: 2px solid #57c9a1;
+  outline-offset: 2px;
+}
+
+.call-fullscreen-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .call-more {

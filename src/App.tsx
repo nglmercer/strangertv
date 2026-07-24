@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'preact/hooks'
+import { useCallback, useEffect, useState } from 'preact/hooks'
 import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { getFlag, setFlag } from './utils/storage'
@@ -20,6 +20,21 @@ import {
   canQuickStart,
   isAgeGateComplete,
 } from './utils/clientStorage'
+
+function getFsElement(): Element | null {
+  const d = document as Document & { mozFullScreenElement?: Element | null; webkitFullscreenElement?: Element | null; msFullscreenElement?: Element | null }
+  return (d.fullscreenElement ?? d.mozFullScreenElement ?? d.webkitFullscreenElement ?? d.msFullscreenElement) ?? null
+}
+
+function requestFs(el: Element): Promise<void> | undefined {
+  const e = el as Element & { mozRequestFullScreen?: () => Promise<void>; webkitRequestFullscreen?: () => Promise<void>; msRequestFullscreen?: () => Promise<void> }
+  return (e.requestFullscreen ?? e.mozRequestFullScreen ?? e.webkitRequestFullscreen ?? e.msRequestFullscreen)?.call(el)
+}
+
+function exitFs(): Promise<void> | undefined {
+  const d = document as Document & { mozExitFullScreen?: () => Promise<void>; webkitExitFullscreen?: () => Promise<void>; msExitFullscreen?: () => Promise<void> }
+  return (d.exitFullscreen ?? d.mozExitFullScreen ?? d.webkitExitFullscreen ?? d.msExitFullscreen)?.call(document)
+}
 
 export function App() {
   const [locale, setLocale] = useState<Locale>(detectLocale)
@@ -52,6 +67,7 @@ export function App() {
     }
     return !isAgeGateComplete()
   })
+  const [fullscreen, setFullscreen] = useState(false)
 
   const applyUser = useCallback((u: PublicUser | null) => {
     setUser(u)
@@ -82,6 +98,32 @@ export function App() {
     setOnline: session.setOnline,
     setWaitingCount: session.setWaitingCount,
   })
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setFullscreen(Boolean(getFsElement()))
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    document.addEventListener('mozfullscreenchange', onFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange)
+    document.addEventListener('MSFullscreenChange', onFullscreenChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      document.removeEventListener('mozfullscreenchange', onFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+      document.removeEventListener('MSFullscreenChange', onFullscreenChange)
+    }
+  }, [])
+
+  const handleFullscreen = () => {
+    const el = document.querySelector('.stage-wrap')
+    if (!el) return
+    if (!getFsElement()) {
+      void requestFs(el)
+    } else {
+      void exitFs()
+    }
+  }
 
   const anyModalOpen =
     showStart || preferences || authActive || settings || reportOpen || friendManager || profileNeeded || Boolean(page)
@@ -202,6 +244,8 @@ export function App() {
           videoId={session.media.videoId}
           audioId={session.media.audioId}
           user={user}
+          fullscreen={fullscreen}
+          onStart={onStartClick}
           onMute={() => session.media.setMutedTrack(!session.media.muted)}
           onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
           onReport={() => setReportOpen(true)}
@@ -213,12 +257,9 @@ export function App() {
             setPreferences(true)
           }}
           onRefreshDevices={() => void session.media.refreshDevices()}
-          onFullscreen={() => {
-            const el = document.querySelector('.stage')
-            if (!el) return
-            if (!document.fullscreenElement) void el.requestFullscreen?.()
-            else void document.exitFullscreen?.()
-          }}
+          onFullscreen={handleFullscreen}
+          onStop={session.stop}
+          onNext={session.next}
           onPreferences={() => {
             setPrefsTab(PREFS_TAB.match)
             setPreferences(true)
