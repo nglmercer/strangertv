@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 
 type Options = {
   active: boolean
@@ -9,6 +9,7 @@ type Options = {
   onNext: () => void
   onStop: () => void
   canNext: boolean
+  modalOpen?: boolean
 }
 
 /** Global call shortcuts: M mute, C camera, N next, Esc stop. */
@@ -21,28 +22,45 @@ export function useCallKeyboard({
   onNext,
   onStop,
   canNext,
+  modalOpen,
 }: Options) {
+  const mutedRef = useRef(muted)
+  const cameraOnRef = useRef(cameraOn)
+  const canNextRef = useRef(canNext)
+  const setMutedRef = useRef(setMuted)
+  const setCameraRef = useRef(setCamera)
+  const onNextRef = useRef(onNext)
+  const onStopRef = useRef(onStop)
+
+  mutedRef.current = muted
+  cameraOnRef.current = cameraOn
+  canNextRef.current = canNext
+  setMutedRef.current = setMuted
+  setCameraRef.current = setCamera
+  onNextRef.current = onNext
+  onStopRef.current = onStop
+
   useEffect(() => {
-    if (!active) return
+    if (!active || modalOpen) return
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       const key = e.key.toLowerCase()
       if (key === 'm') {
         e.preventDefault()
-        setMuted(!muted)
+        setMutedRef.current(!mutedRef.current)
       } else if (key === 'c') {
         e.preventDefault()
-        setCamera(!cameraOn)
-      } else if (key === 'n' && canNext) {
+        setCameraRef.current(!cameraOnRef.current)
+      } else if (key === 'n' && canNextRef.current) {
         e.preventDefault()
-        onNext()
+        onNextRef.current()
       } else if (key === 'escape') {
         e.preventDefault()
-        onStop()
+        onStopRef.current()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [active, muted, cameraOn, setMuted, setCamera, onNext, onStop, canNext])
+  }, [active, modalOpen])
 }

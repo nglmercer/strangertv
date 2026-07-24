@@ -42,6 +42,7 @@ export function App() {
   const [reportOpen, setReportOpen] = useState(false)
   const [friendManager, setFriendManager] = useState(false)
   const [page, setPage] = useState<PageId>(null)
+  const [authActive, setAuthActive] = useState(false)
   const [user, setUser] = useState<PublicUser | null>(getStoredUser)
   const [profileNeeded, setProfileNeeded] = useState(() => {
     const stored = getStoredUser()
@@ -82,6 +83,9 @@ export function App() {
     setWaitingCount: session.setWaitingCount,
   })
 
+  const anyModalOpen =
+    showStart || preferences || authActive || settings || reportOpen || friendManager || profileNeeded || Boolean(page)
+
   useCallKeyboard({
     active: session.finding || session.matched,
     muted: session.media.muted,
@@ -91,6 +95,7 @@ export function App() {
     onNext: session.next,
     onStop: session.stop,
     canNext: session.finding,
+    modalOpen: anyModalOpen,
   })
 
   const onStartClick = () => {
@@ -294,7 +299,11 @@ export function App() {
           if (!v) setPrefsTab(undefined)
         }}
         auth={auth}
-        setAuth={setAuth}
+        setAuth={(v) => {
+          setAuth(v)
+          setAuthActive(v)
+        }}
+        authActive={authActive}
         resetTokenFromUrl={resetTokenFromUrl}
         setResetTokenFromUrl={setResetTokenFromUrl}
         settings={settings}

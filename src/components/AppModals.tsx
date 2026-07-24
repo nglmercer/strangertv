@@ -39,6 +39,7 @@ export function AppModals({
   setPreferences,
   auth,
   setAuth,
+  authActive,
   resetTokenFromUrl,
   setResetTokenFromUrl,
   settings,
@@ -70,6 +71,7 @@ export function AppModals({
   setPreferences: (v: boolean) => void
   auth: boolean
   setAuth: (v: boolean) => void
+  authActive: boolean
   resetTokenFromUrl: string
   setResetTokenFromUrl: (v: string) => void
   settings: boolean
@@ -88,7 +90,7 @@ export function AppModals({
 }) {
   return (
     <>
-      {profileNeeded && <ProfileModal t={t} onComplete={() => setProfileNeeded(false)} />}
+      {profileNeeded && !authActive && <ProfileModal t={t} onComplete={() => setProfileNeeded(false)} />}
       {showStart && (
         <StartMatchModal
           t={t}
