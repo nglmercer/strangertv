@@ -42,8 +42,13 @@
   }
 
   .brand-mark-3d {
-    width: min(200px, 46vw);
-    height: min(200px, 46vw);
+    width: min(140px, 36vw);
+    height: min(140px, 36vw);
+  }
+
+  .pulse-ring {
+    width: min(160px, 40vw);
+    height: min(160px, 40vw);
   }
 
   .stage-empty {
@@ -223,8 +228,13 @@
   }
 
   .brand-mark-3d {
-    width: min(175px, 44vw);
-    height: min(175px, 44vw);
+    width: min(110px, 32vw);
+    height: min(110px, 32vw);
+  }
+
+  .pulse-ring {
+    width: min(130px, 36vw);
+    height: min(130px, 36vw);
   }
 
   .video.local .stage-empty .local-preview-hint {

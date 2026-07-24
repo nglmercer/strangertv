@@ -94,7 +94,7 @@ export function VideoStage({
           <video ref={remoteVideo} autoplay playsinline aria-label={t.labelStranger} />
           {!hasRemote && (
             <div class="stage-empty">
-              <StaticNoise opacity={0.42} density={0.5} cellSize={3} />
+              <StaticNoise opacity={0.55} density={0.6} cellSize={5} />
               <BrandMark3D />
               {finding && (
                 <div class="pulse-ring" aria-hidden="true">

@@ -85,7 +85,10 @@ export function StaticNoise({
     const targetFPS = Math.floor(60 / Math.max(1, speed));
 
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
+      const parent = canvas.parentElement;
+      const rect = parent
+        ? { width: parent.clientWidth, height: parent.clientHeight }
+        : canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
       width = Math.max(1, Math.floor(rect.width));
@@ -131,7 +134,11 @@ export function StaticNoise({
     start();
 
     const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
+    if (canvas.parentElement) {
+      ro.observe(canvas.parentElement);
+    } else {
+      ro.observe(canvas);
+    }
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
