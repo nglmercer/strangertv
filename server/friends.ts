@@ -8,7 +8,8 @@ import { API_ROUTES } from '../shared/constants'
 
 export async function getFriends(userId: number) {
   const result = await db.execute({
-    sql: `SELECT f.id, f.user_b_id AS otherUserId, f.status, f.updated_at AS updatedAt,
+    sql: `SELECT f.id, f.user_a_id AS userAId, f.user_b_id AS userBId, f.status,
+                 f.created_at AS createdAt, f.updated_at AS updatedAt,
                  u.id AS other_id, u.email AS other_email, u.birth_date AS other_birth_date,
                  u.gender AS other_gender, u.country AS other_country,
                  u.language AS other_language, u.interests AS other_interests,
@@ -19,12 +20,16 @@ export async function getFriends(userId: number) {
             WHEN f.user_b_id = ? THEN f.user_a_id
           END
           WHERE (f.user_a_id = ? OR f.user_b_id = ?)
-            AND f.status = 'accepted'
           ORDER BY f.updated_at DESC`,
     args: [userId, userId, userId, userId],
   })
   return result.rows.map((row: any) => ({
     id: Number(row.id),
+    userAId: Number(row.userAId),
+    userBId: Number(row.userBId),
+    status: row.status,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     otherUser: publicUserFromRow(row, 'other_'),
   }))
 }
@@ -38,8 +43,8 @@ export async function getPendingFriendRequests(userId: number) {
                  u.email_verified AS requester_email_verified
           FROM friends f
           JOIN users u ON u.id = f.user_a_id
-          WHERE f.user_b_id = ? AND f.status = 'pending'
-          ORDER BY f.created_at DESC`,
+           WHERE f.user_b_id = ? AND f.status = 'pending'
+           ORDER BY f.created_at DESC`,
     args: [userId],
   })
   return result.rows.map((row: any) => ({
@@ -56,7 +61,7 @@ export async function sendFriendRequest(userId: number, targetUserId: number) {
     throw new Error('Cannot send friend request to yourself')
   }
   const result = await db.execute({
-    sql: 'INSERT OR IGNORE INTO friends (user_a_id, user_b_id, status) VALUES (?, ?, "pending")',
+    sql: "INSERT OR IGNORE INTO friends (user_a_id, user_b_id, status) VALUES (?, ?, 'pending')",
     args: [Math.min(userId, targetUserId), Math.max(userId, targetUserId)],
   })
   return { ok: true }
@@ -64,7 +69,7 @@ export async function sendFriendRequest(userId: number, targetUserId: number) {
 
 export async function respondFriendRequest(friendId: number, userId: number, action: 'accept' | 'decline') {
   const result = await db.execute({
-    sql: 'SELECT * FROM friends WHERE id = ? AND user_b_id = ? AND status = "pending"',
+    sql: "SELECT * FROM friends WHERE id = ? AND user_b_id = ? AND status = 'pending'",
     args: [friendId, userId],
   })
   if (!result.rows[0]) {
@@ -183,7 +188,7 @@ export async function sendInvitation(inviterId: number, inviteeId: number, roomI
   }
   const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString() // 30 min expiry
   await db.execute({
-    sql: 'INSERT OR REPLACE INTO invitations (inviter_id, invitee_id, room_id, status, expires_at) VALUES (?, ?, ?, "pending", ?)',
+    sql: "INSERT OR REPLACE INTO invitations (inviter_id, invitee_id, room_id, status, expires_at) VALUES (?, ?, ?, 'pending', ?)",
     args: [inviterId, inviteeId, roomId, expiresAt],
   })
   return { ok: true }
@@ -191,7 +196,7 @@ export async function sendInvitation(inviterId: number, inviteeId: number, roomI
 
 export async function respondInvitation(invitationId: number, inviteeId: number, action: 'accept' | 'decline') {
   const result = await db.execute({
-    sql: 'SELECT * FROM invitations WHERE id = ? AND invitee_id = ? AND status = "pending"',
+    sql: "SELECT * FROM invitations WHERE id = ? AND invitee_id = ? AND status = 'pending'",
     args: [invitationId, inviteeId],
   })
   if (!result.rows[0]) {
