@@ -115,6 +115,14 @@ export function getPartnerUserId(socket: SocketLike): number | undefined {
   return undefined
 }
 
+export function getPartner(socket: SocketLike): SocketLike | undefined {
+  const room = roomsBySocket.get(socket)
+  if (!room) return undefined
+  if (room.a === socket) return room.b
+  if (room.b === socket) return room.a
+  return undefined
+}
+
 export function blockedPairCount() {
   return blockedPairs.size
 }
