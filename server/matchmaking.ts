@@ -181,9 +181,13 @@ export function removeFromQueue(socket: SocketLike) {
 export function leaveRoom(socket: SocketLike, notifyPartner = true, reason?: string) {
   const room = roomsBySocket.get(socket)
   const partner = partners.get(socket)
+  const meta = peerMeta.get(socket)
+  if (meta?.userId) unregisterUserSocket(meta.userId, socket)
   if (partner) {
     partners.delete(socket)
     partners.delete(partner)
+    const partnerMeta = peerMeta.get(partner)
+    if (partnerMeta?.userId) unregisterUserSocket(partnerMeta.userId, socket)
     if (notifyPartner) send(partner, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason })
   }
   if (room) {
@@ -194,6 +198,8 @@ export function leaveRoom(socket: SocketLike, notifyPartner = true, reason?: str
 }
 
 export function fullRemove(socket: SocketLike) {
+  const meta = peerMeta.get(socket)
+  if (meta?.userId) unregisterUserSocket(meta.userId, socket)
   removeFromQueue(socket)
   leaveRoom(socket, true, PEER_LEFT_REASON.disconnect)
 }

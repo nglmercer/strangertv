@@ -34,6 +34,7 @@ type Props = {
   onPreferences: () => void
   onSettings: () => void
   onAuthClick: () => void
+  onAddFriend: () => void
 }
 
 function deviceLabel(d: MediaDeviceInfo, fallback: string) {

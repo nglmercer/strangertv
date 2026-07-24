@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences } from '../shared/types'
+import type { Gender, MatchPreferences, Friend, Follow, Invitation } from '../shared/types'
 import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
@@ -74,6 +74,36 @@ export const socialApi = {
     api<{ ok: boolean }>(API_ROUTES.ratings, { method: 'POST', body: JSON.stringify({ score, roomId }) }),
 }
 
+export const friendsApi = {
+  list: () => api<{ friends: Friend[] }>(API_ROUTES.friends),
+  request: (userId: number) =>
+    api<{ ok: boolean }>(API_ROUTES.friendsRequest, { method: 'POST', body: JSON.stringify({ userId }) }),
+  accept: (friendId: number) =>
+    api<{ ok: boolean }>(API_ROUTES.friendById(friendId, 'accept'), { method: 'PATCH' }),
+  decline: (friendId: number) =>
+    api<{ ok: boolean }>(API_ROUTES.friendById(friendId, 'decline'), { method: 'PATCH' }),
+  remove: (friendId: number) => api<{ ok: boolean }>(API_ROUTES.friendById(friendId), { method: 'DELETE' }),
+}
+
+export const followsApi = {
+  follow: (userId: number) =>
+    api<{ ok: boolean }>(API_ROUTES.follows, { method: 'POST', body: JSON.stringify({ userId }) }),
+  unfollow: (userId: number) => api<{ ok: boolean }>(API_ROUTES.followByUser(userId), { method: 'DELETE' }),
+  list: () =>
+    api<{ followers: Follow[]; following: Follow[] }>(API_ROUTES.follows),
+}
+
+export const invitationsApi = {
+  list: () => api<{ invitations: Invitation[] }>(API_ROUTES.invitations),
+  send: (userId: number, roomId: string) =>
+    api<{ ok: boolean }>(API_ROUTES.invitations, { method: 'POST', body: JSON.stringify({ userId, roomId }) }),
+  accept: (id: number) =>
+    api<{ ok: boolean }>(API_ROUTES.invitationById(id, 'accept'), { method: 'PATCH' }),
+  decline: (id: number) =>
+    api<{ ok: boolean }>(API_ROUTES.invitationById(id, 'decline'), { method: 'PATCH' }),
+  cancel: (id: number) => api<{ ok: boolean }>(API_ROUTES.invitationById(id), { method: 'DELETE' }),
+}
+
 export async function fetchIceServers(): Promise<RTCIceServer[]> {
   try {
     const data = await api<{ iceServers: RTCIceServer[] }>(API_ROUTES.ice)
@@ -93,7 +123,6 @@ export async function fetchHealth() {
 
 export function wsUrl() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  // Prefer same-origin proxy in dev/prod
   return `${proto}://${location.host}/ws`
 }
 

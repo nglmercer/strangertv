@@ -44,6 +44,7 @@ import {
   send,
   blockPair,
   unblockPair,
+  getSocketForUser,
   type SocketLike,
 } from './matchmaking'
 import {
@@ -957,6 +958,121 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     leaveRoom(socket, true, PEER_LEFT_REASON.blocked)
     send(socket, { type: WS_MESSAGE_TYPE.blockAck })
     if (partner) leaveRoom(partner, false)
+    return
+  }
+
+  // ---------------------------------------------------------------------------
+  // Friend system WS handlers
+  // ---------------------------------------------------------------------------
+
+  if (message.type === WS_MESSAGE_TYPE.friendRequest) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) {
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to send friend requests.' })
+      return
+    }
+    const targetSocket = getSocketForUser(message.userId)
+    if (!targetSocket) {
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'User is not online.' })
+      return
+    }
+    await sendFriendRequest(meta.userId, message.userId)
+    const fromRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+    const fromProfile = fromRow.rows[0]
+    send(targetSocket, { type: WS_MESSAGE_TYPE.friendRequest, friendId: meta.userId, from: fromProfile ? publicUser(fromProfile) : { id: meta.userId, email: '' } })
+    return
+  }
+
+  if (message.type === WS_MESSAGE_TYPE.friendAccept) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) return
+    await respondFriendRequest(message.friendId, meta.userId, 'accept')
+    const friend = await db.execute({ sql: 'SELECT user_a_id, user_b_id FROM friends WHERE id = ?', args: [message.friendId] })
+    const row = friend.rows[0]
+    if (row) {
+      const otherId = Number(row.user_a_id) === meta.userId ? Number(row.user_b_id) : Number(row.user_a_id)
+      const otherSocket = getSocketForUser(otherId)
+      if (otherSocket) {
+        const otherRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [otherId] })
+        const otherProfile = otherRow.rows[0]
+        send(otherSocket, { type: WS_MESSAGE_TYPE.friendAccepted, friendId: message.friendId, user: otherProfile ? publicUser(otherProfile) : { id: otherId, email: '' } })
+      }
+    }
+    return
+  }
+
+  if (message.type === WS_MESSAGE_TYPE.friendDecline) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) return
+    await respondFriendRequest(message.friendId, meta.userId, 'decline')
+    return
+  }
+
+  if (message.type === WS_MESSAGE_TYPE.friendRemove) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) return
+    await removeFriend(message.friendId, meta.userId)
+    return
+  }
+
+  // ---------------------------------------------------------------------------
+  // Follow system WS handlers
+  // ---------------------------------------------------------------------------
+
+  if (message.type === WS_MESSAGE_TYPE.follow) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) {
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to follow.' })
+      return
+    }
+    await followUser(meta.userId, message.userId)
+    const targetSocket = getSocketForUser(message.userId)
+    if (targetSocket) {
+      const followedRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+      const followedProfile = followedRow.rows[0]
+      send(targetSocket, { type: WS_MESSAGE_TYPE.followConfirm, followed: followedProfile ? publicUser(followedProfile) : { id: meta.userId, email: '' } })
+    }
+    return
+  }
+
+  if (message.type === WS_MESSAGE_TYPE.unfollow) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) return
+    await unfollowUser(meta.userId, message.userId)
+    return
+  }
+
+  // ---------------------------------------------------------------------------
+  // Invitation system WS handlers
+  // ---------------------------------------------------------------------------
+
+  if (message.type === WS_MESSAGE_TYPE.invitationSend) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) {
+      send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to send invitations.' })
+      return
+    }
+    await sendInvitation(meta.userId, message.userId, message.roomId)
+    const targetSocket = getSocketForUser(message.userId)
+    if (targetSocket) {
+      const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+      const inviterProfile = inviterRow.rows[0]
+      send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId: 0, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile) : { id: meta.userId, email: '' } })
+    }
+    return
+  }
+
+  if (message.type === WS_MESSAGE_TYPE.invitationAccept) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) return
+    await respondInvitation(message.invitationId, meta.userId, 'accept')
+    return
+  }
+
+  if (message.type === WS_MESSAGE_TYPE.invitationDecline) {
+    const meta = getMeta(socket)
+    if (!meta?.userId) return
+    await respondInvitation(message.invitationId, meta.userId, 'decline')
     return
   }
 
