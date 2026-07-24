@@ -1,10 +1,12 @@
 .chat-box {
   background: #fff;
   border: 1px solid #ddd;
-  border-radius: 14px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  min-height: 136px;
+  min-height: 0;
+  flex: 1 1 0;
+  overflow: hidden;
 }
 
 .notice {

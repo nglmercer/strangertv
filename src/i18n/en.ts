@@ -354,6 +354,23 @@ Conversations are not private from your peer; treat strangers carefully.`,
     banFailed: 'Ban failed',
     unbanFailed: 'Unban failed',
   },
+  // Groups section
+  friendGroups: 'Friend Groups',
+  scrollDown: 'Scroll down to explore groups',
+  newFeature: 'New Feature',
+  groupsWithFriends: 'Groups with Friends',
+  groupsWithFriendsDesc: 'Create private groups with your friends, chat together, and join activities. Build your community!',
+  createGroups: 'Create Groups',
+  createGroupsDesc: 'Make your own group and invite friends',
+  groupChat: 'Group Chat',
+  groupChatDesc: 'Send messages to everyone in the group',
+  joinActivities: 'Join Activities',
+  joinActivitiesDesc: 'Play games and have fun together',
+  signInToJoin: 'Sign in to join groups',
+  yourGroups: 'Your Groups',
+  members: 'members',
+  createGroup: 'Create Group',
+  typeMessage: 'Type a message...',
 }
 
 export type Messages = {
