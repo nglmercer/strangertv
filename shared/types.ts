@@ -113,7 +113,7 @@ export type ServerMessage =
   | { type: 'block:ack' }
   | { type: 'server:draining'; message?: string }
   | { type: 'friend:request'; friendId: number; from: PublicUser }
-  | { type: 'friend:accepted'; friendId: number; user: PublicUser }
+  | { type: 'friend:accepted'; friendId: number; from: PublicUser }
   | { type: 'friend:declined'; friendId: number }
   | { type: 'friend:removed'; friendId: number }
   | { type: 'friend:list'; friends: Array<{ id: number; user: PublicUser; status: FriendStatus }> }

@@ -2,6 +2,7 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from 'node:util'
 import { db } from './db'
 import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE } from '../shared/constants'
+import type { Gender, PublicUser } from '../shared/types'
 import { parseInterests } from '../shared/json'
 import { isAdult } from '../shared/age'
 
@@ -112,13 +113,13 @@ export async function isBanned(userId?: number | null, ip?: string | null): Prom
   return false
 }
 
-export function publicUser(u: UserRow) {
+export function publicUser(u: UserRow): PublicUser {
   const interests = parseInterests(u.interests)
   return {
     id: u.id,
     email: u.email,
-    birthDate: u.birth_date,
-    gender: u.gender ?? DEFAULT_GENDER,
+    birthDate: u.birth_date ?? undefined,
+    gender: (u.gender ?? DEFAULT_GENDER) as Gender,
     country: u.country ?? DEFAULT_COUNTRY,
     language: u.language ?? DEFAULT_LANGUAGE,
     interests,

@@ -108,10 +108,12 @@ export function applyUserToClient(user: PublicUser): {
   }
 
   let lookingFor: Gender = DEFAULT_GENDER
+  let allowMatchWithSameUsers = true
   const stored = get(storageKeys.prefs)
   if (stored) {
     const parsed = parseJson<MatchPreferences | null>(stored, null)
     lookingFor = asGender(parsed?.lookingFor)
+    allowMatchWithSameUsers = parsed?.allowMatchWithSameUsers ?? true
   }
 
   const prefs: MatchPreferences = {
@@ -120,7 +122,7 @@ export function applyUserToClient(user: PublicUser): {
     gender: asGender(user.gender),
     lookingFor,
     interests: Array.isArray(user.interests) ? user.interests.slice(0, 5) : [],
-    allowMatchWithSameUsers: stored?.allowMatchWithSameUsers ?? true,
+    allowMatchWithSameUsers,
   }
 
   return { profileComplete, prefs }

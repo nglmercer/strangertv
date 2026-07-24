@@ -1000,7 +1000,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     await sendFriendRequest(meta.userId, message.userId)
     const fromRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
     const fromProfile = fromRow.rows[0]
-    send(targetSocket, { type: WS_MESSAGE_TYPE.friendRequest, friendId: meta.userId, from: fromProfile ? publicUser(fromProfile) : { id: meta.userId, email: '' } })
+    send(targetSocket, { type: WS_MESSAGE_TYPE.friendRequest, friendId: meta.userId, from: fromProfile ? publicUser(fromProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
     return
   }
 
@@ -1016,7 +1016,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
       if (otherSocket) {
         const otherRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [otherId] })
         const otherProfile = otherRow.rows[0]
-        send(otherSocket, { type: WS_MESSAGE_TYPE.friendAccepted, friendId: message.friendId, user: otherProfile ? publicUser(otherProfile) : { id: otherId, email: '' } })
+        send(otherSocket, { type: WS_MESSAGE_TYPE.friendAccepted, friendId: message.friendId, from: otherProfile ? publicUser(otherProfile as unknown as UserRow) : { id: otherId, email: '' } })
       }
     }
     return
@@ -1051,7 +1051,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     if (targetSocket) {
       const followedRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
       const followedProfile = followedRow.rows[0]
-      send(targetSocket, { type: WS_MESSAGE_TYPE.followConfirm, followed: followedProfile ? publicUser(followedProfile) : { id: meta.userId, email: '' } })
+      send(targetSocket, { type: WS_MESSAGE_TYPE.followConfirm, followed: followedProfile ? publicUser(followedProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
     }
     return
   }
@@ -1078,7 +1078,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
     if (targetSocket) {
       const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
       const inviterProfile = inviterRow.rows[0]
-      send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId: 0, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile) : { id: meta.userId, email: '' } })
+      send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId: 0, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
     }
     return
   }
