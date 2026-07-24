@@ -178,6 +178,8 @@ export const en = {
   addFriend: 'Add friend',
   follow: 'Follow',
   following: 'Following',
+  follower: 'Follower',
+  alreadyFriends: 'Friends',
   friends: 'Friends',
   friendRequests: 'Friend requests',
   sendRequest: 'Send request',

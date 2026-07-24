@@ -179,6 +179,8 @@ export const pt: Messages = {
   addFriend: 'Adicionar amigo',
   follow: 'Seguir',
   following: 'Seguindo',
+  follower: 'Seguidor',
+  alreadyFriends: 'Amigos',
   friends: 'Amigos',
   friendRequests: 'Solicitações de amizade',
   sendRequest: 'Enviar solicitação',

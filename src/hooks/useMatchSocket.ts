@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { getToken, wsUrl } from '../api'
-import type { ClientMessage, MatchPreferences, Role, ServerMessage } from '../../shared/types'
+import type { ClientMessage, MatchPreferences, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
 import { WS_MESSAGE_TYPE, TIMING_MS } from '../../shared/constants'
 
 type Handlers = {
@@ -8,7 +8,7 @@ type Handlers = {
   onMatched?: (
     roomId: string,
     role: Role,
-    meta?: { peerCountry?: string; peerEmail?: string; peerUserId?: number; sharedInterests?: string[] },
+    meta?: { peerCountry?: string; peerEmail?: string; peerUserId?: number; sharedInterests?: string[]; relationship?: RelationshipStatus },
   ) => void
   onPeerLeft?: (reason?: string) => void
   onSignal?: (payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }) => void

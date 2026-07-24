@@ -1,6 +1,7 @@
 import type { RefObject } from 'preact'
 import { countryLabel, interestLabel, type Messages } from '../i18n'
 import type { Quality } from '../types/ui'
+import type { RelationshipStatus } from '../../shared/types'
 import { QUALITY_TIER } from '../../shared/constants'
 import { StaticNoise } from './StaticNoise'
 import { formatDuration } from '../utils/format'
@@ -23,6 +24,7 @@ export function VideoStage({
   peerCountry,
   peerEmail,
   peerUserId,
+  relationship,
   callSeconds,
   sharedInterests,
   localVideo,
@@ -47,6 +49,7 @@ export function VideoStage({
   peerCountry: string
   peerEmail: string | null
   peerUserId: number | null
+  relationship: RelationshipStatus
   callSeconds: number
   sharedInterests: string[]
   localVideo: RefObject<HTMLVideoElement>
@@ -79,6 +82,9 @@ export function VideoStage({
 
   const showPeerActions = matched && peerEmail && user
 
+  const relationshipLabel =
+    relationship === 'friend' ? t.alreadyFriends : relationship === 'following' ? t.following : relationship === 'follower' ? t.follower : null
+
   return (
     <section class="stage" aria-label={t.live}>
       <div class="video-grid">
@@ -104,16 +110,23 @@ export function VideoStage({
             </div>
           )}
           {strangerMeta && <span class="label">{strangerMeta}</span>}
+          {relationshipLabel && matched && (
+            <span class="relationship-badge">{relationshipLabel}</span>
+          )}
           {showPeerActions && (
             <div class="peer-actions">
-              <button type="button" class="peer-action" onClick={onAddFriend} title={t.addFriend}>
-                <Icon d={icons.userPlus} size={14} />
-                <span>{t.addFriend}</span>
-              </button>
-              <button type="button" class="peer-action" onClick={onFollow} title={t.follow}>
-                <Icon d={icons.follow} size={14} />
-                <span>{t.follow}</span>
-              </button>
+              {relationship !== 'friend' && (
+                <button type="button" class="peer-action" onClick={onAddFriend} title={t.addFriend}>
+                  <Icon d={icons.userPlus} size={14} />
+                  <span>{t.addFriend}</span>
+                </button>
+              )}
+              {relationship !== 'friend' && relationship !== 'following' && (
+                <button type="button" class="peer-action" onClick={onFollow} title={t.follow}>
+                  <Icon d={icons.follow} size={14} />
+                  <span>{t.follow}</span>
+                </button>
+              )}
             </div>
           )}
           {sharedInterests.length > 0 && matched && (

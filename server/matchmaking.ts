@@ -232,7 +232,7 @@ function newRoomId() {
   return `room_${Date.now().toString(36)}_${roomSeq}`
 }
 
-export function joinQueue(
+export async function joinQueue(
   socket: SocketLike,
   preferences: MatchPreferences,
   opts: { userId?: number; email?: string; sessionKey: string },

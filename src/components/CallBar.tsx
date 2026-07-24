@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Messages } from '../i18n'
 import type { PublicUser } from '../api'
 import type { Quality } from '../types/ui'
+import type { RelationshipStatus } from '../../shared/types'
 import { QUALITY_TIER } from '../../shared/constants'
 import { Icon, icons } from './icons'
 
@@ -33,6 +34,7 @@ type Props = {
   onSettings: () => void
   onAuthClick: () => void
   onAddFriend: () => void
+  relationship: RelationshipStatus
 }
 
 function deviceLabel(d: MediaDeviceInfo, fallback: string) {
@@ -64,6 +66,7 @@ export function CallBar({
   onSettings,
   onAuthClick,
   onAddFriend,
+  relationship,
 }: Props) {
   const [menu, setMenu] = useState<MenuKind>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -301,7 +304,7 @@ export function CallBar({
               <span>{t.fullscreen}</span>
             </button>
             <div class="call-menu-sep" />
-            {user && (
+            {user && relationship !== 'friend' && (
               <button
                 type="button"
                 role="menuitem"

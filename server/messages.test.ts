@@ -1,7 +1,7 @@
 import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { createClient, type Client } from '@libsql/client'
-import { sendMessage, getConversation, areFriends, MAX_MESSAGE_LENGTH } from './messages'
+import { sendMessage, getConversation, areFriends, isFollowing, hasRelationship, getRelationship, MAX_MESSAGE_LENGTH } from './messages'
 
 async function setupDb(): Promise<Client> {
   const db = createClient({ url: 'file::memory:' })
@@ -27,6 +27,15 @@ async function setupDb(): Promise<Client> {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(user_a_id, user_b_id)
+    )
+  `)
+  await db.execute(`
+    CREATE TABLE follows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      follower_id INTEGER NOT NULL,
+      followed_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(follower_id, followed_id)
     )
   `)
   await db.execute(`
@@ -56,6 +65,13 @@ async function makeFriends(db: Client, userA: number, userB: number) {
   await db.execute({
     sql: "INSERT INTO friends (user_a_id, user_b_id, status) VALUES (?, ?, 'accepted')",
     args: [min, max],
+  })
+}
+
+async function makeFollow(db: Client, follower: number, followed: number) {
+  await db.execute({
+    sql: 'INSERT INTO follows (follower_id, followed_id) VALUES (?, ?)',
+    args: [follower, followed],
   })
 }
 
@@ -155,5 +171,59 @@ describe('messages', () => {
     await sendMessage(userA, userB, 'three', db)
     const msgs = await getConversation(userA, userB, 50, m1.id, db)
     assert.equal(msgs.length, 0)
+  })
+
+  it('isFollowing returns true when following', async () => {
+    await makeFollow(db, userA, userB)
+    assert.equal(await isFollowing(userA, userB, db), true)
+    assert.equal(await isFollowing(userB, userA, db), false)
+  })
+
+  it('hasRelationship returns true for friends', async () => {
+    await makeFriends(db, userA, userB)
+    assert.equal(await hasRelationship(userA, userB, db), true)
+  })
+
+  it('hasRelationship returns true for following', async () => {
+    await makeFollow(db, userA, userB)
+    assert.equal(await hasRelationship(userA, userB, db), true)
+  })
+
+  it('hasRelationship returns true for follower', async () => {
+    await makeFollow(db, userB, userA)
+    assert.equal(await hasRelationship(userA, userB, db), true)
+  })
+
+  it('hasRelationship returns false for strangers', async () => {
+    assert.equal(await hasRelationship(userA, userC, db), false)
+  })
+
+  it('getRelationship returns friend', async () => {
+    await makeFriends(db, userA, userB)
+    assert.equal(await getRelationship(userA, userB, db), 'friend')
+  })
+
+  it('getRelationship returns following', async () => {
+    await makeFollow(db, userA, userB)
+    assert.equal(await getRelationship(userA, userB, db), 'following')
+  })
+
+  it('getRelationship returns follower', async () => {
+    await makeFollow(db, userB, userA)
+    assert.equal(await getRelationship(userA, userB, db), 'follower')
+  })
+
+  it('getRelationship returns none', async () => {
+    assert.equal(await getRelationship(userA, userC, db), 'none')
+  })
+
+  it('sendMessage works for follows', async () => {
+    await makeFollow(db, userA, userB)
+    const msg = await sendMessage(userA, userB, 'hi from follow', db)
+    assert.equal(msg.text, 'hi from follow')
+  })
+
+  it('sendMessage rejects strangers', async () => {
+    await assert.rejects(() => sendMessage(userA, userC, 'hello', db))
   })
 })

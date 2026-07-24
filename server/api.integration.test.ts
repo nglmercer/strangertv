@@ -185,6 +185,52 @@ describe('API integration', () => {
     assert.equal(nonFriend.status, 403)
   })
 
+  it('follow messaging: send and fetch works for follows', async () => {
+    // Register user A and B
+    const emailA = `flw_a_${Date.now()}@example.com`
+    const regA = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: emailA, password: 'password12', birthDate: '1990-01-01' }),
+    })
+    assert.equal(regA.status, 201)
+    const bodyA = (await regA.json()) as { token: string }
+
+    const emailB = `flw_b_${Date.now()}@example.com`
+    const regB = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: emailB, password: 'password12', birthDate: '1990-01-01' }),
+    })
+    assert.equal(regB.status, 201)
+    const bodyB = (await regB.json()) as { token: string; user: { id: number } }
+
+    // A follows B (no friendship needed)
+    const followRes = await fetch(`${BASE}${API_ROUTES.follows}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
+      body: JSON.stringify({ userId: bodyB.user.id }),
+    })
+    assert.equal(followRes.status, 200)
+
+    // A can message B because of follow relationship
+    const sendRes = await fetch(`${BASE}${API_ROUTES.messages}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
+      body: JSON.stringify({ friendId: bodyB.user.id, text: 'hey from follow' }),
+    })
+    assert.equal(sendRes.status, 200)
+
+    // A can fetch conversation
+    const convRes = await fetch(`${BASE}${API_ROUTES.messages}?friendId=${bodyB.user.id}`, {
+      headers: { authorization: `Bearer ${bodyA.token}` },
+    })
+    assert.equal(convRes.status, 200)
+    const convBody = (await convRes.json()) as { messages: Array<{ text: string }> }
+    assert.equal(convBody.messages.length, 1)
+    assert.equal(convBody.messages[0].text, 'hey from follow')
+  })
+
   it('health includes version and ratings accept scores', async () => {
     const health = await fetch(`${BASE}${API_ROUTES.health}`)
     const h = (await health.json()) as { version?: string }

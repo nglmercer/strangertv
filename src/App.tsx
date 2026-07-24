@@ -165,6 +165,7 @@ export function App() {
           peerCountry={session.peerCountry}
           peerEmail={session.peerEmail}
           peerUserId={session.peerUserId}
+          relationship={session.relationship}
           callSeconds={session.callSeconds}
           sharedInterests={session.sharedInterests}
           localVideo={session.localVideo}
@@ -220,6 +221,7 @@ export function App() {
           onSettings={() => setSettings(true)}
           onAuthClick={onAuthClick}
           onAddFriend={() => setFriendManager(true)}
+          relationship={session.relationship}
         />
       </div>
         {friendManager && (
