@@ -23,7 +23,7 @@ import {
   sendInvitation,
   respondInvitation,
 } from '../friends'
-import { sendMessage, getConversation, areFriends } from '../messages'
+import { sendMessage, getConversation, hasRelationship } from '../messages'
 import { noteReport } from '../alerts'
 import { inc } from '../metrics'
 import { rateLimit } from '../rateLimit'
@@ -127,7 +127,9 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.rateLimit, message: 'Slow down chat.' })
         return
       }
+      const meta = getMeta(socket)
       const partner = getPartner(socket)
+      const partnerId = getPartnerUserId(socket)
       const text = message.payload?.text?.slice(0, 500)
       if (partner && text) {
         send(partner, {
@@ -135,6 +137,10 @@ export function createWsHandler(state: WsState) {
           payload: { text, time: message.payload.time || new Date().toISOString() },
         })
         inc(METRIC_NAMES.chatsRelayed)
+        // Persist chat for friends/follows (unified chat history)
+        if (meta?.userId && partnerId && (await hasRelationship(meta.userId, partnerId))) {
+          await sendMessage(meta.userId, partnerId, text)
+        }
       }
       return
     }
@@ -308,8 +314,8 @@ export function createWsHandler(state: WsState) {
       const text = String(message.text ?? '').slice(0, 500)
       if (!friendId || !text) return
       if (friendId === meta.userId) return
-      if (!(await areFriends(meta.userId, friendId))) {
-        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Not friends.' })
+      if (!(await hasRelationship(meta.userId, friendId))) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'No relationship.' })
         return
       }
       const msg = await sendMessage(meta.userId, friendId, text)
@@ -325,7 +331,7 @@ export function createWsHandler(state: WsState) {
       if (!meta?.userId) return
       const friendId = Number(message.friendId)
       if (!friendId) return
-      if (!(await areFriends(meta.userId, friendId))) return
+      if (!(await hasRelationship(meta.userId, friendId))) return
       const limit = Math.min(Number(message.limit) || 50, 100)
       const beforeId = message.beforeId ? Number(message.beforeId) : undefined
       const messages = await getConversation(meta.userId, friendId, limit, beforeId)

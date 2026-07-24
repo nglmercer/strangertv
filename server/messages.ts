@@ -1,5 +1,6 @@
 import { db as defaultDb } from './db'
 import type { Client } from '@libsql/client'
+import type { RelationshipStatus } from '../shared/types'
 
 export const MAX_MESSAGE_LENGTH = 500
 
@@ -13,12 +14,38 @@ export async function areFriends(userId: number, otherId: number, db: Client = d
   return result.rows.length > 0
 }
 
+export async function isFollowing(followerId: number, followedId: number, db: Client = defaultDb): Promise<boolean> {
+  const result = await db.execute({
+    sql: 'SELECT 1 FROM follows WHERE follower_id = ? AND followed_id = ?',
+    args: [followerId, followedId],
+  })
+  return result.rows.length > 0
+}
+
+export async function hasRelationship(userId: number, otherId: number, db: Client = defaultDb): Promise<boolean> {
+  if (await areFriends(userId, otherId, db)) return true
+  if (await isFollowing(userId, otherId, db)) return true
+  if (await isFollowing(otherId, userId, db)) return true
+  return false
+}
+
+export async function getRelationship(userId: number, otherId: number, db: Client = defaultDb): Promise<RelationshipStatus> {
+  if (await areFriends(userId, otherId, db)) return 'friend'
+  const [aFollowsB, bFollowsA] = await Promise.all([
+    isFollowing(userId, otherId, db),
+    isFollowing(otherId, userId, db),
+  ])
+  if (aFollowsB) return 'following'
+  if (bFollowsA) return 'follower'
+  return 'none'
+}
+
 export async function sendMessage(senderId: number, recipientId: number, text: string, db: Client = defaultDb) {
   if (senderId === recipientId) {
     throw new Error('Cannot send message to yourself')
   }
-  if (!(await areFriends(senderId, recipientId, db))) {
-    throw new Error('Not friends')
+  if (!(await hasRelationship(senderId, recipientId, db))) {
+    throw new Error('No relationship')
   }
   const trimmed = text.slice(0, MAX_MESSAGE_LENGTH)
   const result = await db.execute({

@@ -13,7 +13,7 @@ import {
   respondInvitation,
   cancelInvitation,
 } from '../friends'
-import { sendMessage, getConversation, areFriends } from '../messages'
+import { sendMessage, getConversation, hasRelationship } from '../messages'
 import { getSocketForUser, type SocketLike } from '../matchmaking'
 import { rateLimit } from '../rateLimit'
 import { getBearer } from '../http'
@@ -91,8 +91,8 @@ export function registerSocialRoutes(app: Hono, send: (socket: SocketLike, msg: 
     if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
     const friendId = Number(c.req.query('friendId'))
     if (!friendId) return c.json({ error: 'friendId required' }, HTTP_STATUS.badRequest)
-    if (!(await areFriends(user.id, friendId))) {
-      return c.json({ error: 'Not friends' }, HTTP_STATUS.forbidden)
+    if (!(await hasRelationship(user.id, friendId))) {
+      return c.json({ error: 'No relationship' }, HTTP_STATUS.forbidden)
     }
     const limit = Math.min(Number(c.req.query('limit')) || 50, 100)
     const beforeId = c.req.query('beforeId') ? Number(c.req.query('beforeId')) : undefined
@@ -109,8 +109,8 @@ export function registerSocialRoutes(app: Hono, send: (socket: SocketLike, msg: 
     const { friendId, text } = await c.req.json<{ friendId?: number; text?: string }>()
     if (!friendId || !text) return c.json({ error: 'friendId and text required' }, HTTP_STATUS.badRequest)
     if (friendId === user.id) return c.json({ error: 'Cannot message yourself' }, HTTP_STATUS.badRequest)
-    if (!(await areFriends(user.id, friendId))) {
-      return c.json({ error: 'Not friends' }, HTTP_STATUS.forbidden)
+    if (!(await hasRelationship(user.id, friendId))) {
+      return c.json({ error: 'No relationship' }, HTTP_STATUS.forbidden)
     }
     const message = await sendMessage(user.id, friendId, text)
     const targetSocket = getSocketForUser(friendId)

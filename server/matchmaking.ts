@@ -11,6 +11,8 @@ import {
   WS_MESSAGE_TYPE,
 } from '../shared/constants'
 import { inc, observeMs } from './metrics'
+import { getRelationship } from './messages'
+import type { RelationshipStatus } from '../shared/types'
 
 export type SocketLike = {
   send: (message: string) => void
@@ -278,6 +280,14 @@ export function joinQueue(
     roomsBySocket.set(socket, room)
     roomsBySocket.set(partner.socket, room)
     const sharedInterests = preferences.interests.filter((x) => partner.preferences.interests.includes(x))
+    const selfUserId = self.userId
+    const partnerUserId = partner.userId
+    let relSelf: RelationshipStatus = 'none'
+    let relPartner: RelationshipStatus = 'none'
+    if (selfUserId && partnerUserId) {
+      relSelf = await getRelationship(selfUserId, partnerUserId)
+      relPartner = await getRelationship(partnerUserId, selfUserId)
+    }
     send(socket, {
       type: WS_MESSAGE_TYPE.roomMatched,
       roomId: room.id,
@@ -286,6 +296,7 @@ export function joinQueue(
       peerEmail: partner.email,
       peerUserId: partner.userId,
       sharedInterests,
+      relationship: relSelf,
     })
     send(partner.socket, {
       type: WS_MESSAGE_TYPE.roomMatched,
@@ -295,6 +306,7 @@ export function joinQueue(
       peerEmail: self.email,
       peerUserId: self.userId,
       sharedInterests,
+      relationship: relPartner,
     })
     const waitMs = Date.now() - partner.joinedAt
     observeMs(METRIC_NAMES.matchWait, waitMs)

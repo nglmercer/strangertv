@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences, Friend, Follow, Invitation } from '../shared/types'
+import type { Gender, MatchPreferences, Friend, Follow, Invitation, Message } from '../shared/types'
 import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
@@ -142,4 +142,18 @@ export function loadPrefs(): MatchPreferences {
 
 export function savePrefs(prefs: MatchPreferences) {
   setJSON(STORAGE_KEYS.prefs, prefs)
+}
+
+export const messagesApi = {
+  getConversation: (friendId: number, limit?: number, beforeId?: number) => {
+    const params = new URLSearchParams({ friendId: String(friendId) })
+    if (limit) params.set('limit', String(limit))
+    if (beforeId) params.set('beforeId', String(beforeId))
+    return api<{ messages: Message[] }>(`${API_ROUTES.messages}?${params}`)
+  },
+  send: (friendId: number, text: string) =>
+    api<{ message: Message }>(API_ROUTES.messages, {
+      method: 'POST',
+      body: JSON.stringify({ friendId, text }),
+    }),
 }

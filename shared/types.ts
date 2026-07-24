@@ -6,6 +6,7 @@ export type Role = 'offerer' | 'answerer'
 
 export type FriendStatus = 'pending' | 'accepted' | 'declined'
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
+export type RelationshipStatus = 'none' | 'friend' | 'following' | 'follower'
 
 /** Minimal public user profile shared between client and server. */
 export type PublicUser = {
@@ -113,6 +114,7 @@ export type ServerMessage =
       peerEmail?: string
       peerUserId?: number
       sharedInterests?: string[]
+      relationship?: RelationshipStatus
     }
   | { type: 'room:peer-left'; reason?: string }
   | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown } }

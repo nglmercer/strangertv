@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
-import type { MatchPreferences } from '../../shared/types'
+import type { MatchPreferences, RelationshipStatus } from '../../shared/types'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
 import { PEER_LEFT_REASON, QUALITY_TIER, SignalKind, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
 import { isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
+import { messagesApi } from '../api'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
 import { useWebRTC } from './useWebRTC'
@@ -31,6 +32,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   const [peerCountry, setPeerCountry] = useState('')
   const [peerEmail, setPeerEmail] = useState<string | null>(null)
   const [peerUserId, setPeerUserId] = useState<number | null>(null)
+  const [relationship, setRelationship] = useState<RelationshipStatus>('none')
   const [chat, setChat] = useState<ChatMessage[]>([])
   const [chatText, setChatText] = useState('')
   const [streamTick, setStreamTick] = useState(0)
@@ -79,6 +81,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     setPeerCountry('')
     setPeerEmail(null)
     setPeerUserId(null)
+    setRelationship('none')
     matchedAt.current = null
     if (remoteVideo.current) remoteVideo.current.srcObject = null
   }
@@ -106,6 +109,23 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       setPeerCountry(meta?.peerCountry && meta.peerCountry !== 'any' ? meta.peerCountry : '')
       setPeerEmail(meta?.peerEmail ?? null)
       setPeerUserId(meta?.peerUserId ?? null)
+      const rel = meta?.relationship ?? 'none'
+      setRelationship(rel)
+      // Load previous conversation history for friends/follows
+      if (rel !== 'none' && meta?.peerUserId) {
+        try {
+          const { messages } = await messagesApi.getConversation(meta.peerUserId, 50)
+          if (messages.length > 0) {
+            setChat(messages.map((m) => ({
+              text: m.text,
+              time: m.createdAt,
+              mine: m.senderId !== meta.peerUserId,
+            })))
+          }
+        } catch {
+          /* ignore history load errors */
+        }
+      }
       if (isMatchSoundEnabled()) playMatchSound()
       if (isMatchNotifyEnabled()) {
         notifyMatch(trRef.current.brand, trRef.current.connecting)
@@ -329,6 +349,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     peerCountry,
     peerEmail,
     peerUserId,
+    relationship,
     chat,
     chatText,
     setChatText,
