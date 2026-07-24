@@ -67,6 +67,7 @@
     grid-template-columns: 1fr;
     gap: 8px;
     padding: 8px;
+    flex: 0 0 auto;
   }
 
   .deck {

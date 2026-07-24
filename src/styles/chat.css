@@ -5,7 +5,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  flex: 1 1 0;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -39,7 +39,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 94px;
+  min-height: 0;
 }
 
 .chat-placeholder {

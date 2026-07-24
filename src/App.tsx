@@ -8,6 +8,7 @@ import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
 import { FriendManager } from './components/FriendManager'
+import { GroupsSection } from './components/GroupsSection'
 import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
 import { VideoStage } from './components/VideoStage'
@@ -321,6 +322,8 @@ export function App() {
           userEmail={user?.email ?? null}
         />
       </section>
+
+      <GroupsSection t={tr} user={user} />
 
       <AppModals
         t={tr}
