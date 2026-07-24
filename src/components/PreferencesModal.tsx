@@ -63,8 +63,6 @@ export function PreferencesModal({
         ×
       </button>
       <p class="eyebrow">{t.preferences}</p>
-      <h2 id="prefs-title">{t.makeYours}</h2>
-
       <div class="prefs-tabs" role="tablist" aria-label={t.preferences}>
         {tabs.map((item) => (
           <button
