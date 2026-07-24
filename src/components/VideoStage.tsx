@@ -8,6 +8,7 @@ import type { LinkStats } from '../utils/webrtcQuality'
 import { QualityBadge } from './QualityBadge'
 import type { PublicUser } from '../api'
 import { BrandMark3D } from './brandmark/BrandMark3D'
+import { Icon, icons } from './icons'
 
 export function VideoStage({
   t,
@@ -77,7 +78,7 @@ export function VideoStage({
           <video ref={remoteVideo} autoplay playsinline aria-label={t.labelStranger} />
           {!hasRemote && (
             <div class="stage-empty">
-              {/* <StaticNoise opacity={0.42} density={0.5} cellSize={3} /> */}
+              <StaticNoise opacity={0.42} density={0.5} cellSize={3} />
               <BrandMark3D />
               {finding && (
                 <div class="pulse-ring" aria-hidden="true">
@@ -122,29 +123,17 @@ export function VideoStage({
                 <p class="local-preview-hint">{t.localPreviewHint}</p>
                 <div class="local-actions">
                   <button type="button" class="local-action ghost" onClick={onPreferences}>
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <circle cx="12" cy="12" r="3" />
-                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                    </svg>
+                    <Icon d={icons.settings} size={15} />
                     <span>{t.preferences}</span>
                   </button>
                   {user && (
                     <button type="button" class="local-action ghost" onClick={onSettings}>
-                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                        <circle cx="12" cy="7" r="4" />
-                      </svg>
+                      <Icon d={icons.eye} size={15} />
                       <span>{t.settings}</span>
                     </button>
                   )}
                   <button type="button" class="local-action" onClick={onAuthClick}>
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      {user ? (
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-                      ) : (
-                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" />
-                      )}
-                    </svg>
+                    <Icon d={icons.signOut} size={15} />
                     <span>{user ? t.signOut : t.signIn}</span>
                   </button>
                 </div>
