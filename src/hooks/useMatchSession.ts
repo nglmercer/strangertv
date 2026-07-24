@@ -29,6 +29,8 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   const [roomId, setRoomId] = useState<string | null>(null)
   const [sharedInterests, setSharedInterests] = useState<string[]>([])
   const [peerCountry, setPeerCountry] = useState('')
+  const [peerEmail, setPeerEmail] = useState<string | null>(null)
+  const [peerUserId, setPeerUserId] = useState<number | null>(null)
   const [chat, setChat] = useState<ChatMessage[]>([])
   const [chatText, setChatText] = useState('')
   const [streamTick, setStreamTick] = useState(0)
@@ -75,6 +77,8 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     setRoomId(null)
     setSharedInterests([])
     setPeerCountry('')
+    setPeerEmail(null)
+    setPeerUserId(null)
     matchedAt.current = null
     if (remoteVideo.current) remoteVideo.current.srcObject = null
   }
@@ -100,6 +104,8 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       setQueuePos(undefined)
       setSharedInterests(meta?.sharedInterests ?? [])
       setPeerCountry(meta?.peerCountry && meta.peerCountry !== 'any' ? meta.peerCountry : '')
+      setPeerEmail(meta?.peerEmail ?? null)
+      setPeerUserId(meta?.peerUserId ?? null)
       if (isMatchSoundEnabled()) playMatchSound()
       if (isMatchNotifyEnabled()) {
         notifyMatch(trRef.current.brand, trRef.current.connecting)
@@ -321,6 +327,8 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     roomId,
     sharedInterests,
     peerCountry,
+    peerEmail,
+    peerUserId,
     chat,
     chatText,
     setChatText,

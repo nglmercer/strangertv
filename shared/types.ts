@@ -100,6 +100,8 @@ export type ServerMessage =
       roomId: string
       role: Role
       peerCountry?: string
+      peerEmail?: string
+      peerUserId?: number
       sharedInterests?: string[]
     }
   | { type: 'room:peer-left'; reason?: string }

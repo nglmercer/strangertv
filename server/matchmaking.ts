@@ -21,6 +21,7 @@ export type QueuePeer = {
   socket: SocketLike
   preferences: MatchPreferences
   userId?: number
+  email?: string
   sessionKey: string
   joinedAt: number
   lastBeat: number
@@ -232,7 +233,7 @@ function newRoomId() {
 export function joinQueue(
   socket: SocketLike,
   preferences: MatchPreferences,
-  opts: { userId?: number; sessionKey: string },
+  opts: { userId?: number; email?: string; sessionKey: string },
 ) {
   removeFromQueue(socket)
   leaveRoom(socket, true, PEER_LEFT_REASON.requeue)
@@ -241,6 +242,7 @@ export function joinQueue(
     socket,
     preferences,
     userId: opts.userId,
+    email: opts.email,
     sessionKey: opts.sessionKey,
     joinedAt: Date.now(),
     lastBeat: Date.now(),
@@ -281,6 +283,8 @@ export function joinQueue(
       roomId: room.id,
       role: ROLE.offerer as Role,
       peerCountry: partner.preferences.country,
+      peerEmail: partner.email,
+      peerUserId: partner.userId,
       sharedInterests,
     })
     send(partner.socket, {
@@ -288,6 +292,8 @@ export function joinQueue(
       roomId: room.id,
       role: ROLE.answerer as Role,
       peerCountry: preferences.country,
+      peerEmail: self.email,
+      peerUserId: self.userId,
       sharedInterests,
     })
     const waitMs = Date.now() - partner.joinedAt

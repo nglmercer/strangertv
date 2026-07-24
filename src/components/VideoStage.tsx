@@ -21,6 +21,8 @@ export function VideoStage({
   linkStats,
   hasRemote,
   peerCountry,
+  peerEmail,
+  peerUserId,
   callSeconds,
   sharedInterests,
   localVideo,
@@ -30,6 +32,8 @@ export function VideoStage({
   onPreferences,
   onSettings,
   onAuthClick,
+  onAddFriend,
+  onFollow,
 }: {
   t: Messages
   finding: boolean
@@ -41,6 +45,8 @@ export function VideoStage({
   linkStats?: LinkStats | null
   hasRemote: boolean
   peerCountry: string
+  peerEmail: string | null
+  peerUserId: number | null
   callSeconds: number
   sharedInterests: string[]
   localVideo: RefObject<HTMLVideoElement>
@@ -50,6 +56,8 @@ export function VideoStage({
   onPreferences: () => void
   onSettings: () => void
   onAuthClick: () => void
+  onAddFriend: () => void
+  onFollow: () => void
 }) {
   const emptyTitle = finding ? status || t.searchingTitle : t.idleTitle
   const emptyBody = finding
@@ -60,14 +68,16 @@ export function VideoStage({
         : t.searchingHint
     : t.idleHint
 
-  // Identity + timer only — quality lives in the hover badge (no duplicate text).
+  const strangerName = peerEmail ? peerEmail.split('@')[0] : t.labelStranger
   const strangerMeta = [
-    t.labelStranger,
+    strangerName,
     peerCountry ? countryLabel(t, peerCountry) : '',
     matched && callSeconds > 0 ? formatDuration(callSeconds) : '',
   ]
     .filter(Boolean)
     .join(' · ')
+
+  const showPeerActions = matched && peerEmail && user
 
   return (
     <section class="stage" aria-label={t.live}>
@@ -94,6 +104,18 @@ export function VideoStage({
             </div>
           )}
           {strangerMeta && <span class="label">{strangerMeta}</span>}
+          {showPeerActions && (
+            <div class="peer-actions">
+              <button type="button" class="peer-action" onClick={onAddFriend} title={t.addFriend}>
+                <Icon d={icons.userPlus} size={14} />
+                <span>{t.addFriend}</span>
+              </button>
+              <button type="button" class="peer-action" onClick={onFollow} title={t.follow}>
+                <Icon d={icons.follow} size={14} />
+                <span>{t.follow}</span>
+              </button>
+            </div>
+          )}
           {sharedInterests.length > 0 && matched && (
             <div class="interest-badge" aria-label={t.sharedInterests}>
               <div class="chips tight">

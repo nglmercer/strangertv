@@ -8,7 +8,7 @@ type Handlers = {
   onMatched?: (
     roomId: string,
     role: Role,
-    meta?: { peerCountry?: string; sharedInterests?: string[] },
+    meta?: { peerCountry?: string; peerEmail?: string; peerUserId?: number; sharedInterests?: string[] },
   ) => void
   onPeerLeft?: (reason?: string) => void
   onSignal?: (payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }) => void
@@ -78,6 +78,8 @@ export function useMatchSocket(handlers: Handlers) {
         case WS_MESSAGE_TYPE.roomMatched:
           h.onMatched?.(msg.roomId, msg.role, {
             peerCountry: msg.peerCountry,
+            peerEmail: msg.peerEmail,
+            peerUserId: msg.peerUserId,
             sharedInterests: msg.sharedInterests,
           })
           break

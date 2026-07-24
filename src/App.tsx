@@ -2,7 +2,7 @@ import { useCallback, useState } from 'preact/hooks'
 import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { getFlag, setFlag } from './utils/storage'
-import { authApi, clearSession, getStoredUser, loadPrefs, savePrefs, socialApi, type PublicUser } from './api'
+import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, type PublicUser } from './api'
 import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
@@ -163,6 +163,8 @@ export function App() {
           linkStats={session.webrtc.linkStats}
           hasRemote={session.webrtc.hasRemote}
           peerCountry={session.peerCountry}
+          peerEmail={session.peerEmail}
+          peerUserId={session.peerUserId}
           callSeconds={session.callSeconds}
           sharedInterests={session.sharedInterests}
           localVideo={session.localVideo}
@@ -175,6 +177,16 @@ export function App() {
           }}
           onSettings={() => setSettings(true)}
           onAuthClick={onAuthClick}
+          onAddFriend={() => {
+            if (session.peerUserId) {
+              void friendsApi.request(session.peerUserId)
+            }
+          }}
+          onFollow={() => {
+            if (session.peerUserId) {
+              void followsApi.follow(session.peerUserId)
+            }
+          }}
         />
         <CallBar
           t={tr}

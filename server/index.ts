@@ -878,6 +878,7 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
       return
     }
     let userId: number | undefined
+    let userEmail: string | undefined
     if (message.token) {
       const user = await userFromToken(message.token)
       if (user) {
@@ -890,13 +891,14 @@ async function handleWsMessage(ws: WebSocket, ip: string, sessionKey: string, ra
           return
         }
         userId = user.id
+        userEmail = user.email
       }
     }
     if (message.type === WS_MESSAGE_TYPE.roomNext) {
       leaveRoom(socket, true, PEER_LEFT_REASON.next)
       inc(METRIC_NAMES.roomNext)
     }
-    joinQueue(socket, prefs, { userId, sessionKey })
+    joinQueue(socket, prefs, { userId, email: userEmail, sessionKey })
     return
   }
 
