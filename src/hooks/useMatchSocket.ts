@@ -35,6 +35,7 @@ export function useMatchSocket(handlers: Handlers) {
   }
 
   const send = useCallback((message: ClientMessage) => {
+    //console.debug('[ws] send', message.type, message)
     if (socket.current?.readyState === WebSocket.OPEN) {
       socket.current.send(JSON.stringify(message))
     }
@@ -70,6 +71,7 @@ export function useMatchSocket(handlers: Handlers) {
       } catch {
         return
       }
+      //console.debug('[ws] recv', msg.type, msg)
       const h = handlersRef.current
       switch (msg.type) {
         case WS_MESSAGE_TYPE.queueWaiting:
@@ -81,6 +83,7 @@ export function useMatchSocket(handlers: Handlers) {
             peerEmail: msg.peerEmail,
             peerUserId: msg.peerUserId,
             sharedInterests: msg.sharedInterests,
+            relationship: msg.relationship,
           })
           break
         case WS_MESSAGE_TYPE.roomPeerLeft:

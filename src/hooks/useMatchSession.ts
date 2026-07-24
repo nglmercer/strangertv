@@ -97,6 +97,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       if (remoteVideo.current) remoteVideo.current.srcObject = null
     },
     onMatched: async (id, role, meta) => {
+      console.debug('[match] onMatched', { roomId: id, role, peerUserId: meta?.peerUserId, relationship: meta?.relationship })
       setRoomId(id)
       setMatched(true)
       waitingSince.current = null
@@ -135,30 +136,19 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
       await webrtcRef.current.createPeer(stream, remoteVideo.current, role === 'offerer')
     },
     onPeerLeft: (reason) => {
-      const endedRoom = roomIdRef.current
+      console.debug('[match] onPeerLeft', { reason, autoNext: autoNextRef.current, finding: findingRef.current, matched: matchedRef.current, callSec: callSecondsRef.current })
       webrtcRef.current.clear()
       clearPeerUi()
-      if (endedRoom && callSecondsRef.current >= 5 && !autoNextRef.current) {
-        setRateRoomId(endedRoom)
-      }
       const t = trRef.current
-      const statusMsg =
-        reason === PEER_LEFT_REASON.blocked || reason === PEER_LEFT_REASON.reported
-          ? t.peerLeftBlocked
-          : reason === PEER_LEFT_REASON.next
-            ? t.peerLeftNext
-            : reason === PEER_LEFT_REASON.leave
-              ? t.peerLeftLeave
-              : t.peerLeft
-      if (autoNextRef.current && reason !== PEER_LEFT_REASON.blocked && reason !== PEER_LEFT_REASON.reported) {
-        setFinding(true)
-        onStatus(t.requeueing)
-        setChat([])
-        window.setTimeout(() => matchRef.current?.next(prefsRef.current), TIMING_MS.requeueDelay)
-      } else {
+      if (reason === PEER_LEFT_REASON.blocked || reason === PEER_LEFT_REASON.reported) {
         setFinding(false)
-        onStatus(statusMsg)
+        onStatus(t.peerLeftBlocked)
+        return
       }
+      setFinding(true)
+      onStatus(t.requeueing)
+      setChat([])
+      window.setTimeout(() => matchRef.current?.next(prefsRef.current), TIMING_MS.requeueDelay)
     },
     onSignal: (payload) => {
       void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current)
@@ -273,6 +263,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   beginMatchRef.current = beginMatch
 
   const stop = useCallback(() => {
+    console.debug('[match] stop()', { roomId: roomIdRef.current, duration: callSecondsRef.current })
     const endedRoom = roomIdRef.current
     const duration = callSecondsRef.current
     match.leave()
@@ -285,8 +276,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
   }, [match, webrtc, onStatus])
 
   const next = useCallback(() => {
-    const endedRoom = roomIdRef.current
-    const duration = callSecondsRef.current
+    console.debug('[match] next()', { roomId: roomIdRef.current, duration: callSecondsRef.current })
     webrtc.clear()
     if (remoteVideo.current) remoteVideo.current.srcObject = null
     setChat([])
@@ -297,7 +287,6 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
     onStatus(trRef.current.finding)
     setFinding(true)
     match.next(prefsRef.current)
-    if (endedRoom && duration >= 5) setRateRoomId(endedRoom)
   }, [match, webrtc, onStatus])
 
   const sendChat = useCallback(

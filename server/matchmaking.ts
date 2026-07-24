@@ -193,6 +193,7 @@ export function leaveRoom(socket: SocketLike, notifyPartner = true, reason?: str
   const room = roomsBySocket.get(socket)
   const partner = partners.get(socket)
   const meta = peerMeta.get(socket)
+  console.debug('[mm] leaveRoom', { userId: meta?.userId, roomId: room?.id, partnerId: partner ? peerMeta.get(partner)?.userId : undefined, notifyPartner, reason })
   if (meta?.userId) unregisterUserSocket(meta.userId, socket)
   if (partner) {
     partners.delete(socket)
@@ -288,6 +289,7 @@ export async function joinQueue(
       relSelf = await getRelationship(selfUserId, partnerUserId)
       relPartner = await getRelationship(partnerUserId, selfUserId)
     }
+    console.debug('[mm] matched', { roomId: room.id, aUserId: self.userId, bUserId: partner.userId, relSelf, relPartner })
     send(socket, {
       type: WS_MESSAGE_TYPE.roomMatched,
       roomId: room.id,

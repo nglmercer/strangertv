@@ -100,6 +100,7 @@ export function createWsHandler(state: WsState) {
         }
       }
       if (message.type === WS_MESSAGE_TYPE.roomNext) {
+        console.debug('[ws] room:next', { userId })
         leaveRoom(socket, true, PEER_LEFT_REASON.next)
         inc(METRIC_NAMES.roomNext)
       }
