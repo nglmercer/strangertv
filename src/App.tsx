@@ -185,6 +185,7 @@ export function App() {
           devices={session.media.devices}
           videoId={session.media.videoId}
           audioId={session.media.audioId}
+          user={user}
           onMute={() => session.media.setMutedTrack(!session.media.muted)}
           onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
           onNext={session.next}
@@ -204,6 +205,12 @@ export function App() {
             if (!document.fullscreenElement) void el.requestFullscreen?.()
             else void document.exitFullscreen?.()
           }}
+          onPreferences={() => {
+            setPrefsTab(PREFS_TAB.match)
+            setPreferences(true)
+          }}
+          onSettings={() => setSettings(true)}
+          onAuthClick={onAuthClick}
         />
       </div>
 

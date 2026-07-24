@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Messages } from '../i18n'
+import type { PublicUser } from '../api'
 import type { Quality } from '../types/ui'
 import { QUALITY_TIER } from '../../shared/constants'
 
@@ -17,6 +18,7 @@ type Props = {
   devices: Devices
   videoId: string
   audioId: string
+  user: PublicUser | null
   onMute: () => void
   onCamera: () => void
   onNext: () => void
@@ -28,6 +30,9 @@ type Props = {
   onDeviceChange: (kind: 'video' | 'audio', id: string) => void
   onOpenDeviceSettings: () => void
   onRefreshDevices: () => void
+  onPreferences: () => void
+  onSettings: () => void
+  onAuthClick: () => void
 }
 
 function Icon({ d, size = 20 }: { d: string; size?: number }) {
@@ -65,6 +70,8 @@ const icons = {
   eye: 'M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
   settings:
     'M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84a.48.48 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.48.48 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z',
+  signOut:
+    'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
 }
 
 function deviceLabel(d: MediaDeviceInfo, fallback: string) {
@@ -82,6 +89,7 @@ export function CallBar({
   devices,
   videoId,
   audioId,
+  user,
   onMute,
   onCamera,
   onNext,
@@ -93,6 +101,9 @@ export function CallBar({
   onDeviceChange,
   onOpenDeviceSettings,
   onRefreshDevices,
+  onPreferences,
+  onSettings,
+  onAuthClick,
 }: Props) {
   const [menu, setMenu] = useState<MenuKind>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -348,6 +359,45 @@ export function CallBar({
             >
               <Icon d={icons.fullscreen} size={18} />
               <span>{t.fullscreen}</span>
+            </button>
+            <div class="call-menu-sep" />
+            <button
+              type="button"
+              role="menuitem"
+              class="call-menu-item"
+              onClick={() => {
+                setMenu(null)
+                onPreferences()
+              }}
+            >
+              <Icon d={icons.settings} size={18} />
+              <span>{t.preferences}</span>
+            </button>
+            {user && (
+              <button
+                type="button"
+                role="menuitem"
+                class="call-menu-item"
+                onClick={() => {
+                  setMenu(null)
+                  onSettings()
+                }}
+              >
+                <Icon d={icons.eye} size={18} />
+                <span>{t.settings}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              class="call-menu-item danger"
+              onClick={() => {
+                setMenu(null)
+                onAuthClick()
+              }}
+            >
+              <Icon d={icons.signOut} size={18} />
+              <span>{user ? t.signOut : t.signIn}</span>
             </button>
           </div>
         )}
