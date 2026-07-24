@@ -86,6 +86,28 @@
     margin-top: 6px;
   }
 
+  .deck-dropdown-trigger {
+    padding: 8px;
+  }
+
+  .deck-dropdown-trigger .deck-emoji {
+    font-size: 22px;
+  }
+
+  .deck-dropdown-trigger small {
+    font-size: 10px;
+    margin-top: 6px;
+  }
+
+  .deck-dropdown-menu {
+    max-height: 180px;
+  }
+
+  .deck-dropdown-item {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
   .local-empty-layout {
     padding: 18px;
     gap: 12px;
@@ -142,6 +164,17 @@
     border-radius: 16px;
     padding: 6px 8px;
     gap: 4px;
+    opacity: 0;
+    transform: translateX(-50%) translateY(12px);
+    pointer-events: none;
+  }
+
+  .stage-wrap:hover .call-bar,
+  .stage-wrap:focus-within .call-bar,
+  .call-bar:focus-within {
+    opacity: 0.72;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
   }
 
   .call-btn {

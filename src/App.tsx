@@ -7,6 +7,7 @@ import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
+import { FriendManager } from './components/FriendManager'
 import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
 import { VideoStage } from './components/VideoStage'
@@ -39,6 +40,7 @@ export function App() {
   const [resetTokenFromUrl, setResetTokenFromUrl] = useState('')
   const [settings, setSettings] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [friendManager, setFriendManager] = useState(false)
   const [page, setPage] = useState<PageId>(null)
   const [user, setUser] = useState<PublicUser | null>(getStoredUser)
   const [profileNeeded, setProfileNeeded] = useState(() => {
@@ -211,19 +213,28 @@ export function App() {
           }}
           onSettings={() => setSettings(true)}
           onAuthClick={onAuthClick}
+          onAddFriend={() => setFriendManager(true)}
         />
       </div>
+        <FriendManager
+          t={tr}
+          user={user}
+          onClose={() => setFriendManager(false)}
+        />
+
 
       <section class="dashboard">
         <ControlDeck
           t={tr}
           prefs={prefs}
           finding={session.finding}
+          matched={session.matched}
           autoNext={autoNext}
           genderEmoji={genderEmoji}
           lookingLabel={lookingLabel}
           onStart={onStartClick}
           onStop={session.stop}
+          onNext={session.next}
           onOpenPrefs={() => {
             setPrefsTab(PREFS_TAB.match)
             setPreferences(true)
@@ -232,6 +243,12 @@ export function App() {
             const nextVal = !autoNext
             setAutoNext(nextVal)
             setFlag(STORAGE_KEYS.autoNext, nextVal)
+          }}
+          onChangeCountry={(country) => {
+            setPrefs({ ...prefs, country })
+          }}
+          onChangeLookingFor={(lookingFor) => {
+            setPrefs({ ...prefs, lookingFor })
           }}
         />
         <ChatPanel

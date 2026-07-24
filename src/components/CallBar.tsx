@@ -67,6 +67,7 @@ export function CallBar({
   onPreferences,
   onSettings,
   onAuthClick,
+  onAddFriend,
 }: Props) {
   const [menu, setMenu] = useState<MenuKind>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -324,6 +325,20 @@ export function CallBar({
               <span>{t.fullscreen}</span>
             </button>
             <div class="call-menu-sep" />
+            {user && (
+              <button
+                type="button"
+                role="menuitem"
+                class="call-menu-item"
+                onClick={() => {
+                  setMenu(null)
+                  onAddFriend()
+                }}
+              >
+                <Icon d={icons.userPlus} size={18} />
+                <span>{t.addFriend}</span>
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
