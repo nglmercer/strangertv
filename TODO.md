@@ -1,16 +1,5 @@
-# Status
+# Features or changes
 
-Product code is feature-complete for v1 (including polish: interests UI, refresh, OpenAPI, PWA, offline). Remaining is **hosting**:
-
-- [ ] DNS + TLS
-- [ ] Turso + backups
-- [ ] coturn / `TURN_*`
-- [ ] `EMAIL_WEBHOOK_URL` + `ALERT_WEBHOOK_URL`
-- [ ] Strong `ADMIN_KEY`
-
-```bash
-make dev
-npm run test:all
-make docker
-make docker-turn
-```
+[] start button when already is matched is necesary change to skip or next button change when is stopped to start button
+[] in preference options button in section or bar is necesary add dropdown or tooltip like to easy chage country with a list for all countries, and same for preferences
+[] only show controll bar on hover hidden by default on mobile is semi transparent

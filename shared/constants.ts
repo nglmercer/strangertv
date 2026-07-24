@@ -64,6 +64,16 @@ export const API_ROUTES = {
   adminUsers: '/api/admin/users',
   adminBan: '/api/admin/ban',
   adminBanById: (id: number | string) => `/api/admin/ban/${id}`,
+  // Friends
+  friends: '/api/friends',
+  friendsRequest: '/api/friends/request',
+  friendById: (id: number | string, action?: string) => `/api/friends/${id}${action ? `/${action}` : ''}`,
+  // Follows
+  follows: '/api/follows',
+  followByUser: (id: number | string) => `/api/follows/${id}`,
+  // Invitations
+  invitations: '/api/invitations',
+  invitationById: (id: number | string, action?: string) => `/api/invitations/${id}${action ? `/${action}` : ''}`,
 } as const
 
 export const API_PREFIX = '/api'
@@ -94,6 +104,15 @@ export const WS_MESSAGE_TYPE = {
   report: 'report',
   block: 'block',
   telemetryQuality: 'telemetry:quality',
+  friendRequest: 'friend:request',
+  friendAccept: 'friend:accept',
+  friendDecline: 'friend:decline',
+  friendRemove: 'friend:remove',
+  follow: 'follow',
+  unfollow: 'unfollow',
+  invitationSend: 'invitation:send',
+  invitationAccept: 'invitation:accept',
+  invitationDecline: 'invitation:decline',
   // server -> client
   queueWaiting: 'queue:waiting',
   roomMatched: 'room:matched',
@@ -103,6 +122,18 @@ export const WS_MESSAGE_TYPE = {
   reportAck: 'report:ack',
   blockAck: 'block:ack',
   serverDraining: 'server:draining',
+  friendRequest: 'friend:request',
+  friendAccepted: 'friend:accepted',
+  friendDeclined: 'friend:declined',
+  friendRemoved: 'friend:removed',
+  friendList: 'friend:list',
+  followConfirm: 'follow:confirm',
+  followRemoved: 'follow:removed',
+  followList: 'follow:list',
+  invitationSend: 'invitation:send',
+  invitationAccepted: 'invitation:accepted',
+  invitationDeclined: 'invitation:declined',
+  invitationList: 'invitation:list',
 } as const
 
 export type WsMessageType = (typeof WS_MESSAGE_TYPE)[keyof typeof WS_MESSAGE_TYPE]

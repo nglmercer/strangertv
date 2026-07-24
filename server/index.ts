@@ -46,6 +46,20 @@ import {
   unblockPair,
   type SocketLike,
 } from './matchmaking'
+import {
+  getFriends,
+  getPendingFriendRequests,
+  sendFriendRequest,
+  respondFriendRequest,
+  removeFriend,
+  followUser,
+  unfollowUser,
+  getFollows,
+  getInvitations,
+  sendInvitation,
+  respondInvitation,
+  cancelInvitation,
+} from './friends'
 import { inc, prometheusText, snapshot } from './metrics'
 import { rateLimit, rateLimitHeaders, rateLimitInfo } from './rateLimit'
 import { requireAdmin, securityHeaders } from './security'
@@ -582,6 +596,160 @@ app.post(API_ROUTES.ratings, async (c) => {
   }
   inc(METRIC_NAMES.ratingsTotal)
   inc(`rating_score_${score}`)
+  return c.json({ ok: true })
+})
+
+// ---------------------------------------------------------------------------
+// Friends API
+// ---------------------------------------------------------------------------
+
+app.get(API_ROUTES.friends, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const friends = await getFriends(user.id)
+  return c.json({ friends })
+})
+
+app.post(API_ROUTES.friendsRequest, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const { userId } = await c.req.json<{ userId?: number }>()
+  if (!userId || userId === user.id) return c.json({ error: 'Invalid target' }, HTTP_STATUS.badRequest)
+  // Verify target user exists
+  const target = await db.execute({ sql: 'SELECT id FROM users WHERE id = ?', args: [userId] })
+  if (!target.rows[0]) return c.json({ error: 'User not found' }, HTTP_STATUS.notFound)
+  await sendFriendRequest(user.id, userId)
+  // Notify the target user via WebSocket if they're connected
+  const targetSocket = getSocketForUser(userId)
+  if (targetSocket) {
+    send(targetSocket, { type: WS_MESSAGE_TYPE.friendRequest, friendId: user.id, from: publicUser(user) })
+  }
+  return c.json({ ok: true })
+})
+
+app.patch(API_ROUTES.friendById(':id', 'accept'), async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const friendId = Number(c.req.param('id'))
+  if (!friendId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+  const result = await respondFriendRequest(friendId, user.id, 'accept')
+  // Notify the other user
+  const friend = await db.execute({ sql: 'SELECT user_a_id, user_b_id FROM friends WHERE id = ?', args: [friendId] })
+  const row = friend.rows[0]
+  if (row) {
+    const otherId = Number(row.user_a_id) === user.id ? Number(row.user_b_id) : Number(row.user_a_id)
+    const otherSocket = getSocketForUser(otherId)
+    if (otherSocket) {
+      send(otherSocket, { type: WS_MESSAGE_TYPE.friendAccepted, friendId, from: publicUser(user) })
+    }
+  }
+  return c.json({ ok: true })
+})
+
+app.patch(API_ROUTES.friendById(':id', 'decline'), async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const friendId = Number(c.req.param('id'))
+  if (!friendId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+  await respondFriendRequest(friendId, user.id, 'decline')
+  return c.json({ ok: true })
+})
+
+app.delete(API_ROUTES.friendById(':id'), async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const friendId = Number(c.req.param('id'))
+  if (!friendId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+  await removeFriend(friendId, user.id)
+  return c.json({ ok: true })
+})
+
+// ---------------------------------------------------------------------------
+// Follows API
+// ---------------------------------------------------------------------------
+
+app.post(API_ROUTES.follows, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const { userId } = await c.req.json<{ userId?: number }>()
+  if (!userId || userId === user.id) return c.json({ error: 'Invalid target' }, HTTP_STATUS.badRequest)
+  const target = await db.execute({ sql: 'SELECT id FROM users WHERE id = ?', args: [userId] })
+  if (!target.rows[0]) return c.json({ error: 'User not found' }, HTTP_STATUS.notFound)
+  await followUser(user.id, userId)
+  const targetSocket = getSocketForUser(userId)
+  if (targetSocket) {
+    send(targetSocket, { type: WS_MESSAGE_TYPE.followConfirm, followed: publicUser(user) })
+  }
+  return c.json({ ok: true })
+})
+
+app.delete(API_ROUTES.followByUser(':id'), async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const followedId = Number(c.req.param('id'))
+  if (!followedId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+  await unfollowUser(user.id, followedId)
+  return c.json({ ok: true })
+})
+
+app.get(API_ROUTES.follows, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const follows = await getFollows(user.id)
+  return c.json(follows)
+})
+
+// ---------------------------------------------------------------------------
+// Invitations API
+// ---------------------------------------------------------------------------
+
+app.get(API_ROUTES.invitations, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const invitations = await getInvitations(user.id)
+  return c.json({ invitations })
+})
+
+app.post(API_ROUTES.invitations, async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const { userId, roomId } = await c.req.json<{ userId?: number; roomId?: string }>()
+  if (!userId || !roomId) return c.json({ error: 'Missing userId or roomId' }, HTTP_STATUS.badRequest)
+  if (userId === user.id) return c.json({ error: 'Cannot invite yourself' }, HTTP_STATUS.badRequest)
+  const target = await db.execute({ sql: 'SELECT id FROM users WHERE id = ?', args: [userId] })
+  if (!target.rows[0]) return c.json({ error: 'User not found' }, HTTP_STATUS.notFound)
+  await sendInvitation(user.id, userId, roomId)
+  const targetSocket = getSocketForUser(userId)
+  if (targetSocket) {
+    send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId: 0, roomId, inviter: publicUser(user) })
+  }
+  return c.json({ ok: true })
+})
+
+app.patch(API_ROUTES.invitationById(':id', 'accept'), async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const invitationId = Number(c.req.param('id'))
+  if (!invitationId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+  const result = await respondInvitation(invitationId, user.id, 'accept')
+  return c.json({ ok: true })
+})
+
+app.patch(API_ROUTES.invitationById(':id', 'decline'), async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const invitationId = Number(c.req.param('id'))
+  if (!invitationId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+  await respondInvitation(invitationId, user.id, 'decline')
+  return c.json({ ok: true })
+})
+
+app.delete(API_ROUTES.invitationById(':id'), async (c) => {
+  const user = await userFromToken(getBearer(c))
+  if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+  const invitationId = Number(c.req.param('id'))
+  if (!invitationId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+  await cancelInvitation(invitationId, user.id)
   return c.json({ ok: true })
 })
 

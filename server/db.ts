@@ -109,6 +109,53 @@ export async function migrate() {
     )
   `)
 
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS consents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      kind TEXT NOT NULL,
+      accepted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  // Friends table — mutual friendship relationships
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS friends (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_a_id INTEGER NOT NULL,
+      user_b_id INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_a_id, user_b_id)
+    )
+  `)
+
+  // Follows table — one-way follow relationships
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS follows (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      follower_id INTEGER NOT NULL,
+      followed_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(follower_id, followed_id)
+    )
+  `)
+
+  // Invitations table — invite a friend to join a match
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS invitations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      inviter_id INTEGER NOT NULL,
+      invitee_id INTEGER NOT NULL,
+      room_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expires_at TEXT NOT NULL,
+      UNIQUE(inviter_id, invitee_id, room_id)
+    )
+  `)
+
   const columns = ['birth_date', 'gender', 'country', 'language', 'interests']
   for (const col of columns) {
     try {

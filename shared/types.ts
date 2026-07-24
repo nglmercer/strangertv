@@ -4,6 +4,21 @@ export type Locale = 'en' | 'es' | 'pt'
 /** WebRTC matchmaking role assigned to each peer in a room. */
 export type Role = 'offerer' | 'answerer'
 
+export type FriendStatus = 'pending' | 'accepted' | 'declined'
+export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
+
+/** Minimal public user profile shared between client and server. */
+export type PublicUser = {
+  id: number
+  email: string
+  birthDate?: string
+  gender?: Gender
+  country?: string
+  language?: string
+  interests?: string[]
+  emailVerified?: boolean
+}
+
 export type MatchPreferences = {
   country: string
   language: string
@@ -22,6 +37,35 @@ export type ReportReason =
   | 'violence'
   | 'other'
 
+export type Friend = {
+  id: number
+  userAId: number
+  userBId: number
+  status: FriendStatus
+  createdAt: string
+  updatedAt: string
+  otherUser: PublicUser
+}
+
+export type Follow = {
+  id: number
+  followerId: number
+  followedId: number
+  createdAt: string
+  followedUser: PublicUser
+}
+
+export type Invitation = {
+  id: number
+  inviterId: number
+  inviteeId: number
+  roomId: string
+  status: InvitationStatus
+  createdAt: string
+  expiresAt: string
+  inviterUser: PublicUser
+}
+
 export type ClientMessage =
   | { type: 'queue:join'; preferences: MatchPreferences; token?: string }
   | { type: 'queue:leave' }
@@ -32,6 +76,15 @@ export type ClientMessage =
   | { type: 'chat'; payload: { text: string; time: string } }
   | { type: 'report'; reason: ReportReason; detail?: string }
   | { type: 'block' }
+  | { type: 'friend:request'; userId: number }
+  | { type: 'friend:accept'; friendId: number }
+  | { type: 'friend:decline'; friendId: number }
+  | { type: 'friend:remove'; friendId: number }
+  | { type: 'follow'; userId: number }
+  | { type: 'unfollow'; userId: number }
+  | { type: 'invitation:send'; userId: number; roomId: string }
+  | { type: 'invitation:accept'; invitationId: number; roomId: string }
+  | { type: 'invitation:decline'; invitationId: number }
   | {
       type: 'telemetry:quality'
       roomId?: string
@@ -57,6 +110,18 @@ export type ServerMessage =
   | { type: 'report:ack' }
   | { type: 'block:ack' }
   | { type: 'server:draining'; message?: string }
+  | { type: 'friend:request'; friendId: number; from: PublicUser }
+  | { type: 'friend:accepted'; friendId: number; user: PublicUser }
+  | { type: 'friend:declined'; friendId: number }
+  | { type: 'friend:removed'; friendId: number }
+  | { type: 'friend:list'; friends: Array<{ id: number; user: PublicUser; status: FriendStatus }> }
+  | { type: 'follow:confirm'; followed: PublicUser }
+  | { type: 'follow:removed'; followedId: number }
+  | { type: 'follow:list'; followers: Array<{ id: number; user: PublicUser }>; following: Array<{ id: number; user: PublicUser }> }
+  | { type: 'invitation:send'; invitationId: number; roomId: string; inviter: PublicUser }
+  | { type: 'invitation:accepted'; invitationId: number; roomId: string }
+  | { type: 'invitation:declined'; invitationId: number }
+  | { type: 'invitation:list'; invitations: Array<{ id: number; inviter: PublicUser; roomId: string; status: InvitationStatus; expiresAt: string }> }
 
 /** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [

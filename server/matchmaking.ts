@@ -43,6 +43,8 @@ const blockedPairs = new Set<string>() // "minId:maxId"
 /** Recent matches: key userA:userB or sessionA:sessionB → expiry ms */
 const recentPairs = new Map<string, number>()
 const RECENT_COOLDOWN_MS = Number(process.env.REMATCH_COOLDOWN_MS ?? 10 * 60_000)
+/** userId → Set<SocketLike> for real-time notifications */
+const userSockets = new Map<number, Set<SocketLike>>()
 
 /** Canonical unordered key for a pair of identifiers (smaller first). */
 function pairKey(prefix: string, a: string | number, b: string | number) {
@@ -230,6 +232,7 @@ export function joinQueue(
     lastBeat: Date.now(),
   }
   peerMeta.set(socket, self)
+  if (opts.userId) registerUserSocket(opts.userId, socket)
 
   let bestIdx = -1
   let bestScore = -1
@@ -297,8 +300,28 @@ export function heartbeat(socket: SocketLike) {
   if (inQueue) inQueue.lastBeat = Date.now()
 }
 
-export function getPartner(socket: SocketLike) {
-  return partners.get(socket)
+export function getSocketForUser(userId: number): SocketLike | undefined {
+  const sockets = userSockets.get(userId)
+  if (!sockets) return undefined
+  // Return the first connected socket
+  for (const socket of sockets) {
+    if (socket.readyState === 1) return socket
+  }
+  return undefined
+}
+
+export function registerUserSocket(userId: number, socket: SocketLike) {
+  if (!userId) return
+  if (!userSockets.has(userId)) userSockets.set(userId, new Set())
+  userSockets.get(userId)!.add(socket)
+}
+
+export function unregisterUserSocket(userId: number, socket: SocketLike) {
+  const sockets = userSockets.get(userId)
+  if (sockets) {
+    sockets.delete(socket)
+    if (sockets.size === 0) userSockets.delete(userId)
+  }
 }
 
 export function getRoom(socket: SocketLike) {
