@@ -22,8 +22,6 @@ type Props = {
   user: PublicUser | null
   onMute: () => void
   onCamera: () => void
-  onNext: () => void
-  onStop: () => void
   onReport: () => void
   onBlock: () => void
   onRetryIce: () => void
@@ -55,8 +53,6 @@ export function CallBar({
   user,
   onMute,
   onCamera,
-  onNext,
-  onStop,
   onReport,
   onBlock,
   onRetryIce,
@@ -236,26 +232,6 @@ export function CallBar({
           </div>
         )}
       </div>
-
-      <button
-        type="button"
-        class="call-btn icon next-btn"
-        onClick={onNext}
-        disabled={!finding}
-        aria-label={t.next}
-        title={t.next}
-      >
-        <Icon d={icons.next} />
-      </button>
-      <button
-        type="button"
-        class="call-btn icon danger"
-        onClick={onStop}
-        aria-label={t.stop}
-        title={t.stop}
-      >
-        <Icon d={icons.stop} />
-      </button>
 
       <div class={`call-more ${menu === 'more' ? 'open' : ''}`}>
         <button

@@ -202,8 +202,6 @@ export function App() {
           user={user}
           onMute={() => session.media.setMutedTrack(!session.media.muted)}
           onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
-          onNext={session.next}
-          onStop={session.stop}
           onReport={() => setReportOpen(true)}
           onBlock={() => session.match.block()}
           onRetryIce={() => void session.webrtc.restartIce()}
