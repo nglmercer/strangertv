@@ -5,8 +5,8 @@
   text-align: center;
   gap: 12px;
   padding: 24px;
-  background: #111;
-  color: #eee;
+  background: var(--crash-bg);
+  color: var(--crash-text);
 }
 
 .crash h1 {
@@ -27,18 +27,18 @@
   border: 0;
   background: none;
   font-size: 32px;
-  color: #ddd;
+  color: var(--star);
   cursor: pointer;
   line-height: 1;
   padding: 0 4px;
 }
 
 .star.on {
-  color: #f5b942;
+  color: var(--star-on);
 }
 
 .settings-field {
-  border: 1px solid #eee;
+  border: 1px solid var(--border-soft);
   border-radius: 8px;
   padding: 10px 12px;
   margin: 14px 0;
@@ -46,7 +46,7 @@
 
 .settings-field legend {
   font-size: 12px;
-  color: #666;
+  color: var(--text-tertiary);
   padding: 0 4px;
 }
 
@@ -57,7 +57,7 @@
 
 .muted-inline {
   font-size: 12px;
-  color: #999;
+  color: var(--text-subtle);
   margin: 0 0 8px;
 }
 
@@ -75,13 +75,13 @@
   align-items: center;
   gap: 8px;
   padding: 8px 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-soft);
   font-size: 13px;
 }
 
 .block-list .admin-btn {
-  background: #eee;
-  color: #333;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
   border: 0;
   border-radius: 6px;
   padding: 4px 10px;

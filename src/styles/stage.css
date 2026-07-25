@@ -392,8 +392,8 @@
   transform: translateX(-50%);
   margin: 0;
   padding: 8px 14px;
-  background: #3a1a16ee;
-  color: #ffc9c0;
+  background: var(--stage-error-bg);
+  color: var(--stage-error-text);
   border-radius: 8px;
   font-size: 12px;
   max-width: calc(100% - 24px);
@@ -401,8 +401,8 @@
 }
 
 .offline-banner {
-  background: #5a3a12;
-  color: #ffe7c2;
+  background: var(--offline-bg);
+  color: var(--offline-text);
   text-align: center;
   padding: 8px 12px;
   font-size: 12px;

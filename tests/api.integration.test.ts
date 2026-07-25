@@ -38,7 +38,7 @@ describe('API integration', () => {
     await waitHealthy()
   })
 
-  after(async () => {
+  afterAll(async () => {
     child.kill('SIGTERM')
     await sleep(300)
     try {

@@ -1,6 +1,6 @@
 .chat-box {
-  background: #fff;
-  border: 1px solid #ddd;
+  background: var(--chat-bg);
+  border: 1px solid var(--border);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -12,8 +12,8 @@
 .notice {
   margin: 0 14px;
   padding: 12px 0;
-  border-bottom: 1px solid #eee;
-  color: #555;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-tertiary);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -25,7 +25,7 @@
 .linkish {
   border: 0;
   background: none;
-  color: #249b78;
+  color: var(--info);
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
@@ -44,7 +44,7 @@
 
 .chat-placeholder {
   font-size: 11px;
-  color: #aaa;
+  color: var(--text-faint);
   margin: auto;
 }
 
@@ -54,7 +54,7 @@
   gap: 4px 10px;
   justify-content: center;
   font: 0.6rem 'DM Mono', monospace;
-  color: #aaa;
+  color: var(--text-faint);
   padding: 6px 0 2px;
 }
 
@@ -65,7 +65,7 @@
   align-items: end;
   max-width: 80%;
   font-size: 12px;
-  color: #444;
+  color: var(--text-secondary);
 }
 
 .message.mine {
@@ -74,25 +74,25 @@
 }
 
 .message span {
-  background: #f1f1f1;
+  background: var(--chat-message);
   border-radius: 10px 10px 10px 2px;
   padding: 7px 10px;
   word-break: break-word;
 }
 
 .message.mine span {
-  background: #d8f4e9;
+  background: var(--chat-message-mine);
   border-radius: 10px 10px 2px 10px;
 }
 
 .message small {
   font-size: 8px;
-  color: #aaa;
+  color: var(--text-faint);
 }
 
 .chat-input {
   margin-top: auto;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-soft);
   height: 45px;
   display: flex;
 }
@@ -104,12 +104,13 @@
   padding: 0 12px;
   font-size: 13px;
   background: transparent;
+  color: var(--text-primary);
 }
 
 .chat-input button {
   border: 0;
-  background: #fff;
-  color: #aaa;
+  background: var(--bg-page);
+  color: var(--text-faint);
   font-size: 20px;
   padding: 0 12px;
   cursor: pointer;

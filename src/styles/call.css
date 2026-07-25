@@ -11,10 +11,10 @@
   gap: 6px;
   justify-content: center;
   padding: 8px 10px;
-  background: #0a0a0acc;
+  background: var(--call-bg);
   border-radius: 999px;
-  border: 1px solid #ffffff18;
-  box-shadow: 0 8px 28px #0008;
+  border: 1px solid var(--call-border);
+  box-shadow: 0 8px 28px var(--shadow-lg);
   max-width: calc(100% - 24px);
   backdrop-filter: blur(10px);
   opacity: 0.4;
@@ -24,7 +24,7 @@
 .call-bar:hover,
 .call-bar:focus-within {
   opacity: 1;
-  background: #0c0c0cee;
+  background: var(--call-bg-hover);
 }
 
 .stage-wrap .call-bar {
@@ -38,8 +38,8 @@
 
 .call-btn {
   border: 0;
-  background: #2a2a2acc;
-  color: #eee;
+  background: var(--call-btn);
+  color: var(--call-btn-text);
   border-radius: 999px;
   padding: 10px 14px;
   font-size: 12px;
@@ -57,23 +57,23 @@
 }
 
 .call-btn.icon:hover:not(:disabled) {
-  background: #3a3a3aee;
+  background: var(--call-btn-hover);
   transform: translateY(-1px);
 }
 
 .call-btn.icon:focus-visible {
-  outline: 2px solid #57c9a1;
+  outline: 2px solid var(--green);
   outline-offset: 2px;
 }
 
 .call-btn.icon.is-off {
-  background: #5a2a22cc;
-  color: #ffc9c0;
+  background: var(--call-btn-off);
+  color: var(--call-btn-off-text);
 }
 
 .call-btn.icon.is-active {
-  background: #3a4a44cc;
-  color: #9eecc8;
+  background: var(--call-btn-active);
+  color: var(--call-btn-active-text);
 }
 
 .call-btn:disabled {
@@ -94,8 +94,8 @@
 }
 
 .call-btn.danger {
-  background: #5a2a22cc;
-  color: #ffc9c0;
+  background: var(--call-btn-off);
+  color: var(--call-btn-off-text);
 }
 
 .call-btn.danger:hover:not(:disabled) {
@@ -122,13 +122,13 @@
 
 .call-split-main.is-off,
 .call-split-caret.is-off {
-  background: #5a2a22cc;
-  color: #ffc9c0;
+  background: var(--call-btn-off);
+  color: var(--call-btn-off-text);
 }
 
 .call-split.open .call-split-caret {
-  background: #3a4a44cc;
-  color: #9eecc8;
+  background: var(--call-btn-active);
+  color: var(--call-btn-active-text);
 }
 
 .call-device-menu {
@@ -141,9 +141,9 @@
   overflow-y: auto;
   padding: 6px;
   border-radius: 14px;
-  background: #121212f2;
-  border: 1px solid #ffffff18;
-  box-shadow: 0 12px 36px #000a;
+  background: var(--call-menu-bg);
+  border: 1px solid var(--call-menu-border);
+  box-shadow: 0 12px 36px var(--shadow-lg);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -157,13 +157,13 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #9a9a9a;
+  color: var(--text-muted);
 }
 
 .call-menu-sep {
   height: 1px;
   margin: 4px 8px;
-  background: #ffffff14;
+  background: var(--call-menu-sep);
 }
 
 .call-menu-check {
@@ -172,7 +172,7 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  color: #9eecc8;
+  color: var(--call-btn-active-text);
 }
 
 .call-menu-label {
@@ -194,8 +194,8 @@
 }
 
 .call-fullscreen-btn {
-  background: #2a2a2acc;
-  color: #eee;
+  background: var(--call-btn);
+  color: var(--call-btn-text);
   border-radius: 999px;
   width: 42px;
   height: 42px;
@@ -210,21 +210,21 @@
 
 .call-fullscreen-btn.start {
   background: var(--green);
-  color: #053;
+  color: var(--on-green);
 }
 
 .call-fullscreen-btn.start:hover:not(:disabled) {
   background: var(--green-dark);
-  color: #031;
+  color: var(--on-green-strong);
 }
 
 .call-fullscreen-btn:hover:not(:disabled) {
-  background: #3a3a3aee;
+  background: var(--call-btn-hover);
   transform: translateY(-1px);
 }
 
 .call-fullscreen-btn:focus-visible {
-  outline: 2px solid #57c9a1;
+  outline: 2px solid var(--green);
   outline-offset: 2px;
 }
 
@@ -245,9 +245,9 @@
   min-width: 200px;
   padding: 6px;
   border-radius: 14px;
-  background: #121212f2;
-  border: 1px solid #ffffff18;
-  box-shadow: 0 12px 36px #000a;
+  background: var(--call-menu-bg);
+  border: 1px solid var(--call-menu-border);
+  box-shadow: 0 12px 36px var(--shadow-lg);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -261,7 +261,7 @@
   width: 100%;
   border: 0;
   background: transparent;
-  color: #e8e8e8;
+  color: var(--call-btn-text);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 13px;
@@ -270,7 +270,7 @@
 }
 
 .call-menu-item:hover:not(:disabled) {
-  background: #ffffff12;
+  background: var(--call-menu-hover);
 }
 
 .call-menu-item:disabled {
