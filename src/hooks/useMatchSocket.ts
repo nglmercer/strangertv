@@ -149,6 +149,7 @@ export function useMatchSocket(handlers: Handlers) {
           h.onMessageNew?.(msg.message)
           break
         case WS_MESSAGE_TYPE.invitationSend:
+          console.debug('[ws] received invitation', { invitationId: msg.invitationId, roomId: msg.roomId, inviter: msg.inviter })
           h.onInvitation?.(msg.invitationId, msg.roomId, msg.inviter)
           break
         case 'group:invite':
@@ -288,6 +289,14 @@ export function useMatchSocket(handlers: Handlers) {
     [send],
   )
 
+  const invitationSend = useCallback(
+    (userId: number, roomId: string) => {
+      console.debug('[ws] invitationSend', { userId, roomId })
+      send({ type: WS_MESSAGE_TYPE.invitationSend, userId, roomId })
+    },
+    [send],
+  )
+
   useEffect(() => {
     ensureSocket()
     return () => {
@@ -313,6 +322,7 @@ export function useMatchSocket(handlers: Handlers) {
     groupMatchJoin,
     groupMatchStart,
     groupMatchLeave,
+    invitationSend,
     connected,
     socket,
   }

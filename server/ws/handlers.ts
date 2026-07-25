@@ -418,12 +418,14 @@ export function createWsHandler(state: WsState) {
     // Invitation system WS handlers
     if (message.type === WS_MESSAGE_TYPE.invitationSend) {
       const meta = getMeta(socket)
+      console.debug('[ws] invitation:send', { from: meta?.userId, to: message.userId, roomId: message.roomId })
       if (!meta?.userId) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to send invitations.' })
         return
       }
       await sendInvitation(meta.userId, message.userId, message.roomId)
       const targetSocket = getSocketForUser(message.userId)
+      console.debug('[ws] invitation:send target', { targetOnline: !!targetSocket, targetUserId: message.userId })
       if (targetSocket) {
         const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
         const inviterProfile = inviterRow.rows[0]

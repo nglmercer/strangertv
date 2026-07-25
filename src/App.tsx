@@ -65,7 +65,7 @@ export function App(_props: AppProps) {
   const [resetTokenFromUrl, setResetTokenFromUrl] = useState('')
   const [settings, setSettings] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
-  const [friendManager, setFriendManager] = useState(false)
+  const [friendManager, setFriendManager] = useState<{ open: boolean; inviteMode: boolean }>({ open: false, inviteMode: false })
   const [page, setPage] = useState<PageId>(null)
   const [authActive, setAuthActive] = useState(false)
   const [user, setUser] = useState<PublicUser | null>(getStoredUser)
@@ -127,7 +127,10 @@ export function App(_props: AppProps) {
         : msg.type === 'group:invite' ? { inviteId: msg.inviteId, groupId: msg.groupId }
         : undefined,
     })
-  }, [])
+    if (msg.type === 'invitation:send') {
+      showToast(`${tr.invitationReceived ?? 'Match Invitation'}: ${msg.inviter.email.split('@')[0]}`, 'success')
+    }
+  }, [showToast, tr])
 
   const session = useMatchSession({
     tr,
@@ -174,7 +177,7 @@ export function App(_props: AppProps) {
   }
 
   const anyModalOpen =
-    showStart || preferences || authActive || settings || reportOpen || friendManager || profileNeeded || Boolean(page)
+    showStart || preferences || authActive || settings || reportOpen || friendManager.open || profileNeeded || Boolean(page)
 
   useCallKeyboard({
     active: session.finding || session.matched,
@@ -254,7 +257,7 @@ export function App(_props: AppProps) {
       showToast(tr.peerNotSignedIn, 'error')
       return
     }
-    setFriendManager(true)
+    setFriendManager({ open: true, inviteMode: false })
   }, [user, session.peerUserId, session.peerEmail, showToast, tr])
 
   /** Direct follow when both users are logged in; updates local relationship badge immediately. */
@@ -398,14 +401,21 @@ export function App(_props: AppProps) {
               onSettings={() => setSettings(true)}
               onAuthClick={onAuthClick}
               onAddFriend={onAddFriend}
+              onInvite={() => {
+                console.debug('[app] invite clicked, opening friend manager')
+                setFriendManager({ open: true, inviteMode: true })
+              }}
               relationship={session.relationship}
             />
           </div>
-          {friendManager && (
+          {friendManager.open && (
             <FriendManager
               t={tr}
               user={user}
-              onClose={() => setFriendManager(false)}
+              onClose={() => setFriendManager({ open: false, inviteMode: false })}
+              inviteMode={friendManager.inviteMode}
+              roomId={session.roomId}
+              match={session.match}
             />
           )}
 

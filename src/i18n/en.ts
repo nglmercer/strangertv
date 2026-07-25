@@ -199,6 +199,7 @@ export const en = {
   invitationSent: 'Invitation sent',
   invitationAccepted: 'Friend joined the match',
   invitationDeclined: 'Invitation declined',
+  invitationReceived: 'Match Invitation',
   noFriends: 'No friends yet. Send a request to connect.',
   noRequests: 'No pending requests.',
   searchFriends: 'Search by email',

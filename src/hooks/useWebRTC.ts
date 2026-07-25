@@ -27,6 +27,8 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
   const soloPcRef = useRef<RTCPeerConnection | null>(null)
   const soloPending = useRef<RTCIceCandidateInit[]>([])
   const soloRemoteReady = useRef(false)
+  const soloStatsTimer = useRef<number | null>(null)
+  const soloStatsSeed = useRef<{ packetsReceived: number; packetsLost: number; bytesReceived: number; at: number } | null>(null)
   const peersRef = useRef<Map<number, PeerConnection>>(new Map())
   const [quality, setQuality] = useState<Quality>('idle')
   const [linkStats, setLinkStats] = useState<LinkStats>(emptyLinkStats)
@@ -42,12 +44,21 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
 
   const sampleStats = useCallback(async (peer: PeerConnection) => {
     const state = peer.pc.connectionState
+    console.debug('[webrtc] sampleStats', { state, userId: peer.userId })
     if (state === RTC_STATE.closed || state === RTC_STATE.failed) return
     try {
       const { stats, seed } = await readLinkStats(peer.pc, peer.statsSeed)
       peer.statsSeed = seed
       setLinkStats(stats)
-      setQuality(qualityFromLink(peer.pc.connectionState, stats))
+      const newQuality = qualityFromLink(peer.pc.connectionState, stats)
+      console.debug('[webrtc] sampleStats result', { stats, newQuality })
+      setQuality((current) => {
+        if (newQuality === QUALITY_TIER.connecting && current === QUALITY_TIER.good) {
+          console.debug('[webrtc] sampleStats: keeping good (would regress to connecting)')
+          return current
+        }
+        return newQuality
+      })
     } catch {
       /* getStats can throw if pc is closing */
     }
@@ -67,6 +78,45 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     },
     [sampleStats, stopStatsLoop],
   )
+
+  const stopSoloStatsLoop = useCallback(() => {
+    if (soloStatsTimer.current != null) {
+      window.clearInterval(soloStatsTimer.current)
+      soloStatsTimer.current = null
+    }
+    soloStatsSeed.current = null
+  }, [])
+
+  const sampleSoloStats = useCallback(async () => {
+    const pc = soloPcRef.current
+    if (!pc) return
+    const state = pc.connectionState
+    if (state === RTC_STATE.closed || state === RTC_STATE.failed) return
+    try {
+      const { stats, seed } = await readLinkStats(pc, soloStatsSeed.current)
+      soloStatsSeed.current = seed
+      setLinkStats(stats)
+      const newQuality = qualityFromLink(pc.connectionState, stats)
+      setQuality((current) => {
+        if (newQuality === QUALITY_TIER.connecting && current === QUALITY_TIER.good) return current
+        return newQuality
+      })
+    } catch {
+      /* getStats can throw if pc is closing */
+    }
+  }, [])
+
+  const startSoloStatsLoop = useCallback(() => {
+    stopSoloStatsLoop()
+    void sampleSoloStats()
+    soloStatsTimer.current = window.setInterval(() => {
+      if (soloPcRef.current == null || soloPcRef.current.connectionState === RTC_STATE.closed) {
+        stopSoloStatsLoop()
+        return
+      }
+      void sampleSoloStats()
+    }, STATS_INTERVAL_MS)
+  }, [sampleSoloStats, stopSoloStatsLoop])
 
   const flushCandidates = async (peer: PeerConnection) => {
     for (const c of peer.pendingCandidates) {
@@ -92,14 +142,18 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
           remoteVideo.srcObject = event.streams[0] ?? null
         }
         setHasRemote(true)
+        if (peer.pc.connectionState === RTC_STATE.connected) {
+          setQuality(QUALITY_TIER.good)
+        }
       }
 
       const applyState = () => {
         const state = peer.pc.connectionState
+        console.debug('[webrtc] mesh applyState', { state, userId: peer.userId })
         if (state === RTC_STATE.connected) {
           setQuality((q) =>
             q === QUALITY_TIER.idle || q === QUALITY_TIER.connecting || q === QUALITY_TIER.failed
-              ? QUALITY_TIER.connecting
+              ? QUALITY_TIER.good
               : q,
           )
           startStatsLoop(peer)
@@ -116,7 +170,9 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
       peer.pc.onconnectionstatechange = applyState
 
       peer.pc.oniceconnectionstatechange = () => {
-        if (peer.pc.iceConnectionState === RTC_STATE.failed) {
+        const iceState = peer.pc.iceConnectionState
+        console.debug('[webrtc] mesh iceStateChange', { iceState, ready: peer.ready, userId: peer.userId })
+        if (iceState === RTC_STATE.failed) {
           setQuality('failed')
           void (async () => {
             try {
@@ -131,7 +187,9 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
             }
           })()
         }
-        if (peer.pc.iceConnectionState === 'connected' || peer.pc.iceConnectionState === 'completed') {
+        if ((iceState === 'connected' || iceState === 'completed') && peer.ready) {
+          console.debug('[webrtc] mesh ice connected -> good')
+          setQuality(QUALITY_TIER.good)
           startStatsLoop(peer)
         }
       }
@@ -146,6 +204,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
       peer.pc.close()
     }
     peersRef.current = new Map()
+    stopSoloStatsLoop()
     soloPcRef.current?.close()
     soloPcRef.current = null
     soloPending.current = []
@@ -153,10 +212,11 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     setHasRemote(false)
     setQuality(QUALITY_TIER.idle)
     setLinkStats(emptyLinkStats)
-  }, [stopStatsLoop])
+  }, [stopStatsLoop, stopSoloStatsLoop])
 
   const createPeer = useCallback(
     async (stream: MediaStream, remoteVideo: HTMLVideoElement | null, asOfferer: boolean) => {
+      console.debug('[webrtc] createPeer', { asOfferer, hasStream: Boolean(stream) })
       clear()
       setQuality(QUALITY_TIER.connecting)
       const iceServers = await fetchIceServers()
@@ -173,29 +233,36 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
       }
 
       pc.ontrack = (event) => {
+        console.debug('[webrtc] solo ontrack', { connectionState: pc.connectionState })
         if (remoteVideo) {
           remoteVideo.srcObject = event.streams[0] ?? null
         }
         setHasRemote(true)
+        setQuality(QUALITY_TIER.good)
       }
 
       const applyState = () => {
         const state = pc.connectionState
+        console.debug('[webrtc] solo applyState', { state })
         if (state === RTC_STATE.connected) {
-          setQuality(QUALITY_TIER.connecting)
+          setQuality(QUALITY_TIER.good)
+          startSoloStatsLoop()
         } else if (state === RTC_STATE.connecting || state === RTC_STATE.new) {
           setQuality(QUALITY_TIER.connecting)
         } else if (state === RTC_STATE.disconnected) {
           setQuality(QUALITY_TIER.poor)
         } else if (state === RTC_STATE.failed || state === RTC_STATE.closed) {
           setQuality(QUALITY_TIER.failed)
+          stopSoloStatsLoop()
         }
       }
 
       pc.onconnectionstatechange = applyState
 
       pc.oniceconnectionstatechange = () => {
-        if (pc.iceConnectionState === RTC_STATE.failed) {
+        const iceState = pc.iceConnectionState
+        console.debug('[webrtc] solo iceStateChange', { iceState, remoteReady: soloRemoteReady.current })
+        if (iceState === RTC_STATE.failed) {
           setQuality('failed')
           void (async () => {
             try {
@@ -209,6 +276,10 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
               /* ignore */
             }
           })()
+        }
+        if ((iceState === 'connected' || iceState === 'completed') && soloRemoteReady.current) {
+          console.debug('[webrtc] solo ice connected -> good')
+          setQuality(QUALITY_TIER.good)
         }
       }
 

@@ -6,7 +6,22 @@ import type { Messages } from '../i18n'
 
 type Tab = 'friends' | 'requests' | 'search'
 
-export function FriendManager({ t, user, onClose }: { t: Messages; user: PublicUser | null; onClose: () => void }) {
+export function FriendManager({
+  t,
+  user,
+  onClose,
+  inviteMode,
+  roomId,
+  match,
+}: {
+  t: Messages
+  user: PublicUser | null
+  onClose: () => void
+  inviteMode?: boolean
+  roomId?: string | null
+  match?: { invitationSend: (userId: number, roomId: string) => void }
+}) {
+  console.debug('[friend] render', { inviteMode, roomId, hasMatch: !!match, hasUser: !!user })
   const [tab, setTab] = useState<Tab>('friends')
   const [friends, setFriends] = useState<Friend[]>([])
   const [requests, setRequests] = useState<Friend[]>([])
@@ -49,7 +64,15 @@ export function FriendManager({ t, user, onClose }: { t: Messages; user: PublicU
   }
 
   const handleRequest = async (userId: number) => {
+    console.debug('[friend] handleRequest', { userId, inviteMode, roomId, hasMatch: !!match })
     try {
+      if (inviteMode && roomId && match) {
+        console.debug('[friend] sending invitation', { userId, roomId })
+        match.invitationSend(userId, roomId)
+        setSearchResult(null)
+        setSearchEmail('')
+        return
+      }
       await friendsApi.request(userId)
       setSearchResult(null)
       setSearchEmail('')

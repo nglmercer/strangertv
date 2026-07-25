@@ -200,6 +200,7 @@ export const pt: Messages = {
   invitationSent: 'Convite enviado',
   invitationAccepted: 'Amigo entrou no partido',
   invitationDeclined: 'Convite recusado',
+  invitationReceived: 'Convite para o partido',
   noFriends: 'Ainda não tem amigos. Envie uma solicitação para conectar.',
   noRequests: 'Sem solicitações pendentes.',
   searchFriends: 'Buscar por e-mail',
