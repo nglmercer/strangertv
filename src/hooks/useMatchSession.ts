@@ -14,7 +14,6 @@ import { useWebRTC } from './useWebRTC'
 type Options = {
   tr: Messages
   prefs: MatchPreferences
-  autoNext: boolean
   onStatus: (s: string) => void
   onGroupMessage?: (message: GroupMessage) => void
   onSocialEvent?: (msg: SocialWsEvent) => void
@@ -31,7 +30,7 @@ export type SocialWsEvent =
 /**
  * Orchestrates media, signaling socket, WebRTC, queue, chat, and call lifecycle.
  */
-export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage, onSocialEvent }: Options) {
+export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialEvent }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -57,8 +56,6 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage,
   const waitingSince = useRef<number | null>(null)
   const prefsRef = useRef(prefs)
   prefsRef.current = prefs
-  const autoNextRef = useRef(autoNext)
-  autoNextRef.current = autoNext
   const trRef = useRef(tr)
   trRef.current = tr
   const callSecondsRef = useRef(0)
@@ -146,7 +143,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage,
       await webrtcRef.current.createPeer(stream, remoteVideo.current, role === 'offerer')
     },
     onPeerLeft: (reason) => {
-      console.debug('[match] onPeerLeft', { reason, autoNext: autoNextRef.current, finding: findingRef.current, matched: matchedRef.current, callSec: callSecondsRef.current })
+      console.debug('[match] onPeerLeft', { reason, finding: findingRef.current, matched: matchedRef.current, callSec: callSecondsRef.current })
       webrtcRef.current.clear()
       clearPeerUi()
       const t = trRef.current

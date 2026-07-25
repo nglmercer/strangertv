@@ -11,13 +11,10 @@ export function ControlDeck({
   prefs,
   finding,
   matched,
-  autoNext,
   lookingLabel,
   onStart,
   onStop,
   onNext,
-  onOpenPrefs,
-  onToggleAutoNext,
   onChangeCountry,
   onChangeLookingFor,
 }: {
@@ -25,13 +22,11 @@ export function ControlDeck({
   prefs: MatchPreferences
   finding: boolean
   matched: boolean
-  autoNext: boolean
   lookingLabel: string
   onStart: () => void
   onStop: () => void
   onNext: () => void
-  onOpenPrefs: () => void
-  onToggleAutoNext: () => void
+  onOpenPrefs?: () => void
   onChangeCountry: (country: string) => void
   onChangeLookingFor: (gender: Gender) => void
 }) {
@@ -178,16 +173,6 @@ export function ControlDeck({
           </div>
         )}
       </div>
-      <button
-        type="button"
-        class={`deck-card ${autoNext ? 'auto-on' : ''}`}
-        onClick={onToggleAutoNext}
-        aria-pressed={autoNext}
-        title={t.autoNext}
-      >
-        <span>{t.autoNext}</span>
-        <small>{autoNext ? t.autoNextOn : t.autoNextOff}</small>
-      </button>
     </div>
   )
 }

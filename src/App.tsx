@@ -48,7 +48,6 @@ export function App() {
     savePrefs(p)
   }
 
-  const [autoNext, setAutoNext] = useState(() => getFlag(STORAGE_KEYS.autoNext))
   const [status, setStatus] = useState(() => translate(detectLocale()).ready)
 
   const [showStart, setShowStart] = useState(false)
@@ -109,7 +108,6 @@ export function App() {
   const session = useMatchSession({
     tr,
     prefs,
-    autoNext,
     onStatus: setStatus,
     onGroupMessage: (message) => emitGroupMessage(message),
     onSocialEvent: handleSocialEvent,
@@ -308,7 +306,6 @@ export function App() {
           prefs={prefs}
           finding={session.finding}
           matched={session.matched}
-          autoNext={autoNext}
           lookingLabel={lookingLabel}
           onStart={onStartClick}
           onStop={session.stop}
@@ -316,11 +313,6 @@ export function App() {
           onOpenPrefs={() => {
             setPrefsTab(PREFS_TAB.match)
             setPreferences(true)
-          }}
-          onToggleAutoNext={() => {
-            const nextVal = !autoNext
-            setAutoNext(nextVal)
-            setFlag(STORAGE_KEYS.autoNext, nextVal)
           }}
           onChangeCountry={(country) => {
             setPrefs({ ...prefs, country })
