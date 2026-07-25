@@ -36,8 +36,8 @@ export function registerGroupsRoutes(app: Hono, send: (socket: SocketLike, msg: 
     if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
     const { name, memberIds } = await c.req.json<{ name?: string; memberIds?: number[] }>()
     if (!name || !name.trim()) return c.json({ error: 'Group name is required' }, HTTP_STATUS.badRequest)
-    if (!memberIds || memberIds.length === 0) return c.json({ error: 'At least one member is required' }, HTTP_STATUS.badRequest)
-    const { group } = await createGroup(user.id, name, memberIds)
+    const ids = memberIds ?? []
+    const { group } = await createGroup(user.id, name, ids)
     return c.json({ group }, HTTP_STATUS.created)
   })
 

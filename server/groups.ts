@@ -89,13 +89,13 @@ export async function createGroup(creatorId: number, name: string, memberIds: nu
   })
   const groupId = Number(result.lastInsertRowid)
   await db.execute({
-    sql: 'INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, "admin")',
+    sql: "INSERT INTO group_members (group_id, user_id, role) VALUES (?, ?, 'admin')",
     args: [groupId, creatorId],
   })
   for (const memberId of memberIds) {
     if (memberId === creatorId) continue
     await db.execute({
-      sql: 'INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, "member")',
+      sql: "INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')",
       args: [groupId, memberId],
     })
   }
@@ -124,7 +124,7 @@ export async function addGroupMembers(groupId: number, userId: number, newMember
   for (const memberId of newMemberIds) {
     if (memberId === userId) continue
     await db.execute({
-      sql: 'INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, "member")',
+      sql: "INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')",
       args: [groupId, memberId],
     })
   }

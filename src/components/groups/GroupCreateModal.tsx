@@ -27,7 +27,7 @@ export function GroupCreateModal({
 
   const handleSubmit = (e: Event) => {
     e.preventDefault()
-    if (!name.trim() || selected.size === 0) return
+    if (!name.trim()) return
     void onCreate(name.trim(), Array.from(selected))
   }
 
@@ -66,7 +66,7 @@ export function GroupCreateModal({
               </div>
             )}
           </div>
-          <button type="submit" class="match full" disabled={!name.trim() || selected.size === 0}>
+          <button type="submit" class="match full" disabled={!name.trim()}>
             {t.createGroup}
           </button>
         </form>

@@ -2,14 +2,14 @@
 
 :root {
   font-family: 'DM Sans', Arial, sans-serif;
-  color: #222;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--bg-page);
   font-synthesis: none;
   --accent: #f16a42;
   --green: #57c9a1;
   --green-dark: #4dbb95;
   --danger: #c85343;
-  --ink: #141414;
+  --ink: var(--text-strong);
 }
 
 * {
@@ -30,7 +30,7 @@ textarea {
 
 .app {
   min-height: 100dvh;
-  background: #f3f3f3;
+  background: var(--bg-app);
   display: flex;
   flex-direction: column;
   overflow-y: auto;

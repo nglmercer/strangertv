@@ -1,5 +1,4 @@
-import { after, before, describe, it } from 'node:test'
-import assert from 'node:assert/strict'
+import { afterAll, beforeAll, describe, it, expect } from 'vitest'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { API_ROUTES } from '../shared/constants'
@@ -24,7 +23,7 @@ async function waitHealthy(ms = 15_000) {
 describe('API integration', () => {
   let child: ChildProcess
 
-  before(async () => {
+  beforeAll(async () => {
     child = spawn('npx', ['tsx', 'server/index.ts'], {
       cwd: process.cwd(),
       env: {
@@ -51,9 +50,9 @@ describe('API integration', () => {
 
   it('health ready', async () => {
     const res = await fetch(`${BASE}${API_ROUTES.healthReady}`)
-    assert.equal(res.status, 200)
+    expect(res.status).toBe(200)
     const body = (await res.json()) as { ok: boolean }
-    assert.equal(body.ok, true)
+    expect(body.ok).toBe(true)
   })
 
   it('register login me logout', async () => {
@@ -63,36 +62,36 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password: 'password12', birthDate: '1990-02-02' }),
     })
-    assert.equal(reg.status, 201)
+    expect(reg.status).toBe(201)
     const regBody = (await reg.json()) as { token: string; user: { email: string } }
-    assert.equal(regBody.user.email, email)
+    expect(regBody.user.email).toBe(email)
 
     const me = await fetch(`${BASE}${API_ROUTES.authMe}`, {
       headers: { authorization: `Bearer ${regBody.token}` },
     })
-    assert.equal(me.status, 200)
+    expect(me.status).toBe(200)
 
     const login = await fetch(`${BASE}${API_ROUTES.authLogin}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password: 'password12' }),
     })
-    assert.equal(login.status, 200)
+    expect(login.status).toBe(200)
 
     const out = await fetch(`${BASE}${API_ROUTES.authLogout}`, {
       method: 'POST',
       headers: { authorization: `Bearer ${regBody.token}` },
     })
-    assert.equal(out.status, 200)
+    expect(out.status).toBe(200)
   })
 
   it('admin requires key', async () => {
     const denied = await fetch(`${BASE}${API_ROUTES.adminOverview}`)
-    assert.equal(denied.status, 403)
+    expect(denied.status).toBe(403)
     const ok = await fetch(`${BASE}${API_ROUTES.adminOverview}`, {
       headers: { 'x-admin-key': 'itest-admin' },
     })
-    assert.equal(ok.status, 200)
+    expect(ok.status).toBe(200)
   })
 
   it('friend messaging: send and fetch conversation', async () => {
@@ -103,7 +102,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: emailA, password: 'password12', birthDate: '1990-01-01' }),
     })
-    assert.equal(regA.status, 201)
+    expect(regA.status).toBe(201)
     const bodyA = (await regA.json()) as { token: string }
 
     // Register user B
@@ -113,7 +112,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: emailB, password: 'password12', birthDate: '1990-01-01' }),
     })
-    assert.equal(regB.status, 201)
+    expect(regB.status).toBe(201)
     const bodyB = (await regB.json()) as { token: string; user: { id: number } }
 
     // A sends friend request
@@ -122,7 +121,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
       body: JSON.stringify({ userId: bodyB.user.id }),
     })
-    assert.equal(reqRes.status, 200)
+    expect(reqRes.status).toBe(200)
 
     // A tries to message before acceptance — should fail
     const earlyMsg = await fetch(`${BASE}${API_ROUTES.messages}`, {
@@ -130,21 +129,21 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
       body: JSON.stringify({ friendId: bodyB.user.id, text: 'before accept' }),
     })
-    assert.equal(earlyMsg.status, 403)
+    expect(earlyMsg.status).toBe(403)
 
     // B accepts friend request
     const friendsRes = await fetch(`${BASE}${API_ROUTES.friends}`, {
       headers: { authorization: `Bearer ${bodyB.token}` },
     })
     const friendsBody = (await friendsRes.json()) as { friends: Array<{ id: number }> }
-    assert.equal(friendsBody.friends.length, 1)
+    expect(friendsBody.friends.length).toBe(1)
     const friendId = friendsBody.friends[0].id
 
     const acceptRes = await fetch(`${BASE}${API_ROUTES.friendById(friendId, 'accept')}`, {
       method: 'PATCH',
       headers: { authorization: `Bearer ${bodyB.token}` },
     })
-    assert.equal(acceptRes.status, 200)
+    expect(acceptRes.status).toBe(200)
 
     // A sends message to B
     const sendRes = await fetch(`${BASE}${API_ROUTES.messages}`, {
@@ -152,22 +151,22 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
       body: JSON.stringify({ friendId: bodyB.user.id, text: 'hello friend' }),
     })
-    assert.equal(sendRes.status, 200)
+    expect(sendRes.status).toBe(200)
     const sendBody = (await sendRes.json()) as { message: { id: number; text: string } }
-    assert.equal(sendBody.message.text, 'hello friend')
+    expect(sendBody.message.text).toBe('hello friend')
 
     // B fetches conversation
     const convRes = await fetch(`${BASE}${API_ROUTES.messages}?friendId=${bodyB.user.id}`, {
       headers: { authorization: `Bearer ${bodyA.token}` },
     })
-    assert.equal(convRes.status, 200)
+    expect(convRes.status).toBe(200)
     const convBody = (await convRes.json()) as { messages: Array<{ text: string }> }
-    assert.equal(convBody.messages.length, 1)
-    assert.equal(convBody.messages[0].text, 'hello friend')
+    expect(convBody.messages.length).toBe(1)
+    expect(convBody.messages[0].text).toBe('hello friend')
 
     // Unauthenticated request fails
     const noAuth = await fetch(`${BASE}${API_ROUTES.messages}?friendId=${bodyB.user.id}`)
-    assert.equal(noAuth.status, 401)
+    expect(noAuth.status).toBe(401)
 
     // Message to non-friend fails
     const emailC = `msg_c_${Date.now()}@example.com`
@@ -182,7 +181,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
       body: JSON.stringify({ friendId: bodyC.user.id, text: 'should fail' }),
     })
-    assert.equal(nonFriend.status, 403)
+    expect(nonFriend.status).toBe(403)
   })
 
   it('follow messaging: send and fetch works for follows', async () => {
@@ -193,7 +192,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: emailA, password: 'password12', birthDate: '1990-01-01' }),
     })
-    assert.equal(regA.status, 201)
+    expect(regA.status).toBe(201)
     const bodyA = (await regA.json()) as { token: string }
 
     const emailB = `flw_b_${Date.now()}@example.com`
@@ -202,7 +201,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email: emailB, password: 'password12', birthDate: '1990-01-01' }),
     })
-    assert.equal(regB.status, 201)
+    expect(regB.status).toBe(201)
     const bodyB = (await regB.json()) as { token: string; user: { id: number } }
 
     // A follows B (no friendship needed)
@@ -211,7 +210,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
       body: JSON.stringify({ userId: bodyB.user.id }),
     })
-    assert.equal(followRes.status, 200)
+    expect(followRes.status).toBe(200)
 
     // A can message B because of follow relationship
     const sendRes = await fetch(`${BASE}${API_ROUTES.messages}`, {
@@ -219,16 +218,16 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${bodyA.token}` },
       body: JSON.stringify({ friendId: bodyB.user.id, text: 'hey from follow' }),
     })
-    assert.equal(sendRes.status, 200)
+    expect(sendRes.status).toBe(200)
 
     // A can fetch conversation
     const convRes = await fetch(`${BASE}${API_ROUTES.messages}?friendId=${bodyB.user.id}`, {
       headers: { authorization: `Bearer ${bodyA.token}` },
     })
-    assert.equal(convRes.status, 200)
+    expect(convRes.status).toBe(200)
     const convBody = (await convRes.json()) as { messages: Array<{ text: string }> }
-    assert.equal(convBody.messages.length, 1)
-    assert.equal(convBody.messages[0].text, 'hey from follow')
+    expect(convBody.messages.length).toBe(1)
+    expect(convBody.messages[0].text).toBe('hey from follow')
   })
 
   it('self-messaging: send and fetch own messages', async () => {
@@ -238,7 +237,7 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password: 'password12', birthDate: '1990-01-01' }),
     })
-    assert.equal(reg.status, 201)
+    expect(reg.status).toBe(201)
     const body = (await reg.json()) as { token: string; user: { id: number } }
 
     // Send message to self
@@ -247,29 +246,29 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json', authorization: `Bearer ${body.token}` },
       body: JSON.stringify({ friendId: body.user.id, text: 'my reminder' }),
     })
-    assert.equal(sendRes.status, 200)
+    expect(sendRes.status).toBe(200)
 
     // Fetch self-conversation
     const convRes = await fetch(`${BASE}${API_ROUTES.messages}?friendId=${body.user.id}`, {
       headers: { authorization: `Bearer ${body.token}` },
     })
-    assert.equal(convRes.status, 200)
+    expect(convRes.status).toBe(200)
     const convBody = (await convRes.json()) as { messages: Array<{ text: string }> }
-    assert.equal(convBody.messages.length, 1)
-    assert.equal(convBody.messages[0].text, 'my reminder')
+    expect(convBody.messages.length).toBe(1)
+    expect(convBody.messages[0].text).toBe('my reminder')
   })
 
   it('health includes version and ratings accept scores', async () => {
     const health = await fetch(`${BASE}${API_ROUTES.health}`)
     const h = (await health.json()) as { version?: string }
-    assert.ok(h.version)
+    expect(h.version).toBeTruthy()
 
     const bad = await fetch(`${BASE}${API_ROUTES.ratings}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ score: 9 }),
     })
-    assert.equal(bad.status, 400)
+    expect(bad.status).toBe(400)
 
     const roomId = `room_test_${Date.now()}`
     const ok = await fetch(`${BASE}${API_ROUTES.ratings}`, {
@@ -277,14 +276,14 @@ describe('API integration', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ score: 5, roomId }),
     })
-    assert.equal(ok.status, 200)
+    expect(ok.status).toBe(200)
 
     const dup = await fetch(`${BASE}${API_ROUTES.ratings}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ score: 4, roomId }),
     })
-    assert.equal(dup.status, 409)
+    expect(dup.status).toBe(409)
 
     const overview = await fetch(`${BASE}${API_ROUTES.adminOverview}`, {
       headers: { 'x-admin-key': 'itest-admin' },
@@ -293,7 +292,7 @@ describe('API integration', () => {
       ratings?: { count: number; average: number | null }
       openReports?: number
     }
-    assert.ok(ov.ratings && ov.ratings.count >= 1)
-    assert.ok(typeof ov.openReports === 'number')
+    expect(ov.ratings && ov.ratings.count).toBeGreaterThanOrEqual(1)
+    expect(typeof ov.openReports).toBe('number')
   })
 })

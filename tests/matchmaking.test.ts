@@ -1,12 +1,11 @@
-import { describe, it } from 'node:test'
-import assert from 'node:assert/strict'
+import { describe, it, expect } from 'vitest'
 import {
   joinQueue,
   normalizePreferences,
   queueStats,
   fullRemove,
   type SocketLike,
-} from './matchmaking'
+} from '../server/matchmaking'
 
 function mockSocket(): SocketLike & { messages: unknown[] } {
   const messages: unknown[] = []
@@ -22,12 +21,12 @@ function mockSocket(): SocketLike & { messages: unknown[] } {
 describe('normalizePreferences', () => {
   it('fills defaults', () => {
     const p = normalizePreferences({})
-    assert.equal(p?.country, 'any')
-    assert.equal(p?.lookingFor, 'any')
+    expect(p?.country).toBe('any')
+    expect(p?.lookingFor).toBe('any')
   })
 
   it('rejects non-objects', () => {
-    assert.equal(normalizePreferences(null), null)
+    expect(normalizePreferences(null)).toBeNull()
   })
 })
 
@@ -43,20 +42,20 @@ describe('joinQueue matching', () => {
       interests: ['music'],
     })!
     joinQueue(a, prefs, { sessionKey: 'a' })
-    assert.equal(queueStats().waiting, 1)
+    expect(queueStats().waiting).toBe(1)
     joinQueue(b, prefs, { sessionKey: 'b' })
-    assert.equal(queueStats().waiting, 0)
+    expect(queueStats().waiting).toBe(0)
     const matchedA = a.messages.find((m) => (m as { type: string }).type === 'room:matched') as {
       role: string
     }
     const matchedB = b.messages.find((m) => (m as { type: string }).type === 'room:matched') as {
       role: string
     }
-    assert.ok(matchedA)
-    assert.ok(matchedB)
+    expect(matchedA).toBeTruthy()
+    expect(matchedB).toBeTruthy()
     // Joiner that finds a waiting peer is offerer; the waiter is answerer.
-    assert.equal(matchedA.role, 'answerer')
-    assert.equal(matchedB.role, 'offerer')
+    expect(matchedA.role).toBe('answerer')
+    expect(matchedB.role).toBe('offerer')
     fullRemove(a)
     fullRemove(b)
   })
@@ -74,7 +73,7 @@ describe('joinQueue matching', () => {
       normalizePreferences({ gender: 'male', lookingFor: 'female', country: 'any', language: 'any' })!,
       { sessionKey: 'b' },
     )
-    assert.equal(queueStats().waiting, 2)
+    expect(queueStats().waiting).toBe(2)
     fullRemove(a)
     fullRemove(b)
   })
@@ -85,7 +84,7 @@ describe('joinQueue matching', () => {
     const prefs = normalizePreferences({ country: 'any', language: 'any', gender: 'any', lookingFor: 'any', allowMatchWithSameUsers: false })!
     joinQueue(a1, prefs, { sessionKey: 's-a' })
     joinQueue(b1, prefs, { sessionKey: 's-b' })
-    assert.equal(queueStats().waiting, 0)
+    expect(queueStats().waiting).toBe(0)
     fullRemove(a1)
     fullRemove(b1)
 
@@ -94,7 +93,7 @@ describe('joinQueue matching', () => {
     joinQueue(a2, prefs, { sessionKey: 's-a' })
     joinQueue(b2, prefs, { sessionKey: 's-b' })
     // both waiting — not rematched due to cooldown
-    assert.equal(queueStats().waiting, 2)
+    expect(queueStats().waiting).toBe(2)
     fullRemove(a2)
     fullRemove(b2)
   })
@@ -105,7 +104,7 @@ describe('joinQueue matching', () => {
     const prefs = normalizePreferences({ country: 'any', language: 'any', gender: 'any', lookingFor: 'any', allowMatchWithSameUsers: true })!
     joinQueue(a1, prefs, { sessionKey: 's-a' })
     joinQueue(b1, prefs, { sessionKey: 's-b' })
-    assert.equal(queueStats().waiting, 0)
+    expect(queueStats().waiting).toBe(0)
     fullRemove(a1)
     fullRemove(b1)
 
@@ -114,7 +113,7 @@ describe('joinQueue matching', () => {
     joinQueue(a2, prefs, { sessionKey: 's-a' })
     joinQueue(b2, prefs, { sessionKey: 's-b' })
     // matched again — cooldown bypassed when preference is enabled
-    assert.equal(queueStats().waiting, 0)
+    expect(queueStats().waiting).toBe(0)
     fullRemove(a2)
     fullRemove(b2)
   })

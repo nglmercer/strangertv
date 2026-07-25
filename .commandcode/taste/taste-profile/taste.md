@@ -7,3 +7,6 @@
 - Extracts duplicated/inline SVGs into a shared `icons` module for reuse across components. Confidence: 0.9
 - Prefers mutual friend relationships over one-way follows, since friends are needed for group matching features. Confidence: 0.9
 - Implements new social features across both backend and frontend together (full-stack). Confidence: 0.85
+- Prefers CSS custom properties (variables) for theming over hardcoded colors to avoid conflicts. Confidence: 0.9
+- Uses CSS `color-scheme` property for dark/light theme support instead of manual color overrides. Confidence: 0.85
+- Specifies target files explicitly (e.g., @src/App.tsx, @package.json, @src/styles) when requesting code changes. Confidence: 0.8
