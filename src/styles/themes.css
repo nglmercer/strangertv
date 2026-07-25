@@ -100,22 +100,31 @@
   --quality-connecting: #a8c8ff;
   --quality-connecting-border: #3a508a;
 
-  /* Groups section — dark, theme-aware palette */
-  --groups-bg: #1a1a2e;
-  --groups-header-bg: #16213e;
-  --groups-app-bg: #0f0f23;
-  --groups-sidebar-bg: #12122a;
-  --groups-panel-bg: #12122a;
-  --groups-active-bg: #2a2a4a;
-  --groups-hover-bg: #1a1a3e;
-  --groups-border: #2a2a4a;
-  --groups-input-bg: #1a1a3e;
-  --groups-text: #e0e0e0;
-  --groups-text-muted: #666666;
-  --groups-text-soft: #aaaaaa;
-  --groups-bubble: #1e1e3a;
-  --groups-scroll: #2a2a4a;
-  --groups-scroll-hover: #3a3a5a;
+  /* SocialChat section — unified groups + friends */
+  --social-bg: #1a1a2e;
+  --social-header-bg: #16213e;
+  --social-app-bg: #0f0f23;
+  --social-sidebar-bg: #12122a;
+  --social-panel-bg: #12122a;
+  --social-active-bg: #2a2a4a;
+  --social-hover-bg: #1a1a3e;
+  --social-border: #2a2a4a;
+  --social-input-bg: #1a1a3e;
+  --social-text: #e0e0e0;
+  --social-text-muted: #666666;
+  --social-text-soft: #aaaaaa;
+  --social-bubble: #1e1e3a;
+  --social-bubble-mine: #57c9a1;
+  --social-bubble-mine-text: #ffffff;
+  --social-scroll: #2a2a4a;
+  --social-scroll-hover: #3a3a5a;
+  --social-tab-bg: transparent;
+  --social-tab-active-bg: #2a2a4a;
+  --social-tab-text: #888888;
+  --social-tab-text-active: #e0e0e0;
+  --social-friend-avatar-bg: linear-gradient(135deg, #f16a42 0%, #c44a2a 100%);
+  --social-online: #57c9a1;
+  --social-offline: #666666;
 
   /* Admin section — dark, theme-aware palette */
   --admin-bg: #0f1115;
@@ -192,21 +201,30 @@
 
   /* Stage + call overlay stay dark (inherited values unchanged) */
 
-  --groups-bg: #161626;
-  --groups-header-bg: #121f3a;
-  --groups-app-bg: #0c0c1e;
-  --groups-sidebar-bg: #0e0e22;
-  --groups-panel-bg: #0e0e22;
-  --groups-active-bg: #26264a;
-  --groups-hover-bg: #16163a;
-  --groups-border: #26264a;
-  --groups-input-bg: #16163a;
-  --groups-text: #dcdce0;
-  --groups-text-muted: #777777;
-  --groups-text-soft: #b0b0b0;
-  --groups-bubble: #1a1a34;
-  --groups-scroll: #26264a;
-  --groups-scroll-hover: #34345a;
+  --social-bg: #161626;
+  --social-header-bg: #121f3a;
+  --social-app-bg: #0c0c1e;
+  --social-sidebar-bg: #0e0e22;
+  --social-panel-bg: #0e0e22;
+  --social-active-bg: #26264a;
+  --social-hover-bg: #16163a;
+  --social-border: #26264a;
+  --social-input-bg: #16163a;
+  --social-text: #dcdce0;
+  --social-text-muted: #777777;
+  --social-text-soft: #b0b0b0;
+  --social-bubble: #1a1a34;
+  --social-bubble-mine: #57c9a1;
+  --social-bubble-mine-text: #ffffff;
+  --social-scroll: #26264a;
+  --social-scroll-hover: #34345a;
+  --social-tab-bg: transparent;
+  --social-tab-active-bg: #26264a;
+  --social-tab-text: #888888;
+  --social-tab-text-active: #dcdce0;
+  --social-friend-avatar-bg: linear-gradient(135deg, #f16a42 0%, #c44a2a 100%);
+  --social-online: #57c9a1;
+  --social-offline: #777777;
 
   --admin-bg: #0c0e12;
   --admin-card-bg: #15181f;
@@ -275,21 +293,30 @@
     --chat-message-mine: #1e3a31;
     --chat-sender: #9eecc8;
 
-    --groups-bg: #161626;
-    --groups-header-bg: #121f3a;
-    --groups-app-bg: #0c0c1e;
-    --groups-sidebar-bg: #0e0e22;
-    --groups-panel-bg: #0e0e22;
-    --groups-active-bg: #26264a;
-    --groups-hover-bg: #16163a;
-    --groups-border: #26264a;
-    --groups-input-bg: #16163a;
-    --groups-text: #dcdce0;
-    --groups-text-muted: #777777;
-    --groups-text-soft: #b0b0b0;
-    --groups-bubble: #1a1a34;
-    --groups-scroll: #26264a;
-    --groups-scroll-hover: #34345a;
+    --social-bg: #161626;
+    --social-header-bg: #121f3a;
+    --social-app-bg: #0c0c1e;
+    --social-sidebar-bg: #0e0e22;
+    --social-panel-bg: #0e0e22;
+    --social-active-bg: #26264a;
+    --social-hover-bg: #16163a;
+    --social-border: #26264a;
+    --social-input-bg: #16163a;
+    --social-text: #dcdce0;
+    --social-text-muted: #777777;
+    --social-text-soft: #b0b0b0;
+    --social-bubble: #1a1a34;
+    --social-bubble-mine: #57c9a1;
+    --social-bubble-mine-text: #ffffff;
+    --social-scroll: #26264a;
+    --social-scroll-hover: #34345a;
+    --social-tab-bg: transparent;
+    --social-tab-active-bg: #26264a;
+    --social-tab-text: #888888;
+    --social-tab-text-active: #dcdce0;
+    --social-friend-avatar-bg: linear-gradient(135deg, #f16a42 0%, #c44a2a 100%);
+    --social-online: #57c9a1;
+    --social-offline: #777777;
 
     --admin-bg: #0c0e12;
     --admin-card-bg: #15181f;

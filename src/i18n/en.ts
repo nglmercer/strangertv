@@ -385,6 +385,7 @@ Conversations are not private from your peer; treat strangers carefully.`,
   confirmRemoveMember: 'Remove this member from group?',
   onlyAdminCanAdd: 'Only admin can add members',
   onlyAdminCanRename: 'Only admin can rename the group',
+  chooseConversation: 'Choose a conversation to start messaging',
 }
 
 export type Messages = {

@@ -1,0 +1,554 @@
+/* ------------------------------------------------------------------ */
+/* SocialChat — unified groups + friends messaging                    */
+/* All colors driven by CSS custom properties from themes.css          */
+/* ------------------------------------------------------------------ */
+
+.social-app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  flex: 1;
+  min-height: 0;
+  background: var(--social-app-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Sidebar                                                             */
+/* ------------------------------------------------------------------ */
+
+.social-sidebar {
+  background: var(--social-sidebar-bg);
+  border-right: 1px solid var(--social-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.social-sidebar-header {
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--social-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.social-tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  background: var(--social-panel-bg);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.social-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--social-tab-bg);
+  border: none;
+  color: var(--social-tab-text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  font-family: inherit;
+}
+
+.social-tab:hover {
+  color: var(--social-tab-text-active);
+}
+
+.social-tab.active {
+  background: var(--social-tab-active-bg);
+  color: var(--social-tab-text-active);
+}
+
+.social-sidebar-new {
+  background: none;
+  border: 1px solid var(--social-border);
+  color: var(--green);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.social-sidebar-new:hover {
+  background: var(--social-hover-bg);
+  border-color: var(--green);
+}
+
+/* ------------------------------------------------------------------ */
+/* List                                                                */
+/* ------------------------------------------------------------------ */
+
+.social-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.social-empty {
+  padding: 20px 12px;
+  text-align: center;
+  color: var(--social-text-muted);
+  font-size: 13px;
+}
+
+.social-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+}
+
+.social-item:hover {
+  background: var(--social-hover-bg);
+}
+
+.social-item.active {
+  background: var(--social-active-bg);
+}
+
+.social-item-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.social-item-avatar.group-avatar {
+  background: linear-gradient(135deg, var(--green) 0%, #3a9d7c 100%);
+}
+
+.social-item-avatar.friend-avatar {
+  background: var(--social-friend-avatar-bg);
+}
+
+.social-item-avatar svg {
+  width: 20px;
+  height: 20px;
+  color: #fff;
+}
+
+.social-item-avatar .online-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--social-online);
+  border: 2px solid var(--social-sidebar-bg);
+}
+
+.social-item-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.social-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--social-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.social-item-sub {
+  font-size: 11px;
+  color: var(--social-text-muted);
+  display: block;
+}
+
+/* ------------------------------------------------------------------ */
+/* Main area                                                           */
+/* ------------------------------------------------------------------ */
+
+.social-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.social-main-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--social-text-muted);
+}
+
+.social-main-empty svg {
+  opacity: 0.3;
+}
+
+.social-main-empty p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Chat view                                                           */
+/* ------------------------------------------------------------------ */
+
+.social-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.social-chat-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--social-border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--social-panel-bg);
+}
+
+.social-back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--social-text-soft);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.social-back-btn:hover {
+  color: var(--social-text);
+  background: var(--social-active-bg);
+}
+
+.social-back-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.social-chat-header-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--social-hover-bg);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.social-chat-header-avatar svg {
+  color: var(--social-text-soft);
+  width: 18px;
+  height: 18px;
+}
+
+.social-chat-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.social-chat-header-info h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--social-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.social-chat-header-sub {
+  font-size: 11px;
+  color: var(--social-text-muted);
+}
+
+.social-header-action {
+  background: none;
+  border: 1px solid var(--social-border);
+  color: var(--green);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.social-header-action:hover {
+  background: var(--social-hover-bg);
+}
+
+.social-header-action svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Messages                                                            */
+/* ------------------------------------------------------------------ */
+
+.social-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.social-messages-empty {
+  text-align: center;
+  color: var(--social-text-muted);
+  font-size: 13px;
+  margin: auto;
+}
+
+.social-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+}
+
+.social-message.mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.social-message:not(.mine) {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.social-message-sender {
+  font-size: 11px;
+  color: var(--social-text-muted);
+  margin-bottom: 2px;
+  padding: 0 12px;
+}
+
+.social-message-bubble {
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: var(--social-bubble);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.social-message.mine .social-message-bubble {
+  background: var(--social-bubble-mine);
+  color: var(--social-bubble-mine-text);
+  border-bottom-right-radius: 4px;
+}
+
+.social-message:not(.mine) .social-message-bubble {
+  border-bottom-left-radius: 4px;
+}
+
+.social-message-bubble span {
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.social-message-bubble small {
+  font-size: 10px;
+  opacity: 0.6;
+  align-self: flex-end;
+}
+
+/* ------------------------------------------------------------------ */
+/* Message input                                                       */
+/* ------------------------------------------------------------------ */
+
+.social-message-input {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--social-border);
+  background: var(--social-panel-bg);
+}
+
+.social-message-input input {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--social-border);
+  background: var(--social-input-bg);
+  color: var(--social-text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.social-message-input input:focus {
+  border-color: var(--green);
+}
+
+.social-message-input input::placeholder {
+  color: var(--social-text-muted);
+}
+
+.social-message-input button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--green);
+  color: var(--social-bubble-mine-text);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.social-message-input button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.social-message-input button:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.social-message-input button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
+/* Scrollbar                                                           */
+/* ------------------------------------------------------------------ */
+
+.social-list::-webkit-scrollbar,
+.social-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.social-list::-webkit-scrollbar-track,
+.social-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.social-list::-webkit-scrollbar-thumb,
+.social-messages::-webkit-scrollbar-thumb {
+  background: var(--social-scroll);
+  border-radius: 3px;
+}
+
+.social-list::-webkit-scrollbar-thumb:hover,
+.social-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--social-scroll-hover);
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive                                                          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 760px) {
+  .social-app {
+    grid-template-columns: 1fr;
+  }
+
+  .social-sidebar {
+    display: flex;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--social-border);
+    overflow-x: auto;
+  }
+
+  .social-sidebar-header {
+    border-bottom: none;
+    border-right: 1px solid var(--social-border);
+    flex-shrink: 0;
+    padding: 8px;
+  }
+
+  .social-tabs {
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px;
+  }
+
+  .social-tab {
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+
+  .social-tab svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .social-sidebar-new {
+    display: none;
+  }
+
+  .social-list {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    padding: 8px;
+  }
+
+  .social-item {
+    flex-shrink: 0;
+    width: auto;
+    padding: 8px;
+  }
+
+  .social-item .social-item-info {
+    display: none;
+  }
+
+  .social-item-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .social-back-btn {
+    display: block;
+  }
+
+  .social-main {
+    display: none;
+  }
+
+  .social-app.has-active .social-sidebar {
+    display: none;
+  }
+
+  .social-app.has-active .social-main {
+    display: flex;
+  }
+}
