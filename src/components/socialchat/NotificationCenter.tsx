@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks'
-import type { Notification } from '../store/socialStore'
-import { socialStore, useSocialStore } from '../store/socialStore'
-import type { Messages } from '../i18n'
+import type { Notification } from '../../store/socialStore'
+import { socialStore, useSocialStore } from '../../store/socialStore'
+import type { Messages } from '../../i18n'
 
 export function NotificationCenter({ t }: { t: Messages }) {
   const [open, setOpen] = useState(false)
@@ -59,7 +59,7 @@ export function NotificationCenter({ t }: { t: Messages }) {
             {notifications.length === 0 ? (
               <p class="notification-empty">{t.noNotifications}</p>
             ) : (
-              notifications.slice(0, 20).map((n) => (
+              notifications.slice(0, 20).map((n: Notification) => (
                 <div
                   class={`notification-item ${n.read ? '' : 'unread'}`}
                   key={n.id}

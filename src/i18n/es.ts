@@ -386,4 +386,7 @@ Las conversaciones no son privadas frente a tu pareja; trata a los desconocidos 
   confirmRemoveMember: '¿Eliminar a este miembro del grupo?',
   onlyAdminCanAdd: 'Solo el admin puede agregar miembros',
   onlyAdminCanRename: 'Solo el admin puede renombrar el grupo',
+  chooseConversation: 'Elige una conversación para comenzar a mensajear',
+  noNotifications: 'Sin notificaciones aún',
+  markAllRead: 'Marcar todo como leído',
 }

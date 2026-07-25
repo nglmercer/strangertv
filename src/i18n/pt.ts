@@ -386,4 +386,7 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   confirmRemoveMember: 'Remover este membro do grupo?',
   onlyAdminCanAdd: 'Apenas o admin pode adicionar membros',
   onlyAdminCanRename: 'Apenas o admin pode renomear o grupo',
+  chooseConversation: 'Escolha uma conversa para começar a mensar',
+  noNotifications: 'Nenhuma notificação ainda',
+  markAllRead: 'Marcar tudo como lido',
 }

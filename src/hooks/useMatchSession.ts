@@ -17,12 +17,21 @@ type Options = {
   autoNext: boolean
   onStatus: (s: string) => void
   onGroupMessage?: (message: GroupMessage) => void
+  onSocialEvent?: (msg: SocialWsEvent) => void
 }
+
+export type SocialWsEvent =
+  | { type: 'friend:request'; friendId: number; from: { id: number; email: string } }
+  | { type: 'friend:accepted'; friendId: number; from: { id: number; email: string } }
+  | { type: 'friend:declined'; friendId: number }
+  | { type: 'friend:removed'; friendId: number }
+  | { type: 'message:new'; message: { id: number; senderId: number; recipientId: number; text: string; createdAt: string } }
+  | { type: 'invitation:send'; invitationId: number; roomId: string; inviter: { id: number; email: string } }
 
 /**
  * Orchestrates media, signaling socket, WebRTC, queue, chat, and call lifecycle.
  */
-export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage }: Options) {
+export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage, onSocialEvent }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -189,6 +198,12 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage 
       }
     },
     onGroupMessage: onGroupMessage,
+    onFriendRequest: (friendId, from) => onSocialEvent?.({ type: 'friend:request', friendId, from }),
+    onFriendAccepted: (friendId, from) => onSocialEvent?.({ type: 'friend:accepted', friendId, from }),
+    onFriendDeclined: (friendId) => onSocialEvent?.({ type: 'friend:declined', friendId }),
+    onFriendRemoved: (friendId) => onSocialEvent?.({ type: 'friend:removed', friendId }),
+    onMessageNew: (message) => onSocialEvent?.({ type: 'message:new', message }),
+    onInvitation: (invitationId, roomId, inviter) => onSocialEvent?.({ type: 'invitation:send', invitationId, roomId, inviter }),
   })
 
   const matchRef = useRef(match)

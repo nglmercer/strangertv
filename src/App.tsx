@@ -15,6 +15,7 @@ import type { PageId } from './components/StaticPages'
 import { VideoStage } from './components/VideoStage'
 import { useCallKeyboard } from './hooks/useCallKeyboard'
 import { useMatchSession } from './hooks/useMatchSession'
+import { socialStore } from './store/socialStore'
 import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { detectLocale, t as translate } from './i18n'
 import {
@@ -85,12 +86,33 @@ export function App() {
     }
   }, [])
 
+  const handleSocialEvent = useCallback((msg: import('./hooks/useMatchSession').SocialWsEvent) => {
+    socialStore.addNotification({
+      type: msg.type === 'friend:request' ? 'friend_request'
+        : msg.type === 'friend:accepted' ? 'friend_accepted'
+        : msg.type === 'message:new' ? 'message'
+        : 'invitation',
+      title: msg.type === 'friend:request' ? 'Friend Request'
+        : msg.type === 'friend:accepted' ? 'Request Accepted'
+        : msg.type === 'message:new' ? 'New Message'
+        : 'Match Invitation',
+      body: msg.type === 'invitation:send' ? `${msg.inviter.email.split('@')[0]} invited you to a match`
+        : msg.type === 'message:new' ? msg.message.text.slice(0, 80)
+        : `${'from' in msg && msg.from ? msg.from.email.split('@')[0] : ''} ${msg.type === 'friend:request' ? 'wants to be your friend' : 'accepted your request'}`,
+      from: 'from' in msg && msg.from ? msg.from : undefined,
+      data: msg.type === 'message:new' ? { senderId: msg.message.senderId }
+        : msg.type === 'invitation:send' ? { invitationId: msg.invitationId, roomId: msg.roomId }
+        : undefined,
+    })
+  }, [])
+
   const session = useMatchSession({
     tr,
     prefs,
     autoNext,
     onStatus: setStatus,
     onGroupMessage: (message) => emitGroupMessage(message),
+    onSocialEvent: handleSocialEvent,
   })
 
   const { appVersion } = useSessionBootstrap({

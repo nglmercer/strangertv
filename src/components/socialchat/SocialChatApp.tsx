@@ -12,24 +12,12 @@ type ActiveChat =
   | { type: 'group'; id: number }
   | { type: 'friend'; id: number }
 
-interface SocialWsEvent {
-  type: string
-  friendId?: number
-  from?: { id: number; email: string }
-  message?: Message
-  invitationId?: number
-  roomId?: string
-  inviter?: { id: number; email: string }
-}
-
 export function SocialChatApp({
   t,
   currentUserId,
-  onSocialEvent,
 }: {
   t: Messages
   currentUserId: number
-  onSocialEvent: (msg: SocialWsEvent) => void
 }) {
   const [groups, setGroups] = useState<Group[]>([])
   const [friends, setFriends] = useState<Friend[]>([])
@@ -129,61 +117,27 @@ export function SocialChatApp({
     })
   }, [activeChat])
 
-  // WS: friend messages, friend events, invitations
+  // Subscribe to social store for real-time friend messages
   useEffect(() => {
-    const dispatch = (msg: SocialWsEvent) => {
-      if (msg.type === 'message:new' && msg.message) {
-        const isActive = activeChat?.type === 'friend' && activeChat.id === msg.message.senderId
-        if (isActive) {
-          setFriendMessages((prev) => [...prev, msg.message!])
-        } else {
-          const key = `friend:${msg.message!.senderId}`
-          socialStore.incrementUnread(key)
-          const senderFriend = friends.find((f) => f.otherUser.id === msg.message!.senderId)
-          socialStore.addNotification({
-            type: 'message',
-            title: senderFriend?.otherUser.email.split('@')[0] ?? 'New Message',
-            body: msg.message.text.slice(0, 80),
-            from: senderFriend?.otherUser,
-            data: { senderId: msg.message.senderId },
-          })
+    let lastNotificationCount = 0
+    return socialStore.subscribe(() => {
+      const notifications = socialStore.notifications
+      if (notifications.length > lastNotificationCount) {
+        const newOnes = notifications.slice(0, notifications.length - lastNotificationCount)
+        for (const n of newOnes) {
+          if (n.type === 'message' && n.data?.senderId && activeChat?.type === 'friend' && activeChat.id === n.data.senderId) {
+            void (async () => {
+              try {
+                const { messages } = await messagesApi.getConversation(activeChat.id, 50)
+                setFriendMessages(messages)
+              } catch { /* ignore */ }
+            })()
+          }
         }
-      } else if (msg.type === 'friend:request' && msg.from) {
-        socialStore.addNotification({
-          type: 'friend_request',
-          title: 'Friend Request',
-          body: `${msg.from.email.split('@')[0]} wants to be your friend`,
-          from: msg.from,
-        })
-      } else if (msg.type === 'friend:accepted' && msg.from) {
-        socialStore.addNotification({
-          type: 'friend_accepted',
-          title: 'Request Accepted',
-          body: `${msg.from.email.split('@')[0]} accepted your request`,
-          from: msg.from,
-        })
-        void loadFriends()
-      } else if (msg.type === 'friend:declined' && msg.friendId) {
-        socialStore.addNotification({
-          type: 'friend_accepted',
-          title: 'Declined',
-          body: 'Friend request declined',
-        })
-      } else if (msg.type === 'friend:removed' && msg.friendId) {
-        setFriends((prev) => prev.filter((f) => f.id !== msg.friendId))
-      } else if (msg.type === 'invitation:send' && msg.inviter) {
-        socialStore.addNotification({
-          type: 'invitation',
-          title: 'Match Invitation',
-          body: `${msg.inviter.email.split('@')[0]} invited you to a match`,
-          from: msg.inviter,
-          data: { invitationId: msg.invitationId, roomId: msg.roomId },
-        })
       }
-    }
-    onSocialEvent = dispatch as unknown as typeof onSocialEvent
-    return () => {}
-  }, [activeChat, friends, loadFriends, onSocialEvent])
+      lastNotificationCount = notifications.length
+    })
+  }, [activeChat])
 
   const handleSelectGroup = (id: number) => {
     setActiveChat({ type: 'group', id })
