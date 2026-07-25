@@ -13,6 +13,7 @@ import {
   TIMING_MS,
 } from '../../shared/constants'
 import { get, remove, set } from '../utils/storage'
+import { Icon, icons } from '../components/icons'
 
 type Overview = {
   queue: { waiting: number; online: number }
@@ -188,7 +189,7 @@ export function AdminApp() {
             {tr.unlock}
           </button>
           <p class="muted">
-            <a href="/">← {tr.backToApp}</a>
+            <a href="/" class="back-link"><Icon d={icons.arrowLeft} size={16} /> {tr.backToApp}</a>
           </p>
         </section>
       </main>

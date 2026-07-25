@@ -1,5 +1,6 @@
 import type { Group, GroupMember, Friend } from '../../../shared/types'
 import type { Messages } from '../../i18n'
+import { Icon, icons } from '../icons'
 
 type ActiveChat =
   | { type: 'group'; id: number }
@@ -31,24 +32,14 @@ export function SocialChatHeader({
   return (
     <div class="social-chat-header">
       <button type="button" class="social-back-btn" onClick={onBack} aria-label={t.close}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 12H5M12 19l-7-7 7-7" />
-        </svg>
+        <Icon d={icons.arrowLeft} />
       </button>
 
       <div class="social-chat-header-avatar">
         {isGroup ? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
+          <Icon d={icons.users} size={20} />
         ) : (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+          <Icon d={icons.user} size={20} />
         )}
       </div>
 
@@ -59,11 +50,7 @@ export function SocialChatHeader({
 
       {isGroup && (
         <button type="button" class="social-header-action" onClick={onOpenMembers} aria-label={t.addMembers}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="8.5" cy="7" r="4" />
-            <path d="M20 8v6M23 11h-6" />
-          </svg>
+          <Icon d={icons.userPlus} />
         </button>
       )}
     </div>

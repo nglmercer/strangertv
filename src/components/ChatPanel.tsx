@@ -3,6 +3,7 @@ import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import type { PageId } from './StaticPages'
 import { PAGE_ID } from '../../shared/constants'
+import { Icon, icons } from './icons'
 
 export function ChatPanel({
   t,
@@ -85,7 +86,7 @@ export function ChatPanel({
           aria-description={finding || matched ? t.shortcuts : undefined}
         />
         <button type="submit" disabled={!matched || !chatText.trim()} aria-label={t.send}>
-          ☺
+          <Icon d={icons.paperPlane} />
         </button>
       </form>
     </div>

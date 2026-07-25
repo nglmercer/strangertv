@@ -149,11 +149,7 @@ export function VideoStage({
             <div class="stage-empty local">
               <div class="local-empty-layout">
                 <span class="local-empty-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2.5" y="5.5" width="13" height="13" rx="2.5" />
-                    <path d="M15.5 10l5.5-3v10l-5.5-3" />
-                    <line x1="3" y1="3" x2="21" y2="21" stroke-width="1.8" />
-                  </svg>
+                  <Icon d={icons.videoOff} size={40} />
                 </span>
                 <p class="local-preview-hint">{t.localPreviewHint}</p>
                 <div class="local-actions">

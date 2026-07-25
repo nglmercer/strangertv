@@ -4,6 +4,7 @@ import { isMatchNotifyEnabled, isMatchSoundEnabled, setMatchNotifyEnabled, setMa
 import type { Messages } from '../i18n'
 import { requestNotifyPermission } from '../utils/notify'
 import { Modal } from './Modal'
+import { Icon, icons } from './icons'
 
 type BlockRow = { id: number; email: string | null; createdAt: string | null }
 
@@ -42,7 +43,7 @@ export function SettingsModal({
       <h2 id="settings-title">{t.settings}</h2>
       <p class="modal-copy">
         {t.signedInAs} {user.email}
-        {user.emailVerified ? ` · ✓ ${t.emailVerifiedShort}` : ` · ${t.emailUnverified}`}
+        {user.emailVerified ? <span class="verified"><Icon d={icons.check} size={14} /> {t.emailVerifiedShort}</span> : ` · ${t.emailUnverified}`}
       </p>
       {error && (
         <p class="form-error" role="alert">

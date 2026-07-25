@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks'
 import type { Messages } from '../i18n'
 import { Modal } from './Modal'
+import { Icon, icons } from './icons'
 
 export function RatingPrompt({
   t,
@@ -28,7 +29,7 @@ export function RatingPrompt({
             onClick={() => setScore(n)}
             aria-label={`${n}`}
           >
-            ★
+            <Icon d={icons.star} size={24} />
           </button>
         ))}
       </div>

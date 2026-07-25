@@ -1,4 +1,5 @@
 import type { Messages } from '../../i18n'
+import { Icon, icons } from '../icons'
 
 export function MessageInput({
   t,
@@ -22,9 +23,7 @@ export function MessageInput({
         aria-label={t.typeMessage}
       />
       <button type="submit" disabled={!value.trim()} aria-label={t.send}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
-        </svg>
+        <Icon d={icons.paperPlane} />
       </button>
     </form>
   )

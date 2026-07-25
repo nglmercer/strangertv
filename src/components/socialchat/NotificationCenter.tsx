@@ -2,6 +2,17 @@ import { useState } from 'preact/hooks'
 import type { Notification } from '../../store/socialStore'
 import { socialStore, useSocialStore } from '../../store/socialStore'
 import type { Messages } from '../../i18n'
+import { Icon, icons } from '../icons'
+
+const notificationIcon = (type: Notification['type']) => {
+  switch (type) {
+    case 'friend_request': return <Icon d={icons.user} size={20} />
+    case 'friend_accepted': return <Icon d={icons.check} size={20} />
+    case 'message': return <Icon d={icons.chatBubble} size={20} />
+    case 'invitation': return <Icon d={icons.game} size={20} />
+    case 'group_message': return <Icon d={icons.users} size={20} />
+  }
+}
 
 export function NotificationCenter({ t }: { t: Messages }) {
   const [open, setOpen] = useState(false)
@@ -16,16 +27,6 @@ export function NotificationCenter({ t }: { t: Messages }) {
     return `${Math.floor(diff / 86400)}d`
   }
 
-  const icon = (type: Notification['type']) => {
-    switch (type) {
-      case 'friend_request': return '👤'
-      case 'friend_accepted': return '✅'
-      case 'message': return '💬'
-      case 'invitation': return '🎮'
-      case 'group_message': return '👥'
-    }
-  }
-
   return (
     <div class="notification-center">
       <button
@@ -34,10 +35,7 @@ export function NotificationCenter({ t }: { t: Messages }) {
         onClick={() => setOpen(!open)}
         aria-label="Notifications"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
+        <Icon d={icons.bell} size={20} />
         {unread > 0 && <span class="notification-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
 
@@ -65,7 +63,7 @@ export function NotificationCenter({ t }: { t: Messages }) {
                   key={n.id}
                   onClick={() => socialStore.markNotificationRead(n.id)}
                 >
-                  <span class="notification-icon">{icon(n.type)}</span>
+                   <span class="notification-icon">{notificationIcon(n.type)}</span>
                   <div class="notification-content">
                     <span class="notification-title">{n.title}</span>
                     <span class="notification-body">{n.body}</span>
@@ -89,13 +87,7 @@ export function NotificationToast({ t }: { t: Messages }) {
 
   return (
     <div class="notification-toast" role="alert" onClick={() => setVisible(false)}>
-      <span class="notification-toast-icon">
-        {current.type === 'friend_request' && '👤'}
-        {current.type === 'friend_accepted' && '✅'}
-        {current.type === 'message' && '💬'}
-        {current.type === 'invitation' && '🎮'}
-        {current.type === 'group_message' && '👥'}
-      </span>
+      <span class="notification-toast-icon">{notificationIcon(current.type)}</span>
       <div class="notification-toast-content">
         <span class="notification-toast-title">{current.title}</span>
         <span class="notification-toast-body">{current.body}</span>
@@ -106,7 +98,7 @@ export function NotificationToast({ t }: { t: Messages }) {
         onClick={(e) => { e.stopPropagation(); setVisible(false) }}
         aria-label={t.close}
       >
-        ×
+        <Icon d={icons.close} size={16} />
       </button>
     </div>
   )

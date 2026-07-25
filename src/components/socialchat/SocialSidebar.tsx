@@ -2,6 +2,7 @@ import { useState, useEffect } from 'preact/hooks'
 import type { Group, Friend } from '../../../shared/types'
 import type { Messages } from '../../i18n'
 import { socialStore } from '../../store/socialStore'
+import { Icon, icons } from '../icons'
 
 type Tab = 'groups' | 'friends'
 
@@ -38,12 +39,7 @@ export function SocialSidebar({
             class={`social-tab ${tab === 'groups' ? 'active' : ''}`}
             onClick={() => setTab('groups')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
+            <Icon d={icons.users} size={16} />
             {t.yourGroups}
           </button>
           <button
@@ -51,18 +47,13 @@ export function SocialSidebar({
             class={`social-tab ${tab === 'friends' ? 'active' : ''}`}
             onClick={() => setTab('friends')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
+            <Icon d={icons.user} size={16} />
             {t.friends}
           </button>
         </div>
         {tab === 'groups' && (
           <button type="button" class="social-sidebar-new" onClick={onCreateGroup} aria-label={t.newGroup}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
+            <Icon d={icons.plus} size={18} />
           </button>
         )}
       </div>
@@ -82,12 +73,7 @@ export function SocialSidebar({
                   onClick={() => onSelectGroup(group.id)}
                 >
                   <div class="social-item-avatar group-avatar">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
+                    <Icon d={icons.users} size={18} />
                   </div>
                   <div class="social-item-info">
                     <span class="social-item-name">{group.name}</span>
@@ -119,10 +105,7 @@ export function SocialSidebar({
                   onClick={() => onSelectFriend(friend.otherUser.id)}
                 >
                   <div class={`social-item-avatar friend-avatar ${online ? 'is-online' : 'is-offline'}`}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
+                    <Icon d={icons.user} size={18} />
                     <span class={`presence-dot ${online ? 'online' : 'offline'}`} />
                   </div>
                   <div class="social-item-info">

@@ -4,7 +4,7 @@
 - Prioritizes accessibility: moves actions to bar control when they only exist on start page, so they're reachable during calls. Confidence: 0.9
 - Integrates into existing UI patterns (e.g., "more" dropdown) rather than creating new UI elements. Confidence: 0.85
 - Uses conditional rendering based on auth/user state (e.g., Account item only when user exists, Sign out vs Sign in toggle). Confidence: 0.8
-- Extracts duplicated/inline SVGs into a shared `icons` module for reuse across components. Confidence: 0.9
+- Extracts duplicated/inline SVGs into a shared `icons` module for reuse across components. Explicitly states it is "better reutilize in separated file." Confidence: 0.95
 - Prefers mutual friend relationships over one-way follows, since friends are needed for group matching features. Confidence: 0.9
 - Implements new social features across both backend and frontend together (full-stack). Confidence: 0.85
 - Prefers CSS custom properties (variables) for theming over hardcoded colors to avoid conflicts. Confidence: 0.9

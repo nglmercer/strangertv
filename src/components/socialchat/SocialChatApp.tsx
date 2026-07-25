@@ -7,6 +7,7 @@ import { SocialSidebar } from './SocialSidebar'
 import { SocialChat } from './SocialChat'
 import { GroupCreateModal } from '../groups/GroupCreateModal'
 import { GroupMembersModal } from '../groups/GroupMembersModal'
+import { Icon, icons } from '../icons'
 
 type ActiveChat =
   | { type: 'group'; id: number }
@@ -255,9 +256,7 @@ export function SocialChatApp({
           />
         ) : (
           <div class="social-main-empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
+            <Icon d={icons.chatBubble} size={48} />
             <p>{t.chooseConversation}</p>
           </div>
         )}

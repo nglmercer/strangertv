@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { COUNTRY_CODES, type Gender, type MatchPreferences } from '../../shared/types'
 import { countryLabel, type Messages } from '../i18n'
 import { DEFAULT_COUNTRY, GENDERS } from '../../shared/constants'
+import { Icon, icons } from './icons'
 
 type DropdownKind = 'country' | 'gender' | null
 
@@ -11,7 +12,6 @@ export function ControlDeck({
   finding,
   matched,
   autoNext,
-  genderEmoji,
   lookingLabel,
   onStart,
   onStop,
@@ -26,7 +26,6 @@ export function ControlDeck({
   finding: boolean
   matched: boolean
   autoNext: boolean
-  genderEmoji: string
   lookingLabel: string
   onStart: () => void
   onStop: () => void
@@ -40,7 +39,7 @@ export function ControlDeck({
   const rootRef = useRef<HTMLDivElement>(null)
 
   const isActive = finding || matched
-  const countryDisplay = prefs.country === DEFAULT_COUNTRY ? '🌐' : prefs.country
+  const countryDisplay = prefs.country === DEFAULT_COUNTRY ? <Icon d={icons.globe} size={18} /> : prefs.country
 
   useEffect(() => {
     if (!dropdown) return
@@ -122,7 +121,7 @@ export function ControlDeck({
                 }}
               >
                 <span class="deck-dropdown-check">
-                  {prefs.country === code ? '✓' : ''}
+                  {prefs.country === code ? <Icon d={icons.check} size={16} /> : null}
                 </span>
                 <span class="deck-dropdown-label">{countryLabel(t, code)}</span>
               </button>
@@ -140,7 +139,7 @@ export function ControlDeck({
           title={`${t.lookingFor}: ${lookingLabel}`}
         >
           <span class="deck-emoji" aria-hidden="true">
-            {genderEmoji}
+            {prefs.gender === GENDERS[0] ? <Icon d={icons.globe} size={18} /> : <Icon d={icons.user} size={18} />}
           </span>
           <small>{lookingLabel}</small>
         </button>
@@ -155,8 +154,7 @@ export function ControlDeck({
                     : g === GENDERS[3]
                       ? t.other
                       : t.everyone
-              const emoji =
-                g === GENDERS[1] ? '👨' : g === GENDERS[2] ? '👩' : g === GENDERS[3] ? '🧑' : '🌐'
+              const genderIcon = g === GENDERS[0] ? icons.globe : icons.user
               return (
                 <button
                   type="button"
@@ -169,9 +167,9 @@ export function ControlDeck({
                     setDropdown(null)
                   }}
                 >
-                  <span class="deck-dropdown-emoji">{emoji}</span>
+                  <span class="deck-dropdown-emoji"><Icon d={genderIcon} size={18} /></span>
                   <span class="deck-dropdown-check">
-                    {prefs.lookingFor === g ? '✓' : ''}
+                    {prefs.lookingFor === g ? <Icon d={icons.check} size={16} /> : null}
                   </span>
                   <span class="deck-dropdown-label">{label}</span>
                 </button>

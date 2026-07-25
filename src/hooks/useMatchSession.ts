@@ -240,7 +240,9 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage,
   }, [finding, matched])
 
   useEffect(() => {
-    messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
+    if (chat.length > 0) {
+      messagesEnd.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [chat])
 
   useEffect(() => {

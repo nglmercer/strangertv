@@ -208,8 +208,6 @@ export function App() {
     [session],
   )
 
-  const genderEmoji =
-    prefs.gender === GENDER.male ? '👨' : prefs.gender === GENDER.female ? '👩' : prefs.gender === GENDER.other ? '🧑' : '🌐'
   const lookingLabel =
     prefs.lookingFor === GENDER.male
       ? tr.male
@@ -311,7 +309,6 @@ export function App() {
           finding={session.finding}
           matched={session.matched}
           autoNext={autoNext}
-          genderEmoji={genderEmoji}
           lookingLabel={lookingLabel}
           onStart={onStartClick}
           onStop={session.stop}
