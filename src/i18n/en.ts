@@ -125,6 +125,7 @@ export const en = {
   day: 'Day',
   year: 'Year',
   close: 'Close',
+  back: 'Back',
   autoNext: 'Auto find next',
   autoNextOn: 'On',
   autoNextOff: 'Off',

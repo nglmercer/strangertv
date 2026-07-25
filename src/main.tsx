@@ -1,4 +1,5 @@
 import { render } from 'preact'
+import { Router } from 'preact-router'
 import { App } from './App'
 import { AdminApp } from './admin/AdminApp'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -19,7 +20,9 @@ if (isAdmin) {
 } else {
   render(
     <ErrorBoundary>
-      <App />
+      <Router>
+        <App path="/" />
+      </Router>
     </ErrorBoundary>,
     document.getElementById('root')!,
   )

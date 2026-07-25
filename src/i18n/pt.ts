@@ -126,6 +126,7 @@ export const pt: Messages = {
   day: 'Dia',
   year: 'Ano',
   close: 'Fechar',
+  back: 'Voltar',
   autoNext: 'Buscar próximo auto',
   autoNextOn: 'Sim',
   autoNextOff: 'Não',

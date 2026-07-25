@@ -126,6 +126,7 @@ export const es: Messages = {
   day: 'Día',
   year: 'Año',
   close: 'Cerrar',
+  back: 'Volver',
   autoNext: 'Buscar siguiente auto',
   autoNextOn: 'Sí',
   autoNextOff: 'No',

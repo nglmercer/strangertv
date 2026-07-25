@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import type { Locale, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
+import { SocialPage } from './pages/SocialPage'
 //import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
 import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, type PublicUser } from './api'
@@ -137,6 +138,22 @@ export function App(_props: AppProps) {
     setWaitingCount: session.setWaitingCount,
   })
   const [showSharedPrefs, setShowSharedPrefs] = useState(Boolean(sharedPrefs))
+
+  if (_props.path === '/social') {
+    return (
+      <SocialContext.Provider
+        value={{
+          user,
+          currentUserId: user?.id ?? null,
+          match: session.match,
+          t: tr,
+          onSignIn: () => setAuth(true),
+        }}
+      >
+        <SocialPage />
+      </SocialContext.Provider>
+    )
+  }
 
   useEffect(() => {
     const onFullscreenChange = () => {
