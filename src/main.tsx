@@ -22,6 +22,7 @@ if (isAdmin) {
     <ErrorBoundary>
       <Router>
         <App path="/" />
+        <App path="/social" />
       </Router>
     </ErrorBoundary>,
     document.getElementById('root')!,

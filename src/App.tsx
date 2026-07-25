@@ -239,7 +239,10 @@ export function App(_props: AppProps) {
     setShowSharedPrefs(false)
   }
 
-  const isSocialPage = _props.url === '/social'
+  const isSocialPage =
+    _props.path === '/social' ||
+    _props.url === '/social' ||
+    (typeof window !== 'undefined' && window.location.pathname === '/social')
 
   return (
     <SocialContext.Provider
@@ -248,139 +251,142 @@ export function App(_props: AppProps) {
         currentUserId: user?.id ?? null,
         match: session.match,
         t: tr,
-        onSignIn: () => setAuth(true),
+        onSignIn: () => {
+          setAuth(true)
+          setAuthActive(true)
+        },
       }}
     >
       {isSocialPage ? (
         <SocialPage />
       ) : (
-    <main class="app">
-      <OfflineBanner label={tr.offline} />
+        <main class="app">
+          <OfflineBanner label={tr.offline} />
 
-      <div class="stage-wrap">
-        <VideoStage
-          t={tr}
-          finding={session.finding}
-          matched={session.matched}
-          status={status}
-          longWait={session.longWait}
-          queuePos={session.queuePos}
-          quality={session.webrtc.quality}
-          linkStats={session.webrtc.linkStats}
-          hasRemote={session.webrtc.hasRemote}
-          peerCountry={session.peerCountry}
-          peerEmail={session.peerEmail}
-          peerUserId={session.peerUserId}
-          relationship={session.relationship}
-          callSeconds={session.callSeconds}
-          sharedInterests={session.sharedInterests}
-          localVideo={session.localVideo}
-          remoteVideo={session.remoteVideo}
-          hasLocalStream={Boolean(session.media.streamRef.current)}
-          user={user}
-          onPreferences={() => {
-            setPrefsTab(PREFS_TAB.match)
-            setPreferences(true)
-          }}
-          onSettings={() => setSettings(true)}
-          onAuthClick={onAuthClick}
-          onAddFriend={() => setFriendManager(true)}
-          onFollow={() => {
-            if (session.peerUserId) {
-              void followsApi.follow(session.peerUserId)
-            }
-          }}
-        />
-        <CallBar
-          t={tr}
-          finding={session.finding}
-          matched={session.matched}
-          muted={session.media.muted}
-          cameraOn={session.media.cameraOn}
-          quality={session.webrtc.quality}
-          canBlock={Boolean(user)}
-          devices={session.media.devices}
-          videoId={session.media.videoId}
-          audioId={session.media.audioId}
-          user={user}
-          fullscreen={fullscreen}
-          sharedPrefs={sharedPrefs}
-          showSharedPrefs={showSharedPrefs}
-          onStart={onStartClick}
-          onMute={() => session.media.setMutedTrack(!session.media.muted)}
-          onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
-          onReport={() => setReportOpen(true)}
-          onBlock={() => session.match.block()}
-          onRetryIce={() => void session.webrtc.restartIce()}
-          onOpenSocial={() => {
-            window.history.pushState({}, '', '/social')
-            window.dispatchEvent(new PopStateEvent('popstate'))
-          }}
-          onApplySharedPrefs={handleApplySharedPrefs}
-          onDismissSharedPrefs={() => setShowSharedPrefs(false)}
-          onDeviceChange={onDeviceChange}
-          onOpenDeviceSettings={() => {
-            setPrefsTab(PREFS_TAB.devices)
-            setPreferences(true)
-          }}
-          onRefreshDevices={() => void session.media.refreshDevices()}
-          onFullscreen={handleFullscreen}
-          onStop={session.stop}
-          onNext={session.next}
-          onPreferences={() => {
-            setPrefsTab(PREFS_TAB.match)
-            setPreferences(true)
-          }}
-          onSettings={() => setSettings(true)}
-          onAuthClick={onAuthClick}
-          onAddFriend={() => setFriendManager(true)}
-          relationship={session.relationship}
-        />
-      </div>
-        {friendManager && (
-          <FriendManager
-            t={tr}
-            user={user}
-            onClose={() => setFriendManager(false)}
-          />
-        )}
+          <div class="stage-wrap">
+            <VideoStage
+              t={tr}
+              finding={session.finding}
+              matched={session.matched}
+              status={status}
+              longWait={session.longWait}
+              queuePos={session.queuePos}
+              quality={session.webrtc.quality}
+              linkStats={session.webrtc.linkStats}
+              hasRemote={session.webrtc.hasRemote}
+              peerCountry={session.peerCountry}
+              peerEmail={session.peerEmail}
+              peerUserId={session.peerUserId}
+              relationship={session.relationship}
+              callSeconds={session.callSeconds}
+              sharedInterests={session.sharedInterests}
+              localVideo={session.localVideo}
+              remoteVideo={session.remoteVideo}
+              hasLocalStream={Boolean(session.media.streamRef.current)}
+              user={user}
+              onPreferences={() => {
+                setPrefsTab(PREFS_TAB.match)
+                setPreferences(true)
+              }}
+              onSettings={() => setSettings(true)}
+              onAuthClick={onAuthClick}
+              onAddFriend={() => setFriendManager(true)}
+              onFollow={() => {
+                if (session.peerUserId) {
+                  void followsApi.follow(session.peerUserId)
+                }
+              }}
+            />
+            <CallBar
+              t={tr}
+              finding={session.finding}
+              matched={session.matched}
+              muted={session.media.muted}
+              cameraOn={session.media.cameraOn}
+              quality={session.webrtc.quality}
+              canBlock={Boolean(user)}
+              devices={session.media.devices}
+              videoId={session.media.videoId}
+              audioId={session.media.audioId}
+              user={user}
+              fullscreen={fullscreen}
+              sharedPrefs={sharedPrefs}
+              showSharedPrefs={showSharedPrefs}
+              onStart={onStartClick}
+              onMute={() => session.media.setMutedTrack(!session.media.muted)}
+              onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
+              onReport={() => setReportOpen(true)}
+              onBlock={() => session.match.block()}
+              onRetryIce={() => void session.webrtc.restartIce()}
+              onOpenSocial={() => {
+                route('/social')
+              }}
+              onApplySharedPrefs={handleApplySharedPrefs}
+              onDismissSharedPrefs={() => setShowSharedPrefs(false)}
+              onDeviceChange={onDeviceChange}
+              onOpenDeviceSettings={() => {
+                setPrefsTab(PREFS_TAB.devices)
+                setPreferences(true)
+              }}
+              onRefreshDevices={() => void session.media.refreshDevices()}
+              onFullscreen={handleFullscreen}
+              onStop={session.stop}
+              onNext={session.next}
+              onPreferences={() => {
+                setPrefsTab(PREFS_TAB.match)
+                setPreferences(true)
+              }}
+              onSettings={() => setSettings(true)}
+              onAuthClick={onAuthClick}
+              onAddFriend={() => setFriendManager(true)}
+              relationship={session.relationship}
+            />
+          </div>
+          {friendManager && (
+            <FriendManager
+              t={tr}
+              user={user}
+              onClose={() => setFriendManager(false)}
+            />
+          )}
 
-
-      <section class="dashboard">
-        <ControlDeck
-          t={tr}
-          prefs={prefs}
-          finding={session.finding}
-          matched={session.matched}
-          lookingLabel={lookingLabel}
-          onStart={onStartClick}
-          onStop={session.stop}
-          onNext={session.next}
-          onOpenPrefs={() => {
-            setPrefsTab(PREFS_TAB.match)
-            setPreferences(true)
-          }}
-          onChangeCountry={(country) => {
-            setPrefs({ ...prefs, country })
-          }}
-          onChangeLookingFor={(lookingFor) => {
-            setPrefs({ ...prefs, lookingFor })
-          }}
-        />
-        <ChatPanel
-          t={tr}
-          chat={session.chat}
-          chatText={session.chatText}
-          setChatText={session.setChatText}
-          matched={session.matched}
-          finding={session.finding}
-          messagesEnd={session.messagesEnd}
-          onSend={session.sendChat}
-          onOpenPage={setPage}
-          appVersion={appVersion}
-          userEmail={user?.email ?? null}
-        />
-      </section>
+          <section class="dashboard">
+            <ControlDeck
+              t={tr}
+              prefs={prefs}
+              finding={session.finding}
+              matched={session.matched}
+              lookingLabel={lookingLabel}
+              onStart={onStartClick}
+              onStop={session.stop}
+              onNext={session.next}
+              onOpenPrefs={() => {
+                setPrefsTab(PREFS_TAB.match)
+                setPreferences(true)
+              }}
+              onChangeCountry={(country) => {
+                setPrefs({ ...prefs, country })
+              }}
+              onChangeLookingFor={(lookingFor) => {
+                setPrefs({ ...prefs, lookingFor })
+              }}
+            />
+            <ChatPanel
+              t={tr}
+              chat={session.chat}
+              chatText={session.chatText}
+              setChatText={session.setChatText}
+              matched={session.matched}
+              finding={session.finding}
+              messagesEnd={session.messagesEnd}
+              onSend={session.sendChat}
+              onOpenPage={setPage}
+              appVersion={appVersion}
+              userEmail={user?.email ?? null}
+            />
+          </section>
+        </main>
+      )}
 
       <AppModals
         t={tr}
@@ -441,8 +447,6 @@ export function App(_props: AppProps) {
         onReport={onReport}
         onDeviceChange={onDeviceChange}
       />
-    </main>
-      )}
     </SocialContext.Provider>
   )
 }
