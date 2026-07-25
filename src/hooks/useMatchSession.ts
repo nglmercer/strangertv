@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
-import type { MatchPreferences, RelationshipStatus } from '../../shared/types'
+import type { GroupMessage, MatchPreferences, RelationshipStatus } from '../../shared/types'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
@@ -16,12 +16,13 @@ type Options = {
   prefs: MatchPreferences
   autoNext: boolean
   onStatus: (s: string) => void
+  onGroupMessage?: (message: GroupMessage) => void
 }
 
 /**
  * Orchestrates media, signaling socket, WebRTC, queue, chat, and call lifecycle.
  */
-export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
+export function useMatchSession({ tr, prefs, autoNext, onStatus, onGroupMessage }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -187,6 +188,7 @@ export function useMatchSession({ tr, prefs, autoNext, onStatus }: Options) {
         }, 10_000)
       }
     },
+    onGroupMessage: onGroupMessage,
   })
 
   const matchRef = useRef(match)

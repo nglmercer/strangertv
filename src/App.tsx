@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'preact/hooks'
 import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { getFlag, setFlag } from './utils/storage'
-import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, type PublicUser } from './api'
+import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, type PublicUser } from './api'
 import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
@@ -89,6 +89,7 @@ export function App() {
     prefs,
     autoNext,
     onStatus: setStatus,
+    onGroupMessage: (message) => emitGroupMessage(message),
   })
 
   const { appVersion } = useSessionBootstrap({
@@ -323,7 +324,7 @@ export function App() {
         />
       </section>
 
-      <GroupsSection t={tr} user={user} />
+      <GroupsSection t={tr} user={user} onSignIn={() => setAuth(true)} />
 
       <AppModals
         t={tr}

@@ -25,6 +25,7 @@ import {
 } from '../shared/constants'
 import { registerAuthRoutes } from './routes/auth'
 import { registerSocialRoutes } from './routes/social'
+import { registerGroupsRoutes } from './routes/groups'
 import { registerMiscRoutes } from './routes/misc'
 import { registerAdminRoutes } from './routes/admin'
 import { registerHealthRoutes } from './routes/health'
@@ -76,6 +77,7 @@ app.use(
 registerHealthRoutes(app, appUrl, () => draining, dbOk)
 registerAuthRoutes(app, appUrl)
 registerSocialRoutes(app, send)
+registerGroupsRoutes(app, send)
 registerMiscRoutes(app)
 registerAdminRoutes(app)
 

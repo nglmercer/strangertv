@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences, Friend, Follow, Invitation, Message } from '../shared/types'
+import type { Gender, MatchPreferences, Friend, Follow, Invitation, Message, Group, GroupMember, GroupMessage } from '../shared/types'
 import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
@@ -13,6 +13,20 @@ import {
 export { clearSession, getStoredUser, getToken, setSession }
 
 export type { PublicUser }
+
+type GroupMessageListener = (message: GroupMessage) => void
+const groupMessageListeners = new Set<GroupMessageListener>()
+
+export function onGroupMessage(listener: GroupMessageListener): () => void {
+  groupMessageListeners.add(listener)
+  return () => groupMessageListeners.delete(listener)
+}
+
+export function emitGroupMessage(message: GroupMessage) {
+  for (const listener of groupMessageListeners) {
+    listener(message)
+  }
+}
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
@@ -155,5 +169,47 @@ export const messagesApi = {
     api<{ message: Message }>(API_ROUTES.messages, {
       method: 'POST',
       body: JSON.stringify({ friendId, text }),
+    }),
+}
+
+export const groupsApi = {
+  list: () => api<{ groups: Group[] }>(API_ROUTES.groups),
+  create: (name: string, memberIds: number[]) =>
+    api<{ group: Group }>(API_ROUTES.groups, {
+      method: 'POST',
+      body: JSON.stringify({ name, memberIds }),
+    }),
+  get: (id: number) => api<{ group: Group }>(API_ROUTES.groupById(id)),
+  rename: (id: number, name: string) =>
+    api<{ ok: boolean }>(API_ROUTES.groupById(id), {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+  getMembers: (id: number) =>
+    api<{ members: GroupMember[] }>(API_ROUTES.groupMembers(id)),
+  addMembers: (id: number, userIds: number[]) =>
+    api<{ members: GroupMember[] }>(API_ROUTES.groupMembers(id), {
+      method: 'POST',
+      body: JSON.stringify({ userIds }),
+    }),
+  removeMember: (id: number, userId: number) =>
+    api<{ ok: boolean }>(API_ROUTES.groupRemoveMember(id, userId), {
+      method: 'DELETE',
+    }),
+  leave: (id: number) =>
+    api<{ ok: boolean }>(API_ROUTES.groupLeave(id), {
+      method: 'POST',
+    }),
+  getMessages: (id: number, limit?: number, beforeId?: number) => {
+    const params = new URLSearchParams()
+    if (limit) params.set('limit', String(limit))
+    if (beforeId) params.set('beforeId', String(beforeId))
+    const query = params.toString()
+    return api<{ messages: GroupMessage[] }>(`${API_ROUTES.groupMessages(id)}${query ? `?${query}` : ''}`)
+  },
+  sendMessage: (id: number, text: string) =>
+    api<{ message: GroupMessage }>(API_ROUTES.groupMessages(id), {
+      method: 'POST',
+      body: JSON.stringify({ text }),
     }),
 }

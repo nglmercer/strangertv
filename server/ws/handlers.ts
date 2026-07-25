@@ -24,6 +24,7 @@ import {
   respondInvitation,
 } from '../friends'
 import { sendMessage, getConversation, hasRelationship } from '../messages'
+import { sendGroupMessage, getGroupMembers } from '../groups'
 import { noteReport } from '../alerts'
 import { inc } from '../metrics'
 import { rateLimit } from '../rateLimit'
@@ -339,6 +340,34 @@ export function createWsHandler(state: WsState) {
       const messages = await getConversation(meta.userId, friendId, limit, beforeId)
       send(socket, { type: WS_MESSAGE_TYPE.messageHistory, friendId, messages })
       return
+    }
+
+    if (message.type === WS_MESSAGE_TYPE.groupMessageSend) {
+      const meta = getMeta(socket)
+      if (!meta?.userId) return
+      const { groupId, text } = message as { groupId: number; text: string }
+      if (!groupId || !text?.trim()) return
+      const sentMessage = await sendGroupMessage(groupId, meta.userId, text)
+      const members = await getGroupMembers(groupId)
+      for (const member of members) {
+        const targetSocket = getSocketForUser(member.userId)
+        if (targetSocket) {
+          send(targetSocket, { type: WS_MESSAGE_TYPE.groupMessageNew, message: sentMessage })
+        }
+      }
+      return
+    }
+
+    if (message.type === WS_MESSAGE_TYPE.telemetryQuality) {
+      if (!config.features.qualityTelemetry) return
+      if (!rateLimit(`telemetry:${ip}`, 60, 60_000)) return
+      inc(METRIC_NAMES.webrtcQuality(message.quality))
+      logger.debug('webrtc.quality', {
+        roomId: message.roomId,
+        quality: message.quality,
+        ice: message.iceState,
+        conn: message.connectionState,
+      })
     }
 
     if (message.type === WS_MESSAGE_TYPE.telemetryQuality) {

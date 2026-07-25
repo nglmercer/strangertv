@@ -7,6 +7,7 @@ export type Role = 'offerer' | 'answerer'
 export type FriendStatus = 'pending' | 'accepted' | 'declined'
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
 export type RelationshipStatus = 'none' | 'friend' | 'following' | 'follower'
+export type GroupRole = 'admin' | 'member'
 
 /** Minimal public user profile shared between client and server. */
 export type PublicUser = {
@@ -75,6 +76,36 @@ export type Message = {
   createdAt: string
 }
 
+export type Group = {
+  id: number
+  name: string
+  createdBy: number
+  createdAt: string
+  myRole?: GroupRole
+  memberCount?: number
+  members?: GroupMember[]
+  lastMessage?: GroupMessage
+  unreadCount?: number
+}
+
+export type GroupMember = {
+  id: number
+  groupId: number
+  userId: number
+  role: GroupRole
+  joinedAt: string
+  user: PublicUser
+}
+
+export type GroupMessage = {
+  id: number
+  groupId: number
+  senderId: number
+  text: string
+  createdAt: string
+  sender?: PublicUser
+}
+
 export type ClientMessage =
   | { type: 'queue:join'; preferences: MatchPreferences; token?: string }
   | { type: 'queue:leave' }
@@ -96,6 +127,7 @@ export type ClientMessage =
   | { type: 'invitation:decline'; invitationId: number }
   | { type: 'message:send'; friendId: number; text: string }
   | { type: 'message:history'; friendId: number; limit?: number; beforeId?: number }
+  | { type: 'group:message:send'; groupId: number; text: string }
   | {
       type: 'telemetry:quality'
       roomId?: string
@@ -138,6 +170,7 @@ export type ServerMessage =
   | { type: 'invitation:list'; invitations: Array<{ id: number; inviter: PublicUser; roomId: string; status: InvitationStatus; expiresAt: string }> }
   | { type: 'message:new'; message: Message }
   | { type: 'message:history'; friendId: number; messages: Message[] }
+  | { type: 'group:message:new'; message: GroupMessage }
 
 /** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [

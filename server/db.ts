@@ -176,6 +176,44 @@ export async function migrate() {
     /* ignore */
   }
 
+  // Groups table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      created_by INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `)
+
+  // Group members table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS group_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(group_id, user_id),
+      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `)
+
+  // Group messages table
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS group_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER NOT NULL,
+      sender_id INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (sender_id) REFERENCES users(id)
+    )
+  `)
+
   const columns = ['birth_date', 'gender', 'country', 'language', 'interests']
   for (const col of columns) {
     try {

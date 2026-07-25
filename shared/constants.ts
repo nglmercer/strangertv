@@ -77,6 +77,13 @@ export const API_ROUTES = {
   invitationById: (id: number | string, action?: string) => `/api/invitations/${id}${action ? `/${action}` : ''}`,
   // Messages
   messages: '/api/messages',
+  // Groups
+  groups: '/api/groups',
+  groupById: (id: number | string) => `/api/groups/${id}`,
+  groupMembers: (id: number | string) => `/api/groups/${id}/members`,
+  groupMessages: (id: number | string) => `/api/groups/${id}/messages`,
+  groupLeave: (id: number | string) => `/api/groups/${id}/leave`,
+  groupRemoveMember: (id: number | string, userId: number | string) => `/api/groups/${id}/members/${userId}`,
 } as const
 
 export const API_PREFIX = '/api'
@@ -138,6 +145,11 @@ export const WS_MESSAGE_TYPE = {
   invitationDeclined: 'invitation:declined',
   invitationList: 'invitation:list',
   messageNew: 'message:new',
+  // Groups
+  groupMessageSend: 'group:message:send',
+  groupMessageNew: 'group:message:new',
+  groupMemberJoined: 'group:member:joined',
+  groupMemberLeft: 'group:member:left',
 } as const
 
 export type WsMessageType = (typeof WS_MESSAGE_TYPE)[keyof typeof WS_MESSAGE_TYPE]

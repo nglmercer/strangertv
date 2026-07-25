@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { getToken, wsUrl } from '../api'
-import type { ClientMessage, MatchPreferences, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
+import type { ClientMessage, GroupMessage, MatchPreferences, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
 import { WS_MESSAGE_TYPE, TIMING_MS } from '../../shared/constants'
 
 type Handlers = {
@@ -18,6 +18,7 @@ type Handlers = {
   onReportAck?: () => void
   onBlockAck?: () => void
   onDraining?: (message?: string) => void
+  onGroupMessage?: (message: GroupMessage) => void
 }
 
 export function useMatchSocket(handlers: Handlers) {
@@ -109,6 +110,9 @@ export function useMatchSocket(handlers: Handlers) {
           break
         case WS_MESSAGE_TYPE.serverDraining:
           h.onDraining?.(msg.message)
+          break
+        case WS_MESSAGE_TYPE.groupMessageNew:
+          h.onGroupMessage?.(msg.message)
           break
       }
     }
