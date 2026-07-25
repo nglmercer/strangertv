@@ -6,6 +6,7 @@ import {
   getPartnerUserId,
   getRoom,
   getSocketUserId,
+  getUserSocketDebug,
   heartbeat,
   leaveRoom,
   matchUsers,
@@ -63,6 +64,10 @@ export function createWsHandler(state: WsState) {
       message = JSON.parse(raw) as ClientMessage
     } catch {
       return
+    }
+
+    if (message.type !== WS_MESSAGE_TYPE.queueHeartbeat && message.type !== WS_MESSAGE_TYPE.wsAuth) {
+      console.debug('[ws] recv', { type: message.type, raw: raw.slice(0, 200) })
     }
 
     if (message.type === WS_MESSAGE_TYPE.queueHeartbeat) {
@@ -439,11 +444,24 @@ export function createWsHandler(state: WsState) {
       }
       const { invitationId } = await sendInvitation(userId, message.userId, message.roomId)
       const targetSocket = getSocketForUser(message.userId)
-      console.debug('[ws] invitation:send target', { targetOnline: !!targetSocket, targetUserId: message.userId, invitationId })
+      const targetDebug = getUserSocketDebug(message.userId)
+      console.debug('[ws] invitation:send target', {
+        targetOnline: !!targetSocket,
+        targetUserId: message.userId,
+        invitationId,
+        targetSocketCount: targetDebug.count,
+        targetSocketReadyStates: targetDebug.readyStates,
+        senderSocketReadyState: socket.readyState,
+      })
       if (targetSocket) {
         const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [userId] })
         const inviterProfile = inviterRow.rows[0]
-        send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: userId, email: '' } })
+        const payload = { type: WS_MESSAGE_TYPE.invitationSend, invitationId, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: userId, email: '' } }
+        console.debug('[ws] invitation:send delivering', { payload })
+        send(targetSocket, payload)
+        console.debug('[ws] invitation:send delivered')
+      } else {
+        console.debug('[ws] invitation:send target offline, stored for later')
       }
       return
     }

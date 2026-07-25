@@ -62,7 +62,10 @@ export function useMatchSocket(handlers: Handlers) {
 
   const send = useCallback((message: ClientMessage) => {
     if (socket.current?.readyState === WebSocket.OPEN) {
+      console.debug('[ws] send', { type: message.type, payload: message })
       socket.current.send(JSON.stringify(message))
+    } else {
+      console.debug('[ws] send dropped, socket not open', { type: message.type, readyState: socket.current?.readyState })
     }
   }, [])
 
@@ -165,6 +168,9 @@ export function useMatchSocket(handlers: Handlers) {
         case WS_MESSAGE_TYPE.invitationSend:
           console.debug('[ws] received invitation', { invitationId: msg.invitationId, roomId: msg.roomId, inviter: msg.inviter })
           h.onInvitation?.(msg.invitationId, msg.roomId, msg.inviter)
+          break
+        default:
+          console.debug('[ws] unhandled message type', { type: msg.type })
           break
         case WS_MESSAGE_TYPE.invitationAccepted:
           h.onInvitationAccepted?.(msg.invitationId, msg.roomId)

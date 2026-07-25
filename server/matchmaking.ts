@@ -801,6 +801,7 @@ export function registerUserSocket(userId: number, socket: SocketLike) {
   if (!userSockets.has(userId)) userSockets.set(userId, new Set())
   userSockets.get(userId)!.add(socket)
   socketUsers.set(socket, userId)
+  console.debug('[mm] registerUserSocket', { userId, socketUserCount: socketUsers.size, userSocketCount: userSockets.get(userId)?.size ?? 0 })
 }
 
 export function unregisterUserSocket(userId: number, socket: SocketLike) {
@@ -810,6 +811,7 @@ export function unregisterUserSocket(userId: number, socket: SocketLike) {
     if (sockets.size === 0) userSockets.delete(userId)
   }
   socketUsers.delete(socket)
+  console.debug('[mm] unregisterUserSocket', { userId, socketUserCount: socketUsers.size })
 }
 
 export function getSocketUserId(socket: SocketLike): number | undefined {
@@ -830,6 +832,12 @@ export function getGroupRoomById(roomId: string): GroupRoom | undefined {
 
 export function getMeta(socket: SocketLike) {
   return peerMeta.get(socket)
+}
+
+export function getUserSocketDebug(userId: number) {
+  const sockets = userSockets.get(userId)
+  if (!sockets) return { count: 0, readyStates: [] }
+  return { count: sockets.size, readyStates: Array.from(sockets).map((s) => s.readyState) }
 }
 
 export function purgeStale(maxAgeMs = 45_000) {

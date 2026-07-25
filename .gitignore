@@ -12,3 +12,4 @@ playwright-report/
 blob-report/
 *.tsbuildinfo
 .DS_Store
+invitation_**.db
