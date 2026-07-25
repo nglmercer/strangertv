@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'preact/hooks'
 import { fetchIceServers } from '../api'
 import type { Quality } from '../types/ui'
 import { QUALITY_TIER, RTC_STATE, SIGNAL_KIND, SignalKind } from '../../shared/constants'
+import type { Role } from '../../shared/constants'
 import {
   emptyLinkStats,
   qualityFromLink,
@@ -11,84 +12,160 @@ import {
 
 type SignalPayload = { kind: SignalKind; data: unknown }
 
+type PeerConnection = {
+  pc: RTCPeerConnection
+  userId: number
+  ready: boolean
+  pendingCandidates: RTCIceCandidateInit[]
+  statsTimer: number | null
+  statsSeed: { packetsReceived: number; packetsLost: number; bytesReceived: number; at: number } | null
+}
+
 const STATS_INTERVAL_MS = 2000
 
-export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
-  const pcRef = useRef<RTCPeerConnection | null>(null)
-  const pendingCandidates = useRef<RTCIceCandidateInit[]>([])
-  const remoteReady = useRef(false)
-  const statsTimer = useRef<number | null>(null)
-  const statsSeed = useRef<{
-    packetsReceived: number
-    packetsLost: number
-    bytesReceived: number
-    at: number
-  } | null>(null)
+export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: number) => void) {
+  const soloPcRef = useRef<RTCPeerConnection | null>(null)
+  const soloPending = useRef<RTCIceCandidateInit[]>([])
+  const soloRemoteReady = useRef(false)
+  const peersRef = useRef<Map<number, PeerConnection>>(new Map())
   const [quality, setQuality] = useState<Quality>('idle')
   const [linkStats, setLinkStats] = useState<LinkStats>(emptyLinkStats)
   const [hasRemote, setHasRemote] = useState(false)
 
-  const stopStatsLoop = useCallback(() => {
-    if (statsTimer.current != null) {
-      window.clearInterval(statsTimer.current)
-      statsTimer.current = null
+  const stopStatsLoop = useCallback((peer: PeerConnection) => {
+    if (peer.statsTimer != null) {
+      window.clearInterval(peer.statsTimer)
+      peer.statsTimer = null
     }
-    statsSeed.current = null
+    peer.statsSeed = null
   }, [])
 
-  const sampleStats = useCallback(async (pc: RTCPeerConnection) => {
-    const state = pc.connectionState
+  const sampleStats = useCallback(async (peer: PeerConnection) => {
+    const state = peer.pc.connectionState
     if (state === RTC_STATE.closed || state === RTC_STATE.failed) return
     try {
-      const { stats, seed } = await readLinkStats(pc, statsSeed.current)
-      statsSeed.current = seed
+      const { stats, seed } = await readLinkStats(peer.pc, peer.statsSeed)
+      peer.statsSeed = seed
       setLinkStats(stats)
-      // Re-read state after async getStats
-      setQuality(qualityFromLink(pc.connectionState, stats))
+      setQuality(qualityFromLink(peer.pc.connectionState, stats))
     } catch {
       /* getStats can throw if pc is closing */
     }
   }, [])
 
   const startStatsLoop = useCallback(
-    (pc: RTCPeerConnection) => {
-      stopStatsLoop()
-      void sampleStats(pc)
-      statsTimer.current = window.setInterval(() => {
-        if (pcRef.current !== pc) {
-          stopStatsLoop()
+    (peer: PeerConnection) => {
+      stopStatsLoop(peer)
+      void sampleStats(peer)
+      peer.statsTimer = window.setInterval(() => {
+        if (!peersRef.current.has(peer.userId)) {
+          stopStatsLoop(peer)
           return
         }
-        void sampleStats(pc)
+        void sampleStats(peer)
       }, STATS_INTERVAL_MS)
     },
     [sampleStats, stopStatsLoop],
   )
 
+  const flushCandidates = async (peer: PeerConnection) => {
+    for (const c of peer.pendingCandidates) {
+      try {
+        await peer.pc.addIceCandidate(c)
+      } catch {
+        /* ignore */
+      }
+    }
+    peer.pendingCandidates = []
+  }
+
+  const wirePcEvents = useCallback(
+    (peer: PeerConnection, asOfferer: boolean, remoteVideo: HTMLVideoElement | null) => {
+      peer.pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          onSignal({ kind: SIGNAL_KIND.candidate, data: event.candidate.toJSON() }, peer.userId)
+        }
+      }
+
+      peer.pc.ontrack = (event) => {
+        if (remoteVideo) {
+          remoteVideo.srcObject = event.streams[0] ?? null
+        }
+        setHasRemote(true)
+      }
+
+      const applyState = () => {
+        const state = peer.pc.connectionState
+        if (state === RTC_STATE.connected) {
+          setQuality((q) =>
+            q === QUALITY_TIER.idle || q === QUALITY_TIER.connecting || q === QUALITY_TIER.failed
+              ? QUALITY_TIER.connecting
+              : q,
+          )
+          startStatsLoop(peer)
+        } else if (state === RTC_STATE.connecting || state === RTC_STATE.new) {
+          setQuality(QUALITY_TIER.connecting)
+        } else if (state === RTC_STATE.disconnected) {
+          setQuality(QUALITY_TIER.poor)
+        } else if (state === RTC_STATE.failed || state === RTC_STATE.closed) {
+          setQuality(QUALITY_TIER.failed)
+          stopStatsLoop(peer)
+        }
+      }
+
+      peer.pc.onconnectionstatechange = applyState
+
+      peer.pc.oniceconnectionstatechange = () => {
+        if (peer.pc.iceConnectionState === RTC_STATE.failed) {
+          setQuality('failed')
+          void (async () => {
+            try {
+              if (peer.pc.restartIce) peer.pc.restartIce()
+              if (asOfferer) {
+                const offer = await peer.pc.createOffer({ iceRestart: true })
+                await peer.pc.setLocalDescription(offer)
+                onSignal({ kind: SIGNAL_KIND.offer, data: offer }, peer.userId)
+              }
+            } catch {
+              /* ignore */
+            }
+          })()
+        }
+        if (peer.pc.iceConnectionState === 'connected' || peer.pc.iceConnectionState === 'completed') {
+          startStatsLoop(peer)
+        }
+      }
+    },
+    [onSignal, startStatsLoop, stopStatsLoop],
+  )
+
   const clear = useCallback(() => {
-    stopStatsLoop()
-    pcRef.current?.close()
-    pcRef.current = null
-    pendingCandidates.current = []
-    remoteReady.current = false
+    const peers = peersRef.current
+    for (const [id, peer] of peers) {
+      stopStatsLoop(peer)
+      peer.pc.close()
+    }
+    peersRef.current = new Map()
+    soloPcRef.current?.close()
+    soloPcRef.current = null
+    soloPending.current = []
+    soloRemoteReady.current = false
     setHasRemote(false)
     setQuality(QUALITY_TIER.idle)
     setLinkStats(emptyLinkStats)
   }, [stopStatsLoop])
 
-  const flushCandidates = async (pc: RTCPeerConnection) => {
-    for (const c of pendingCandidates.current) {
-      try {
-        await pc.addIceCandidate(c)
-      } catch {
-        /* ignore bad candidate */
-      }
-    }
-    pendingCandidates.current = []
-  }
+  const createPeer = useCallback(
+    async (stream: MediaStream, remoteVideo: HTMLVideoElement | null, asOfferer: boolean) => {
+      clear()
+      setQuality(QUALITY_TIER.connecting)
+      const iceServers = await fetchIceServers()
+      const pc = new RTCPeerConnection({ iceServers })
+      soloPcRef.current = pc
 
-  const wirePcEvents = useCallback(
-    (pc: RTCPeerConnection, asOfferer: boolean, remoteVideo: HTMLVideoElement | null) => {
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream))
+      soloRemoteReady.current = false
+
       pc.onicecandidate = (event) => {
         if (event.candidate) {
           onSignal({ kind: SIGNAL_KIND.candidate, data: event.candidate.toJSON() })
@@ -105,20 +182,13 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
       const applyState = () => {
         const state = pc.connectionState
         if (state === RTC_STATE.connected) {
-          // Coarse until first getStats sample
-          setQuality((q) =>
-            q === QUALITY_TIER.idle || q === QUALITY_TIER.connecting || q === QUALITY_TIER.failed
-              ? QUALITY_TIER.connecting
-              : q,
-          )
-          startStatsLoop(pc)
+          setQuality(QUALITY_TIER.connecting)
         } else if (state === RTC_STATE.connecting || state === RTC_STATE.new) {
           setQuality(QUALITY_TIER.connecting)
         } else if (state === RTC_STATE.disconnected) {
           setQuality(QUALITY_TIER.poor)
         } else if (state === RTC_STATE.failed || state === RTC_STATE.closed) {
           setQuality(QUALITY_TIER.failed)
-          stopStatsLoop()
         }
       }
 
@@ -140,24 +210,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
             }
           })()
         }
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-          startStatsLoop(pc)
-        }
       }
-    },
-    [onSignal, startStatsLoop, stopStatsLoop],
-  )
-
-  const createPeer = useCallback(
-    async (stream: MediaStream, remoteVideo: HTMLVideoElement | null, asOfferer: boolean) => {
-      clear()
-      setQuality(QUALITY_TIER.connecting)
-      const iceServers = await fetchIceServers()
-      const pc = new RTCPeerConnection({ iceServers })
-      pcRef.current = pc
-
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream))
-      wirePcEvents(pc, asOfferer, remoteVideo)
 
       if (asOfferer) {
         const offer = await pc.createOffer()
@@ -167,20 +220,103 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
 
       return pc
     },
+    [clear, onSignal],
+  )
+
+  const createMeshPeers = useCallback(
+    async (
+      stream: MediaStream,
+      participants: Array<{ userId: number; role: Role }>,
+      myUserId: number,
+    ) => {
+      clear()
+      setQuality(QUALITY_TIER.connecting)
+      const iceServers = await fetchIceServers()
+
+      for (const participant of participants) {
+        if (participant.userId === myUserId) continue
+        const pc = new RTCPeerConnection({ iceServers })
+        const peer: PeerConnection = {
+          pc,
+          userId: participant.userId,
+          ready: false,
+          pendingCandidates: [],
+          statsTimer: null,
+          statsSeed: null,
+        }
+        peersRef.current.set(participant.userId, peer)
+
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream))
+        wirePcEvents(peer, participant.role === 'offerer', null)
+
+        if (participant.role === 'offerer') {
+          const offer = await pc.createOffer()
+          await pc.setLocalDescription(offer)
+          onSignal({ kind: SIGNAL_KIND.offer, data: offer }, participant.userId)
+        }
+      }
+    },
     [clear, onSignal, wirePcEvents],
   )
 
   const handleSignal = useCallback(
-    async (payload: SignalPayload, stream: MediaStream | null, remoteVideo: HTMLVideoElement | null) => {
+    async (
+      payload: SignalPayload,
+      stream: MediaStream | null,
+      remoteVideo: HTMLVideoElement | null,
+      fromUserId?: number,
+    ) => {
+      if (fromUserId != null) {
+        const peer = peersRef.current.get(fromUserId)
+        if (!peer) return
+
+        if (payload.kind === SIGNAL_KIND.offer) {
+          await peer.pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
+          peer.ready = true
+          await flushCandidates(peer)
+          const answer = await peer.pc.createAnswer()
+          await peer.pc.setLocalDescription(answer)
+          onSignal({ kind: SIGNAL_KIND.answer, data: answer }, fromUserId)
+          return
+        }
+
+        if (payload.kind === SIGNAL_KIND.answer) {
+          await peer.pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
+          peer.ready = true
+          await flushCandidates(peer)
+          return
+        }
+
+        if (payload.kind === SIGNAL_KIND.candidate) {
+          if (!peer.ready) {
+            peer.pendingCandidates.push(payload.data as RTCIceCandidateInit)
+            return
+          }
+          try {
+            await peer.pc.addIceCandidate(payload.data as RTCIceCandidateInit)
+          } catch {
+            /* ignore */
+          }
+        }
+        return
+      }
+
       if (payload.kind === SIGNAL_KIND.offer) {
-        let pc = pcRef.current
+        let pc = soloPcRef.current
         if (!pc) {
           if (!stream) return
           pc = await createPeer(stream, remoteVideo, false)
         }
         await pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
-        remoteReady.current = true
-        await flushCandidates(pc)
+        soloRemoteReady.current = true
+        for (const c of soloPending.current) {
+          try {
+            await pc.addIceCandidate(c)
+          } catch {
+            /* ignore */
+          }
+        }
+        soloPending.current = []
         const answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)
         onSignal({ kind: SIGNAL_KIND.answer, data: answer })
@@ -188,19 +324,26 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
       }
 
       if (payload.kind === SIGNAL_KIND.answer) {
-        const pc = pcRef.current
+        const pc = soloPcRef.current
         if (!pc) return
         await pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
-        remoteReady.current = true
-        await flushCandidates(pc)
+        soloRemoteReady.current = true
+        for (const c of soloPending.current) {
+          try {
+            await pc.addIceCandidate(c)
+          } catch {
+            /* ignore */
+          }
+        }
+        soloPending.current = []
         return
       }
 
       if (payload.kind === SIGNAL_KIND.candidate) {
         const candidate = payload.data as RTCIceCandidateInit
-        const pc = pcRef.current
-        if (!pc || !remoteReady.current) {
-          pendingCandidates.current.push(candidate)
+        const pc = soloPcRef.current
+        if (!pc || !soloRemoteReady.current) {
+          soloPending.current.push(candidate)
           return
         }
         try {
@@ -214,17 +357,26 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
   )
 
   const replaceTracks = useCallback((stream: MediaStream) => {
-    const pc = pcRef.current
-    if (!pc) return
-    const senders = pc.getSenders()
-    for (const track of stream.getTracks()) {
-      const sender = senders.find((s) => s.track?.kind === track.kind)
-      if (sender) void sender.replaceTrack(track)
+    const peers = peersRef.current
+    for (const [, peer] of peers) {
+      const senders = peer.pc.getSenders()
+      for (const track of stream.getTracks()) {
+        const sender = senders.find((s) => s.track?.kind === track.kind)
+        if (sender) void sender.replaceTrack(track)
+      }
+    }
+    const pc = soloPcRef.current
+    if (pc) {
+      const senders = pc.getSenders()
+      for (const track of stream.getTracks()) {
+        const sender = senders.find((s) => s.track?.kind === track.kind)
+        if (sender) void sender.replaceTrack(track)
+      }
     }
   }, [])
 
   const restartIce = useCallback(async () => {
-    const pc = pcRef.current
+    const pc = soloPcRef.current
     if (!pc) return
     try {
       setQuality(QUALITY_TIER.connecting)
@@ -238,8 +390,10 @@ export function useWebRTC(onSignal: (payload: SignalPayload) => void) {
   }, [onSignal])
 
   return {
-    pcRef,
+    pcRef: soloPcRef,
+    peersRef,
     createPeer,
+    createMeshPeers,
     handleSignal,
     clear,
     quality,

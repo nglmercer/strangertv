@@ -160,6 +160,18 @@ export const WS_MESSAGE_TYPE = {
   groupInviteSend: 'group:invite:send',
   groupInviteAccept: 'group:invite:accept',
   groupInviteDecline: 'group:invite:decline',
+  // Group match
+  groupMatchCreate: 'group-match:create',
+  groupMatchInvite: 'group-match:invite',
+  groupMatchJoin: 'group-match:join',
+  groupMatchLeave: 'group-match:leave',
+  groupMatchStart: 'group-match:start',
+  groupMatchCreated: 'group-match:created',
+  groupMatchParticipantJoined: 'group-match:participant-joined',
+  groupMatchParticipantLeft: 'group-match:participant-left',
+  groupMatchInviteReceived: 'group-match:invite-received',
+  groupMatchInviteSent: 'group-match:invite-sent',
+  groupMatchMatched: 'group-match:matched',
 } as const
 
 export type WsMessageType = (typeof WS_MESSAGE_TYPE)[keyof typeof WS_MESSAGE_TYPE]
@@ -350,6 +362,9 @@ export const DEFAULT_COUNTRY = 'any'
 export const DEFAULT_LANGUAGE = 'any'
 export const DEFAULT_GENDER = 'any'
 export const DEFAULT_LOCALE = 'en'
+export const DEFAULT_MATCH_MODE = 'solo'
+export const DEFAULT_GROUP_VISIBILITY = 'public'
+export const DEFAULT_MATCH_SCOPE = 'all'
 
 // ---------------------------------------------------------------------------
 // Matchmaking room roles

@@ -525,3 +525,162 @@
   background: var(--bg-input);
   color: var(--text-secondary);
 }
+
+/* Group match mode selector */
+.mode-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.mode-option:hover {
+  border-color: var(--accent);
+}
+
+.mode-option.selected {
+  border-color: var(--accent);
+  background: var(--bg-accent-subtle);
+}
+
+.mode-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.mode-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mode-desc {
+  font-size: 11px;
+  opacity: 0.7;
+  text-align: center;
+}
+
+/* Group config section */
+.group-config {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* Group match lobby */
+.group-lobby .lobby-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.group-lobby .badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.group-lobby .badge.public {
+  background: var(--bg-accent-subtle);
+  color: var(--accent);
+}
+
+.group-lobby .badge.private {
+  background: var(--bg-warning-subtle, #fff3cd);
+  color: var(--warning, #856404);
+}
+
+.group-lobby .room-code {
+  font-family: monospace;
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.lobby-participants {
+  margin: 12px 0;
+}
+
+.lobby-participants h3 {
+  font-size: 13px;
+  margin: 0 0 8px;
+  opacity: 0.7;
+}
+
+.lobby-participants ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lobby-participants li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border-radius: 8px;
+}
+
+.participant-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.participant-name {
+  font-size: 13px;
+}
+
+.lobby-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.lobby-hint {
+  font-size: 12px;
+  opacity: 0.6;
+  margin: 8px 0 0;
+  text-align: center;
+}

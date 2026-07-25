@@ -36,6 +36,7 @@ export function VideoStage({
   onAuthClick,
   onAddFriend,
   onFollow,
+  groupPeers,
 }: {
   t: Messages
   finding: boolean
@@ -61,6 +62,7 @@ export function VideoStage({
   onAuthClick: () => void
   onAddFriend: () => void
   onFollow: () => void
+  groupPeers?: Array<{ userId: number; email?: string; country?: string }>
 }) {
   const emptyTitle = finding ? status || t.searchingTitle : t.idleTitle
   const emptyBody = finding
@@ -80,113 +82,151 @@ export function VideoStage({
     .filter(Boolean)
     .join(' · ')
 
-  // Show actions when local user is logged in and peer is a known account (id and/or email from match).
   const showPeerActions = matched && user && Boolean(peerUserId || peerEmail)
-  //const canDirectSocial = Boolean(peerUserId)
 
   const relationshipLabel =
     relationship === 'friend' ? t.alreadyFriends : relationship === 'following' ? t.following : relationship === 'follower' ? t.follower : null
 
+  const isGroupMatch = matched && groupPeers && groupPeers.length > 1
+
   return (
     <section class="stage" aria-label={t.live}>
-      <div class="video-grid">
-        <article
-          class={`video remote ${finding ? 'is-finding' : ''} ${hasRemote ? 'has-stream' : ''} ${matched && !hasRemote ? 'is-connecting' : ''}`}
-        >
-          <video ref={remoteVideo} autoplay playsinline aria-label={t.labelStranger} />
-          {!hasRemote && (
-            <div class="stage-empty">
-              <StaticNoise opacity={0.55} density={0.6} cellSize={5} />
-              <BrandMark3D />
-              {finding && (
-                <div class="pulse-ring" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
+      <div class={`video-grid ${isGroupMatch ? 'group-mode' : ''}`}>
+        {isGroupMatch ? (
+          <div class="group-participants">
+            <div class="group-participants-grid" style={{ '--peer-count': groupPeers!.length + 1 }}>
+              {groupPeers!.map((peer) => (
+                <article key={peer.userId} class="video remote group-peer has-stream">
+                  <video autoplay playsinline aria-label={peer.email || `User ${peer.userId}`} />
+                  <span class="label">{peer.email ? peer.email.split('@')[0] : `User ${peer.userId}`}</span>
+                  {peer.country && <span class="peer-country">{countryLabel(t, peer.country)}</span>}
+                </article>
+              ))}
+              <article class={`video local ${hasLocalStream ? 'has-stream' : ''}`}>
+                <video ref={localVideo} autoplay playsinline muted aria-label={t.labelYou} />
+                {!hasLocalStream && (
+                  <div class="stage-empty local">
+                    <span class="local-empty-icon" aria-hidden="true">
+                      <Icon d={icons.videoOff} size={40} />
+                    </span>
+                  </div>
+                )}
+                <span class="label">{t.labelYou}</span>
+              </article>
+            </div>
+            {sharedInterests.length > 0 && (
+              <div class="interest-badge" aria-label={t.sharedInterests}>
+                <div class="chips tight">
+                  {sharedInterests.map((tag) => (
+                    <span class="chip on" key={tag}>
+                      {interestLabel(t, tag)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <article
+              class={`video remote ${finding ? 'is-finding' : ''} ${hasRemote ? 'has-stream' : ''} ${matched && !hasRemote ? 'is-connecting' : ''}`}
+            >
+              <video ref={remoteVideo} autoplay playsinline aria-label={t.labelStranger} />
+              {!hasRemote && (
+                <div class="stage-empty">
+                  <StaticNoise opacity={0.55} density={0.6} cellSize={5} />
+                  <BrandMark3D />
+                  {finding && (
+                    <div class="pulse-ring" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  )}
+                  <div class="empty">
+                    <h2>{emptyTitle}</h2>
+                    <p>{emptyBody}</p>
+                  </div>
                 </div>
               )}
-              <div class="empty">
-                <h2>{emptyTitle}</h2>
-                <p>{emptyBody}</p>
-              </div>
-            </div>
-          )}
-          {strangerMeta && <span class="label">{strangerMeta}</span>}
-          {relationshipLabel && matched && (
-            <span class="relationship-badge">{relationshipLabel}</span>
-          )}
-          {showPeerActions && (
-            <div class="peer-actions">
-              {relationship !== 'friend' && (
-                <button
-                  type="button"
-                  class="peer-action"
-                  onClick={onAddFriend}
-                  title={peerUserId ? t.addFriend : peerEmail ? t.peerNotSignedIn : t.addFriend}
-                  disabled={!peerUserId && !peerEmail}
-                >
-                  <Icon d={icons.userPlus} size={14} />
-                  <span>{t.addFriend}</span>
-                </button>
+              {strangerMeta && <span class="label">{strangerMeta}</span>}
+              {relationshipLabel && matched && (
+                <span class="relationship-badge">{relationshipLabel}</span>
               )}
-              {relationship !== 'friend' && relationship !== 'following' && (
-                <button
-                  type="button"
-                  class="peer-action"
-                  onClick={onFollow}
-                  title={peerUserId ? t.follow : t.peerNotSignedIn}
-                  disabled={!peerUserId}
-                >
-                  <Icon d={icons.follow} size={14} />
-                  <span>{t.follow}</span>
-                </button>
-              )}
-            </div>
-          )}
-          {sharedInterests.length > 0 && matched && (
-            <div class="interest-badge" aria-label={t.sharedInterests}>
-              <div class="chips tight">
-                {sharedInterests.map((tag) => (
-                  <span class="chip on" key={tag}>
-                    {interestLabel(t, tag)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {matched && <QualityBadge quality={quality} stats={linkStats} t={t} />}
-        </article>
-
-        <article class={`video local ${hasLocalStream ? 'has-stream' : ''}`}>
-          <video ref={localVideo} autoplay playsinline muted aria-label={t.labelYou} />
-          {!hasLocalStream && (
-            <div class="stage-empty local">
-              <div class="local-empty-layout">
-                <span class="local-empty-icon" aria-hidden="true">
-                  <Icon d={icons.videoOff} size={40} />
-                </span>
-                <p class="local-preview-hint">{t.localPreviewHint}</p>
-                <div class="local-actions">
-                  <button type="button" class="local-action ghost" onClick={onPreferences}>
-                    <Icon d={icons.settings} size={15} />
-                    <span>{t.preferences}</span>
-                  </button>
-                  {user && (
-                    <button type="button" class="local-action ghost" onClick={onSettings}>
-                      <Icon d={icons.eye} size={15} />
-                      <span>{t.settings}</span>
+              {showPeerActions && (
+                <div class="peer-actions">
+                  {relationship !== 'friend' && (
+                    <button
+                      type="button"
+                      class="peer-action"
+                      onClick={onAddFriend}
+                      title={peerUserId ? t.addFriend : peerEmail ? t.peerNotSignedIn : t.addFriend}
+                      disabled={!peerUserId && !peerEmail}
+                    >
+                      <Icon d={icons.userPlus} size={14} />
+                      <span>{t.addFriend}</span>
                     </button>
                   )}
-                  <button type="button" class="local-action" onClick={onAuthClick}>
-                    <Icon d={icons.signOut} size={15} />
-                    <span>{user ? t.signOut : t.signIn}</span>
-                  </button>
+                  {relationship !== 'friend' && relationship !== 'following' && (
+                    <button
+                      type="button"
+                      class="peer-action"
+                      onClick={onFollow}
+                      title={peerUserId ? t.follow : t.peerNotSignedIn}
+                      disabled={!peerUserId}
+                    >
+                      <Icon d={icons.follow} size={14} />
+                      <span>{t.follow}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+              {sharedInterests.length > 0 && matched && (
+              <div class="interest-badge" aria-label={t.sharedInterests}>
+                <div class="chips tight">
+                  {sharedInterests.map((tag) => (
+                    <span class="chip on" key={tag}>
+                      {interestLabel(t, tag)}
+                    </span>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
-          <span class="label">{t.labelYou}</span>
-        </article>
+              )}
+              {matched && <QualityBadge quality={quality} stats={linkStats} t={t} />}
+            </article>
+
+            <article class={`video local ${hasLocalStream ? 'has-stream' : ''}`}>
+              <video ref={localVideo} autoplay playsinline muted aria-label={t.labelYou} />
+              {!hasLocalStream && (
+                <div class="stage-empty local">
+                  <div class="local-empty-layout">
+                    <span class="local-empty-icon" aria-hidden="true">
+                      <Icon d={icons.videoOff} size={40} />
+                    </span>
+                    <p class="local-preview-hint">{t.localPreviewHint}</p>
+                    <div class="local-actions">
+                      <button type="button" class="local-action ghost" onClick={onPreferences}>
+                        <Icon d={icons.settings} size={15} />
+                        <span>{t.preferences}</span>
+                      </button>
+                      {user && (
+                        <button type="button" class="local-action ghost" onClick={onSettings}>
+                          <Icon d={icons.eye} size={15} />
+                          <span>{t.settings}</span>
+                        </button>
+                      )}
+                      <button type="button" class="local-action" onClick={onAuthClick}>
+                        <Icon d={icons.signOut} size={15} />
+                        <span>{user ? t.signOut : t.signIn}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <span class="label">{t.labelYou}</span>
+            </article>
+          </>
+        )}
       </div>
 
       {quality === QUALITY_TIER.failed && matched && (

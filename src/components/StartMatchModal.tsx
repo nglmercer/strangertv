@@ -4,9 +4,12 @@ import {
   INTERESTS,
   MATCH_LANGUAGE_CODES,
   type Gender,
+  type GroupVisibility,
+  type MatchMode,
   type MatchPreferences,
+  type MatchScope,
 } from '../../shared/types'
-import { GENDER, GENDERS } from '../../shared/constants'
+import { DEFAULT_MATCH_MODE, DEFAULT_MATCH_SCOPE, GENDER, GENDERS } from '../../shared/constants'
 import { countryLabel, formatMessage, interestLabel, matchLangLabel, type Messages } from '../i18n'
 import {
   getStartWizardStep,
@@ -49,11 +52,14 @@ export function StartMatchModal({
   errorCode: MediaErrorCode | null
   acquiring: boolean
   refreshDevices: () => Promise<void>
-  onConfirm: () => void
+  onConfirm: (mode: MatchMode, visibility?: GroupVisibility) => void
   onClose: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [step, setStep] = useState(() => getStartWizardStep())
+  const [step, setStep] = useState(() => Math.max(0, getStartWizardStep() - 1))
+  const [mode, setMode] = useState<MatchMode>(prefs.mode ?? DEFAULT_MATCH_MODE)
+  const [visibility, setVisibility] = useState<GroupVisibility>('public')
+  const [matchScope, setMatchScope] = useState<MatchScope>(prefs.matchScope ?? DEFAULT_MATCH_SCOPE)
   const [needStreamHint, setNeedStreamHint] = useState(false)
 
   const tryStream = () => {
@@ -63,10 +69,8 @@ export function StartMatchModal({
   }
 
   useEffect(() => {
-    if (step < 1) return
+    if (step < 2) return
     tryStream()
-    // Only when entering device step — device picks go through onDeviceChange/switchDevice
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
   useEffect(() => {
@@ -83,6 +87,8 @@ export function StartMatchModal({
   const genderLabel = (g: Gender) =>
     g === GENDER.male ? t.male : g === GENDER.female ? t.female : g === GENDER.other ? t.other : t.any
 
+  const goDevices = () => setStep(1)
+
   const goPrefs = () => {
     if (!stream) {
       setNeedStreamHint(true)
@@ -90,27 +96,59 @@ export function StartMatchModal({
       return
     }
     markDevicesReady()
-    setStep(1)
+    setStep(2)
   }
 
   const finish = () => {
+    const finalPrefs: MatchPreferences = { ...prefs, mode, matchScope }
+    setPrefs(finalPrefs)
     markMatchSetupComplete()
-    onConfirm()
+    onConfirm(mode, mode === 'group' ? visibility : undefined)
   }
 
   const toggleAllowSameUsers = () => {
     setPrefs({ ...prefs, allowMatchWithSameUsers: !prefs.allowMatchWithSameUsers })
   }
 
+  const totalSteps = 3
+
   return (
     <Modal onClose={onClose} className="modal start-modal" labelledBy="start-title">
       <button type="button" class="modal-close" onClick={onClose} aria-label={t.close}>
         ×
       </button>
-      <p class="eyebrow">{formatMessage(t.stepOf, { current: step + 1, total: 2 })}</p>
+      <p class="eyebrow">{formatMessage(t.stepOf, { current: step + 1, total: totalSteps })}</p>
       <h2 id="start-title">{t.startTitle}</h2>
 
       {step === 0 && (
+        <>
+          <div class="mode-selector">
+            <button
+              type="button"
+              class={`mode-option ${mode === 'solo' ? 'selected' : ''}`}
+              onClick={() => setMode('solo')}
+            >
+              <span class="mode-icon">◎</span>
+              <span class="mode-name">{t.soloMatch ?? 'Solo'}</span>
+              <span class="mode-desc">{t.soloMatchDesc ?? 'Random 1-on-1 match with strangers'}</span>
+            </button>
+            <button
+              type="button"
+              class={`mode-option ${mode === 'group' ? 'selected' : ''}`}
+              onClick={() => setMode('group')}
+            >
+              <span class="mode-icon">⊞</span>
+              <span class="mode-name">{t.groupMatch ?? 'Group'}</span>
+              <span class="mode-desc">{t.groupMatchDesc ?? 'Invite friends and match together'}</span>
+            </button>
+          </div>
+          <button class="match full" onClick={goDevices}>
+            {t.nextBtn}
+          </button>
+        </>
+      )}
+
+      {step === 1 && (
         <>
           <div class="preview-wrap">
             <video ref={videoRef} autoplay playsinline muted class="preview-video" />
@@ -135,7 +173,7 @@ export function StartMatchModal({
         </>
       )}
 
-      {step === 1 && (
+      {step === 2 && (
         <>
           <label>
             {t.country}
@@ -190,6 +228,43 @@ export function StartMatchModal({
               </button>
             ))}
           </div>
+          {mode === 'group' && (
+            <div class="group-config">
+              <label class="toggle-label">
+                <span>{t.groupVisibility ?? 'Group visibility'}</span>
+                <div class="radio-group">
+                  <label class="radio-label">
+                    <input
+                      type="radio"
+                      name="visibility"
+                      checked={visibility === 'public'}
+                      onChange={() => setVisibility('public')}
+                    />
+                    <span>{t.public ?? 'Public'}</span>
+                  </label>
+                  <label class="radio-label">
+                    <input
+                      type="radio"
+                      name="visibility"
+                      checked={visibility === 'private'}
+                      onChange={() => setVisibility('private')}
+                    />
+                    <span>{t.private ?? 'Private'}</span>
+                  </label>
+                </div>
+              </label>
+              {visibility === 'public' && (
+                <label class="toggle-label">
+                  <span>{t.matchScope ?? 'Match with'}</span>
+                  <select value={matchScope} onChange={(e) => setMatchScope(e.currentTarget.value as MatchScope)}>
+                    <option value="all">{t.matchScopeAll ?? 'All (solo + groups)'}</option>
+                    <option value="solo">{t.matchScopeSolo ?? 'Solo users only'}</option>
+                    <option value="group">{t.matchScopeGroup ?? 'Groups only'}</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          )}
           <label class="toggle-label">
             <input
               type="checkbox"
@@ -199,7 +274,7 @@ export function StartMatchModal({
             <span>{t.allowMatchWithSameUsers}</span>
           </label>
           <button class="match full" onClick={finish}>
-            {t.continueAnon}
+            {mode === 'group' ? (t.startGroupMatch ?? 'Start Group Match') : t.continueAnon}
           </button>
         </>
       )}

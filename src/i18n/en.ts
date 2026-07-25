@@ -411,6 +411,25 @@ Conversations are not private from your peer; treat strangers carefully.`,
   groupInviteAccepted: 'Joined the group',
   groupInviteDeclined: 'Group invite declined',
   noGroupsToInvite: 'No groups yet. Create one first!',
+  // Group match mode
+  soloMatch: 'Solo',
+  soloMatchDesc: 'Random 1-on-1 match with strangers',
+  groupMatch: 'Group',
+  groupMatchDesc: 'Invite friends and match together',
+  groupMatchLobby: 'Group Match Lobby',
+  groupVisibility: 'Group visibility',
+  matchScope: 'Match with',
+  matchScopeAll: 'All (solo + groups)',
+  matchScopeSolo: 'Solo users only',
+  matchScopeGroup: 'Groups only',
+  startGroupMatch: 'Start Group Match',
+  inviteFriends: 'Invite Friends',
+  startMatching: 'Start Matching',
+  groupNeedMoreParticipants: 'Invite at least 1 friend to start matching',
+  participants: 'Participants',
+  // SharedPrefs
+  public: 'Public',
+  private: 'Private',
 }
 
 export type Messages = {

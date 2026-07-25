@@ -1,5 +1,5 @@
 import type { Gender, MatchPreferences, Friend, Follow, Invitation, Message, Group, GroupMember, GroupMessage, GroupInvite } from '../shared/types'
-import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
+import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_MODE, DEFAULT_MATCH_SCOPE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
   clearSession,
@@ -142,8 +142,7 @@ export function wsUrl() {
 }
 
 export function loadPrefs(): MatchPreferences {
-  const stored = getJSON<MatchPreferences | null>(STORAGE_KEYS.prefs, null)
-  if (stored) return stored
+  const stored = getJSON<Partial<MatchPreferences> | null>(STORAGE_KEYS.prefs, null)
   return {
     country: DEFAULT_COUNTRY,
     language: DEFAULT_LANGUAGE,
@@ -151,6 +150,9 @@ export function loadPrefs(): MatchPreferences {
     lookingFor: DEFAULT_GENDER,
     interests: [],
     allowMatchWithSameUsers: true,
+    mode: DEFAULT_MATCH_MODE,
+    matchScope: DEFAULT_MATCH_SCOPE,
+    ...stored,
   }
 }
 

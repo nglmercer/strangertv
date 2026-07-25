@@ -1,8 +1,10 @@
-import type { Gender, MatchPreferences, Role, ServerMessage } from '../shared/types'
+import type { Gender, GroupVisibility, MatchMode, MatchPreferences, MatchScope, Role, ServerMessage } from '../shared/types'
 import {
   DEFAULT_COUNTRY,
   DEFAULT_GENDER,
   DEFAULT_LANGUAGE,
+  DEFAULT_MATCH_MODE,
+  DEFAULT_MATCH_SCOPE,
   GENDERS,
   METRIC_NAMES,
   PEER_LEFT_REASON,
@@ -36,20 +38,35 @@ export type Room = {
   aUserId?: number
   bUserId?: number
   createdAt: number
+  mode?: MatchMode
+  participants?: Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>
 }
 
-const waiting: QueuePeer[] = []
+export type GroupRoom = {
+  id: string
+  hostSocket: SocketLike
+  hostUserId?: number
+  hostEmail?: string
+  visibility: GroupVisibility
+  scope: MatchScope
+  preferences: MatchPreferences
+  participants: Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string }>
+  createdAt: number
+  inQueue: boolean
+}
+
+const waitingPeers: QueuePeer[] = []
+const waitingGroups: GroupRoom[] = []
 const partners = new Map<SocketLike, SocketLike>()
 const roomsBySocket = new Map<SocketLike, Room>()
+const groupRoomsBySocket = new Map<SocketLike, GroupRoom>()
+const groupRoomsById = new Map<string, GroupRoom>()
 const peerMeta = new Map<SocketLike, QueuePeer>()
-const blockedPairs = new Set<string>() // "minId:maxId"
-/** Recent matches: key userA:userB or sessionA:sessionB → expiry ms */
+const blockedPairs = new Set<string>()
 const recentPairs = new Map<string, number>()
 const RECENT_COOLDOWN_MS = Number(process.env.REMATCH_COOLDOWN_MS ?? 10 * 60_000)
-/** userId → Set<SocketLike> for real-time notifications */
 const userSockets = new Map<number, Set<SocketLike>>()
 
-/** Canonical unordered key for a pair of identifiers (smaller first). */
 function pairKey(prefix: string, a: string | number, b: string | number) {
   return a < b ? `${prefix}:${a}:${b}` : `${prefix}:${b}:${a}`
 }
@@ -89,7 +106,6 @@ function rememberPair(a: QueuePeer, b: QueuePeer) {
   const until = Date.now() + RECENT_COOLDOWN_MS
   if (a.userId && b.userId) recentPairs.set(pairKeyUsers(a.userId, b.userId), until)
   recentPairs.set(pairKeySessions(a.sessionKey, b.sessionKey), until)
-  // prune occasionally
   if (recentPairs.size > 5000) {
     for (const [k, exp] of recentPairs) {
       if (exp <= Date.now()) recentPairs.delete(k)
@@ -101,7 +117,6 @@ export function rematchCooldownMs() {
   return RECENT_COOLDOWN_MS
 }
 
-/** Hydrate in-memory block set from DB rows. */
 export function hydrateBlocks(rows: Array<{ blocker_id: unknown; blocked_id: unknown }>) {
   for (const row of rows) {
     const a = Number(row.blocker_id)
@@ -170,6 +185,47 @@ function score(a: QueuePeer, b: QueuePeer) {
   return interestScore(a.preferences.interests, b.preferences.interests)
 }
 
+function groupPeerCompatible(peer: QueuePeer, group: GroupRoom): boolean {
+  for (const [, participant] of group.participants) {
+    const pp: QueuePeer = {
+      socket: null as unknown as SocketLike,
+      preferences: participant.preferences,
+      userId: participant.userId,
+      email: participant.email,
+      sessionKey: participant.sessionKey,
+      joinedAt: 0,
+      lastBeat: 0,
+    }
+    if (!compatible(peer, pp)) return false
+  }
+  return true
+}
+
+function groupToGroupCompatible(a: GroupRoom, b: GroupRoom): boolean {
+  for (const [, pa] of a.participants) {
+    for (const [, pb] of b.participants) {
+      const peerA: QueuePeer = {
+        socket: null as unknown as SocketLike,
+        preferences: pa.preferences,
+        userId: pa.userId,
+        sessionKey: pa.sessionKey,
+        joinedAt: 0,
+        lastBeat: 0,
+      }
+      const peerB: QueuePeer = {
+        socket: null as unknown as SocketLike,
+        preferences: pb.preferences,
+        userId: pb.userId,
+        sessionKey: pb.sessionKey,
+        joinedAt: 0,
+        lastBeat: 0,
+      }
+      if (!compatible(peerA, peerB)) return false
+    }
+  }
+  return true
+}
+
 export function normalizePreferences(raw: unknown): MatchPreferences | null {
   if (!raw || typeof raw !== 'object') return null
   const p = raw as Record<string, unknown>
@@ -181,12 +237,67 @@ export function normalizePreferences(raw: unknown): MatchPreferences | null {
     ? p.interests.filter((x): x is string => typeof x === 'string').slice(0, 10)
     : []
   const allowMatchWithSameUsers = typeof p.allowMatchWithSameUsers === 'boolean' ? p.allowMatchWithSameUsers : true
-  return { country, language, gender, lookingFor, interests, allowMatchWithSameUsers }
+  const mode = p.mode === 'group' ? 'group' : DEFAULT_MATCH_MODE
+  const matchScope = p.matchScope === 'solo' || p.matchScope === 'group' ? p.matchScope : DEFAULT_MATCH_SCOPE
+  return { country, language, gender, lookingFor, interests, allowMatchWithSameUsers, mode, matchScope }
 }
 
 export function removeFromQueue(socket: SocketLike) {
-  const idx = waiting.findIndex((p) => p.socket === socket)
-  if (idx >= 0) waiting.splice(idx, 1)
+  const idx = waitingPeers.findIndex((p) => p.socket === socket)
+  if (idx >= 0) waitingPeers.splice(idx, 1)
+  const grpIdx = waitingGroups.findIndex((g) => g.hostSocket === socket)
+  if (grpIdx >= 0) {
+    const group = waitingGroups[grpIdx]!
+    if (group.inQueue) {
+      waitingGroups.splice(grpIdx, 1)
+      group.inQueue = false
+    }
+  }
+}
+
+export function leaveGroup(socket: SocketLike, reason?: string): GroupRoom | undefined {
+  const group = groupRoomsBySocket.get(socket)
+  if (!group) return undefined
+
+  const participant = group.participants.get(socket)
+  group.participants.delete(socket)
+  groupRoomsBySocket.delete(socket)
+
+  if (participant?.userId) unregisterUserSocket(participant.userId, socket)
+
+  if (group.hostSocket === socket) {
+    for (const [, p] of group.participants) {
+      groupRoomsBySocket.delete(p['socket' as keyof typeof p] as unknown as SocketLike)
+    }
+    const participantSockets = Array.from(group.participants.keys())
+    for (const sock of participantSockets) {
+      send(sock, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason: reason || 'host-left' })
+      groupRoomsBySocket.delete(sock)
+    }
+    group.participants.clear()
+    if (group.inQueue) {
+      const idx = waitingGroups.indexOf(group)
+      if (idx >= 0) waitingGroups.splice(idx, 1)
+      group.inQueue = false
+    }
+    groupRoomsById.delete(group.id)
+    return group
+  }
+
+  for (const [sock] of group.participants) {
+    send(sock, { type: WS_MESSAGE_TYPE.groupMatchParticipantLeft, roomId: group.id, userId: participant?.userId ?? 0 })
+  }
+
+  if (group.participants.size === 0) {
+    if (group.inQueue) {
+      const idx = waitingGroups.indexOf(group)
+      if (idx >= 0) waitingGroups.splice(idx, 1)
+      group.inQueue = false
+    }
+    groupRoomsById.delete(group.id)
+  }
+
+  return group
 }
 
 export function leaveRoom(socket: SocketLike, notifyPartner = true, reason?: string) {
@@ -213,17 +324,22 @@ export function fullRemove(socket: SocketLike) {
   const meta = peerMeta.get(socket)
   if (meta?.userId) unregisterUserSocket(meta.userId, socket)
   removeFromQueue(socket)
+  leaveGroup(socket, PEER_LEFT_REASON.disconnect)
   leaveRoom(socket, true, PEER_LEFT_REASON.disconnect)
 }
 
 export function queueStats() {
-  return { waiting: waiting.length, online: partners.size + waiting.length }
+  const groupParticipants = waitingGroups.reduce((sum, g) => sum + g.participants.size, 0)
+  return { waiting: waitingPeers.length + groupParticipants, online: partners.size + waitingPeers.length + groupParticipants }
 }
 
 export function broadcastStats() {
   const stats = queueStats()
   const msg: ServerMessage = { type: WS_MESSAGE_TYPE.stats, online: stats.online, waiting: stats.waiting }
-  for (const peer of waiting) send(peer.socket, msg)
+  for (const peer of waitingPeers) send(peer.socket, msg)
+  for (const group of waitingGroups) {
+    for (const [sock] of group.participants) send(sock, msg)
+  }
   for (const socket of partners.keys()) send(socket, msg)
 }
 
@@ -233,6 +349,12 @@ function newRoomId() {
   return `room_${Date.now().toString(36)}_${roomSeq}`
 }
 
+let groupRoomSeq = 0
+function newGroupRoomId() {
+  groupRoomSeq += 1
+  return `groom_${Date.now().toString(36)}_${groupRoomSeq}`
+}
+
 export async function joinQueue(
   socket: SocketLike,
   preferences: MatchPreferences,
@@ -240,6 +362,7 @@ export async function joinQueue(
 ) {
   removeFromQueue(socket)
   leaveRoom(socket, true, PEER_LEFT_REASON.requeue)
+  leaveGroup(socket, PEER_LEFT_REASON.requeue)
 
   const self: QueuePeer = {
     socket,
@@ -255,8 +378,8 @@ export async function joinQueue(
 
   let bestIdx = -1
   let bestScore = -1
-  for (let i = 0; i < waiting.length; i++) {
-    const candidate = waiting[i]!
+  for (let i = 0; i < waitingPeers.length; i++) {
+    const candidate = waitingPeers[i]!
     if (!compatible(self, candidate)) continue
     const s = score(self, candidate)
     if (s > bestScore) {
@@ -266,7 +389,7 @@ export async function joinQueue(
   }
 
   if (bestIdx >= 0) {
-    const partner = waiting.splice(bestIdx, 1)[0]!
+    const partner = waitingPeers.splice(bestIdx, 1)[0]!
     rememberPair(self, partner)
     const room: Room = {
       id: newRoomId(),
@@ -275,6 +398,7 @@ export async function joinQueue(
       aUserId: self.userId,
       bUserId: partner.userId,
       createdAt: Date.now(),
+      mode: 'solo',
     }
     partners.set(socket, partner.socket)
     partners.set(partner.socket, socket)
@@ -317,27 +441,270 @@ export async function joinQueue(
     return
   }
 
-  waiting.push(self)
+  waitingPeers.push(self)
   inc(METRIC_NAMES.queueJoins)
   send(socket, {
     type: WS_MESSAGE_TYPE.queueWaiting,
-    position: waiting.length,
+    position: waitingPeers.length,
     online: queueStats().online,
   })
   broadcastStats()
 }
 
+export function createGroupMatchRoom(
+  socket: SocketLike,
+  visibility: GroupVisibility,
+  preferences: MatchPreferences,
+  opts: { userId?: number; email?: string; sessionKey: string },
+): string {
+  leaveGroup(socket)
+  leaveRoom(socket, true, PEER_LEFT_REASON.requeue)
+
+  const roomId = newGroupRoomId()
+  const participants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string }>()
+  participants.set(socket, {
+    userId: opts.userId,
+    email: opts.email,
+    preferences,
+    sessionKey: opts.sessionKey,
+  })
+
+  const group: GroupRoom = {
+    id: roomId,
+    hostSocket: socket,
+    hostUserId: opts.userId,
+    hostEmail: opts.email,
+    visibility,
+    scope: preferences.matchScope,
+    preferences,
+    participants,
+    createdAt: Date.now(),
+    inQueue: false,
+  }
+
+  groupRoomsBySocket.set(socket, group)
+  groupRoomsById.set(roomId, group)
+
+  if (opts.userId) registerUserSocket(opts.userId, socket)
+
+  send(socket, { type: WS_MESSAGE_TYPE.groupMatchCreated, roomId, visibility })
+  return roomId
+}
+
+export function addParticipantToGroup(
+  group: GroupRoom,
+  socket: SocketLike,
+  opts: { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string },
+) {
+  group.participants.set(socket, opts)
+  groupRoomsBySocket.set(socket, group)
+  if (opts.userId) registerUserSocket(opts.userId, socket)
+  for (const [sock, p] of group.participants) {
+    if (sock !== socket) {
+      send(sock, { type: WS_MESSAGE_TYPE.groupMatchParticipantJoined, roomId: group.id, userId: opts.userId ?? 0, email: opts.email })
+    }
+  }
+  send(socket, { type: WS_MESSAGE_TYPE.groupMatchCreated, roomId: group.id, visibility: group.visibility })
+}
+
+export function startGroupMatch(group: GroupRoom) {
+  if (group.visibility === 'private') return
+  if (group.participants.size < 2) return
+  if (group.inQueue) return
+  group.inQueue = true
+  waitingGroups.push(group)
+
+  for (const [sock] of group.participants) {
+    send(sock, {
+      type: WS_MESSAGE_TYPE.queueWaiting,
+      position: waitingGroups.length,
+      online: queueStats().online,
+    })
+  }
+
+  tryMatchGroup(group)
+}
+
+function tryMatchGroup(group: GroupRoom) {
+  if (!group.inQueue) return
+
+  let bestGroup: GroupRoom | null = null
+  let bestScore = -1
+
+  for (const candidate of waitingGroups) {
+    if (candidate === group) continue
+    if (!groupToGroupCompatible(group, candidate)) continue
+    const s = computeGroupPairScore(group, candidate)
+    if (s > bestScore) {
+      bestScore = s
+      bestGroup = candidate
+    }
+  }
+
+  if (bestGroup) {
+    mergeGroupsAndMatch(group, bestGroup)
+    return
+  }
+
+  if (group.scope === 'group') return
+
+  const peer = findBestSoloForGroup(group)
+  if (peer) {
+    mergeSoloWithGroup(peer, group)
+  }
+}
+
+function computeGroupPairScore(a: GroupRoom, b: GroupRoom): number {
+  let total = 0
+  for (const [, pa] of a.participants) {
+    for (const [, pb] of b.participants) {
+      total += interestScore(pa.preferences.interests, pb.preferences.interests)
+    }
+  }
+  return total
+}
+
+function findBestSoloForGroup(group: GroupRoom): QueuePeer | null {
+  let best: QueuePeer | null = null
+  let bestScore = -1
+  for (const candidate of waitingPeers) {
+    if (!groupPeerCompatible(candidate, group)) continue
+    const groupPrefs = aggregateGroupPreferences(group)
+    const candidatePeer: QueuePeer = { ...candidate, preferences: candidate.preferences }
+    const groupPeer: QueuePeer = {
+      socket: null as unknown as SocketLike,
+      preferences: groupPrefs,
+      joinedAt: 0,
+      lastBeat: 0,
+      sessionKey: '',
+    }
+    if (!compatible(candidatePeer, groupPeer)) continue
+    const s = score(candidatePeer, groupPeer)
+    if (s > bestScore) {
+      bestScore = s
+      best = candidate
+    }
+  }
+  return best
+}
+
+function aggregateGroupPreferences(group: GroupRoom): MatchPreferences {
+  const allInterests = new Set<string>()
+  let country = DEFAULT_COUNTRY
+  let language = DEFAULT_LANGUAGE
+  for (const [, p] of group.participants) {
+    p.preferences.interests.forEach((i) => allInterests.add(i))
+    if (p.preferences.country !== DEFAULT_COUNTRY) country = p.preferences.country
+    if (p.preferences.language !== DEFAULT_LANGUAGE) language = p.preferences.language
+  }
+  return {
+    country,
+    language,
+    gender: group.preferences.gender,
+    lookingFor: group.preferences.lookingFor,
+    interests: Array.from(allInterests).slice(0, 10),
+    allowMatchWithSameUsers: true,
+    mode: 'group',
+    matchScope: group.scope,
+  }
+}
+
+function mergeSoloWithGroup(peer: QueuePeer, group: GroupRoom) {
+  const idx = waitingPeers.indexOf(peer)
+  if (idx >= 0) waitingPeers.splice(idx, 1)
+  const gIdx = waitingGroups.indexOf(group)
+  if (gIdx >= 0) waitingGroups.splice(gIdx, 1)
+  group.inQueue = false
+
+  const allParticipants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>()
+  for (const [sock, p] of group.participants) {
+    allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
+  }
+  allParticipants.set(peer.socket, { userId: peer.userId, email: peer.email, preferences: peer.preferences })
+
+  const sharedInterests = computeSharedInterests(allParticipants)
+  notifyGroupMatch(allParticipants, sharedInterests)
+
+  if (peer.userId) rememberPair(peer, { ...group.hostSocket as unknown as QueuePeer, preferences: group.preferences, sessionKey: '' })
+}
+
+function mergeGroupsAndMatch(a: GroupRoom, b: GroupRoom) {
+  const aIdx = waitingGroups.indexOf(a)
+  if (aIdx >= 0) waitingGroups.splice(aIdx, 1)
+  const bIdx = waitingGroups.indexOf(b)
+  if (bIdx >= 0) waitingGroups.splice(bIdx, 1)
+  a.inQueue = false
+  b.inQueue = false
+
+  const allParticipants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>()
+  for (const [sock, p] of a.participants) {
+    allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
+  }
+  for (const [sock, p] of b.participants) {
+    allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
+  }
+
+  const sharedInterests = computeSharedInterests(allParticipants)
+  notifyGroupMatch(allParticipants, sharedInterests)
+}
+
+function computeSharedInterests(participants: Map<SocketLike, { preferences: MatchPreferences }>): string[] {
+  const counts = new Map<string, number>()
+  let total = 0
+  for (const [, p] of participants) {
+    total++
+    for (const interest of p.preferences.interests) {
+      counts.set(interest, (counts.get(interest) ?? 0) + 1)
+    }
+  }
+  const result: string[] = []
+  for (const [interest, count] of counts) {
+    if (count >= total * 0.5) result.push(interest)
+  }
+  return result
+}
+
+function notifyGroupMatch(
+  participants: Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>,
+  sharedInterests: string[],
+) {
+  const participantList = Array.from(participants.entries()).map(([sock, p]) => ({
+    socket: sock,
+    userId: p.userId ?? 0,
+    email: p.email,
+    preferences: p.preferences,
+  }))
+
+  for (const self of participantList) {
+    const peers = participantList
+      .filter((p) => p.socket !== self.socket)
+      .map((p) => ({
+        userId: p.userId,
+        email: p.email,
+        country: p.preferences.country !== DEFAULT_COUNTRY ? p.preferences.country : undefined,
+        role: (self.userId < p.userId ? ROLE.offerer : ROLE.answerer) as Role,
+      }))
+
+    send(self.socket, {
+      type: WS_MESSAGE_TYPE.groupMatchMatched,
+      roomId: newRoomId(),
+      role: self.userId === Math.min(...participantList.map((p) => p.userId)) ? ROLE.offerer : ROLE.answerer,
+      peers,
+      sharedInterests,
+    })
+  }
+}
+
 export function heartbeat(socket: SocketLike) {
   const meta = peerMeta.get(socket)
   if (meta) meta.lastBeat = Date.now()
-  const inQueue = waiting.find((p) => p.socket === socket)
+  const inQueue = waitingPeers.find((p) => p.socket === socket)
   if (inQueue) inQueue.lastBeat = Date.now()
 }
 
 export function getSocketForUser(userId: number): SocketLike | undefined {
   const sockets = userSockets.get(userId)
   if (!sockets) return undefined
-  // Return the first connected socket
   for (const socket of sockets) {
     if (socket.readyState === 1) return socket
   }
@@ -362,17 +729,24 @@ export function getRoom(socket: SocketLike) {
   return roomsBySocket.get(socket)
 }
 
+export function getGroupRoom(socket: SocketLike): GroupRoom | undefined {
+  return groupRoomsBySocket.get(socket)
+}
+
+export function getGroupRoomById(roomId: string): GroupRoom | undefined {
+  return groupRoomsById.get(roomId)
+}
+
 export function getMeta(socket: SocketLike) {
   return peerMeta.get(socket)
 }
 
-/** Drop queue entries that stopped heartbeating */
 export function purgeStale(maxAgeMs = 45_000) {
   const now = Date.now()
-  for (let i = waiting.length - 1; i >= 0; i--) {
-    const peer = waiting[i]!
+  for (let i = waitingPeers.length - 1; i >= 0; i--) {
+    const peer = waitingPeers[i]!
     if (now - peer.lastBeat > maxAgeMs) {
-      waiting.splice(i, 1)
+      waitingPeers.splice(i, 1)
       send(peer.socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.queueTimeout, message: 'Queue timed out. Try again.' })
       peerMeta.delete(peer.socket)
     }

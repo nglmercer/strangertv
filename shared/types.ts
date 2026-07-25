@@ -9,6 +9,23 @@ export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
 export type RelationshipStatus = 'none' | 'friend' | 'following' | 'follower'
 export type GroupRole = 'admin' | 'member'
 
+/** Match mode: solo (1-on-1 random) or group (multi-party with friends). */
+export type MatchMode = 'solo' | 'group'
+
+/** Group visibility: public (can be randomly matched) or private (invite-only). */
+export type GroupVisibility = 'public' | 'private'
+
+/** Who to match a group with. */
+export type MatchScope = 'all' | 'solo' | 'group'
+
+/** Participant info in a group match room. */
+export type GroupMatchPeer = {
+  userId: number
+  email?: string
+  country?: string
+  role: Role
+}
+
 /** Minimal public user profile shared between client and server. */
 export type PublicUser = {
   id: number
@@ -28,6 +45,8 @@ export type MatchPreferences = {
   lookingFor: Gender
   interests: string[]
   allowMatchWithSameUsers: boolean
+  mode: MatchMode
+  matchScope: MatchScope
 }
 
 export type ReportReason =
@@ -123,7 +142,7 @@ export type ClientMessage =
   | { type: 'queue:heartbeat' }
   | { type: 'room:next'; preferences: MatchPreferences; token?: string }
   | { type: 'room:leave' }
-  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown } }
+  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number }
   | { type: 'chat'; payload: { text: string; time: string } }
   | { type: 'report'; reason: ReportReason; detail?: string }
   | { type: 'block' }
@@ -142,6 +161,11 @@ export type ClientMessage =
   | { type: 'group:invite:send'; groupId: number; userId: number }
   | { type: 'group:invite:accept'; inviteId: number }
   | { type: 'group:invite:decline'; inviteId: number }
+  | { type: 'group-match:create'; visibility: GroupVisibility; preferences: MatchPreferences; token?: string }
+  | { type: 'group-match:invite'; roomId: string; userId: number }
+  | { type: 'group-match:join'; roomId: string; token?: string }
+  | { type: 'group-match:leave' }
+  | { type: 'group-match:start'; roomId: string }
   | {
       type: 'telemetry:quality'
       roomId?: string
@@ -163,7 +187,7 @@ export type ServerMessage =
       relationship?: RelationshipStatus
     }
   | { type: 'room:peer-left'; reason?: string }
-  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown } }
+  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number }
   | { type: 'chat'; payload: { text: string; time: string } }
   | { type: 'stats'; online: number; waiting: number }
   | { type: 'error'; code: string; message: string }
@@ -194,6 +218,18 @@ export type ServerMessage =
     }
   | { type: 'group:invite:accepted'; inviteId: number; groupId: number; userId: number }
   | { type: 'group:invite:declined'; inviteId: number; groupId: number; userId: number }
+  | { type: 'group-match:created'; roomId: string; visibility: GroupVisibility }
+  | { type: 'group-match:participant-joined'; roomId: string; userId: number; email?: string }
+  | { type: 'group-match:participant-left'; roomId: string; userId: number }
+  | { type: 'group-match:invite-received'; roomId: string; host: PublicUser }
+  | { type: 'group-match:invite-sent'; userId: number }
+  | {
+      type: 'group-match:matched'
+      roomId: string
+      role: Role
+      peers: GroupMatchPeer[]
+      sharedInterests: string[]
+    }
 
 /** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [

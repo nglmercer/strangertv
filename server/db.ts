@@ -248,4 +248,38 @@ export async function migrate() {
   } catch {
     /* column exists */
   }
+
+  // Group match rooms table — multi-party match rooms
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS group_match_rooms (
+      id TEXT PRIMARY KEY,
+      host_user_id INTEGER NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'public',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      matched_room_id TEXT,
+      FOREIGN KEY (host_user_id) REFERENCES users(id)
+    )
+  `)
+
+  // Group match participants
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS group_match_participants (
+      room_id TEXT NOT NULL,
+      user_id INTEGER NOT NULL,
+      email TEXT,
+      session_key TEXT,
+      joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (room_id, user_id),
+      FOREIGN KEY (room_id) REFERENCES group_match_rooms(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `)
+
+  // Add context column to invitations for group-match invitations
+  try {
+    await db.execute(`ALTER TABLE invitations ADD COLUMN context TEXT DEFAULT 'match'`)
+  } catch {
+    /* column exists */
+  }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { getToken, wsUrl } from '../api'
-import type { ClientMessage, GroupMessage, MatchPreferences, Message, PublicUser, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
+import type { ClientMessage, GroupMatchPeer, GroupMessage, GroupVisibility, MatchPreferences, MatchScope, Message, PublicUser, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
 import { WS_MESSAGE_TYPE, TIMING_MS } from '../../shared/constants'
 
 type Handlers = {
@@ -11,7 +11,7 @@ type Handlers = {
     meta?: { peerCountry?: string; peerEmail?: string; peerUserId?: number; sharedInterests?: string[]; relationship?: RelationshipStatus },
   ) => void
   onPeerLeft?: (reason?: string) => void
-  onSignal?: (payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }) => void
+  onSignal?: (payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, fromUserId?: number) => void
   onChat?: (text: string, time: string) => void
   onStats?: (online: number, waiting: number) => void
   onError?: (code: string, message: string) => void
@@ -28,6 +28,12 @@ type Handlers = {
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
   onGroupInviteDeclined?: (inviteId: number, groupId: number, userId: number) => void
+  onGroupMatchCreated?: (roomId: string, visibility: GroupVisibility) => void
+  onGroupMatchParticipantJoined?: (roomId: string, userId: number, email?: string) => void
+  onGroupMatchParticipantLeft?: (roomId: string, userId: number) => void
+  onGroupMatchInviteReceived?: (roomId: string, host: PublicUser) => void
+  onGroupMatchInviteSent?: (userId: number) => void
+  onGroupMatchMatched?: (roomId: string, role: Role, peers: GroupMatchPeer[], sharedInterests: string[]) => void
 }
 
 export function useMatchSocket(handlers: Handlers) {
@@ -49,6 +55,12 @@ export function useMatchSocket(handlers: Handlers) {
       socket.current.send(JSON.stringify(message))
     }
   }, [])
+
+  const sendSignal = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, targetUserId?: number) => {
+    const msg: any = { type: WS_MESSAGE_TYPE.signal, payload }
+    if (targetUserId != null) msg.targetUserId = targetUserId
+    send(msg)
+  }, [send])
 
   const ensureSocket = useCallback(() => {
     if (socket.current && socket.current.readyState <= WebSocket.OPEN) return socket.current
@@ -98,7 +110,7 @@ export function useMatchSocket(handlers: Handlers) {
           h.onPeerLeft?.(msg.reason)
           break
         case WS_MESSAGE_TYPE.signal:
-          h.onSignal?.(msg.payload)
+          h.onSignal?.(msg.payload, (msg as any).targetUserId)
           break
         case WS_MESSAGE_TYPE.chat:
           h.onChat?.(msg.payload.text, msg.payload.time)
@@ -147,6 +159,24 @@ export function useMatchSocket(handlers: Handlers) {
           break
         case 'group:invite:declined':
           h.onGroupInviteDeclined?.(msg.inviteId, msg.groupId, msg.userId)
+          break
+        case WS_MESSAGE_TYPE.groupMatchCreated:
+          h.onGroupMatchCreated?.(msg.roomId, msg.visibility)
+          break
+        case WS_MESSAGE_TYPE.groupMatchParticipantJoined:
+          h.onGroupMatchParticipantJoined?.(msg.roomId, msg.userId, msg.email)
+          break
+        case WS_MESSAGE_TYPE.groupMatchParticipantLeft:
+          h.onGroupMatchParticipantLeft?.(msg.roomId, msg.userId)
+          break
+        case WS_MESSAGE_TYPE.groupMatchInviteReceived:
+          h.onGroupMatchInviteReceived?.(msg.roomId, msg.host)
+          break
+        case WS_MESSAGE_TYPE.groupMatchInviteSent:
+          h.onGroupMatchInviteSent?.(msg.userId)
+          break
+        case WS_MESSAGE_TYPE.groupMatchMatched:
+          h.onGroupMatchMatched?.(msg.roomId, msg.role, msg.peers, msg.sharedInterests)
           break
       }
     }
@@ -221,6 +251,43 @@ export function useMatchSocket(handlers: Handlers) {
     [send],
   )
 
+  const groupMatchCreate = useCallback(
+    (visibility: GroupVisibility, preferences: MatchPreferences) => {
+      ensureSocket()
+      send({ type: 'group-match:create', visibility, preferences, token: getToken() ?? undefined })
+    },
+    [ensureSocket, send],
+  )
+
+  const groupMatchInvite = useCallback(
+    (roomId: string, userId: number) => {
+      send({ type: 'group-match:invite', roomId, userId })
+    },
+    [send],
+  )
+
+  const groupMatchJoin = useCallback(
+    (roomId: string) => {
+      ensureSocket()
+      send({ type: 'group-match:join', roomId, token: getToken() ?? undefined })
+    },
+    [ensureSocket, send],
+  )
+
+  const groupMatchStart = useCallback(
+    (roomId: string) => {
+      send({ type: 'group-match:start', roomId })
+    },
+    [send],
+  )
+
+  const groupMatchLeave = useCallback(
+    () => {
+      send({ type: 'group-match:leave' })
+    },
+    [send],
+  )
+
   useEffect(() => {
     ensureSocket()
     return () => {
@@ -230,5 +297,23 @@ export function useMatchSocket(handlers: Handlers) {
     }
   }, [ensureSocket])
 
-  return { send, join, next, leave, report, block, groupInvite, groupInviteAccept, groupInviteDecline, connected, socket }
+  return {
+    send,
+    sendSignal,
+    join,
+    next,
+    leave,
+    report,
+    block,
+    groupInvite,
+    groupInviteAccept,
+    groupInviteDecline,
+    groupMatchCreate,
+    groupMatchInvite,
+    groupMatchJoin,
+    groupMatchStart,
+    groupMatchLeave,
+    connected,
+    socket,
+  }
 }

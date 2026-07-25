@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
-import type { GroupMessage, MatchPreferences, PublicUser, RelationshipStatus } from '../../shared/types'
+import type { GroupMatchPeer, GroupVisibility, MatchMode, MatchPreferences, PublicUser, RelationshipStatus } from '../../shared/types'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
@@ -15,7 +15,7 @@ type Options = {
   tr: Messages
   prefs: MatchPreferences
   onStatus: (s: string) => void
-  onGroupMessage?: (message: GroupMessage) => void
+  onGroupMessage?: (message: any) => void
   onSocialEvent?: (msg: SocialWsEvent) => void
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
@@ -32,10 +32,16 @@ export type SocialWsEvent =
   | { type: 'group:invite'; inviteId: number; groupId: number; groupName: string; inviter: { id: number; email: string } }
   | { type: 'group:invite:accepted'; inviteId: number; groupId: number; userId: number }
   | { type: 'group:invite:declined'; inviteId: number; groupId: number; userId: number }
+  | { type: 'group-match:invite-received'; roomId: string; host: PublicUser }
+  | { type: 'group-match:participant-joined'; roomId: string; userId: number; email?: string }
+  | { type: 'group-match:participant-left'; roomId: string; userId: number }
 
-/**
- * Orchestrates media, signaling socket, WebRTC, queue, chat, and call lifecycle.
- */
+export type GroupMatchParticipant = {
+  userId: number
+  email?: string
+  country?: string
+}
+
 export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
@@ -54,6 +60,11 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const [callSeconds, setCallSeconds] = useState(0)
   const [rateRoomId, setRateRoomId] = useState<string | null>(null)
   const [longWait, setLongWait] = useState(false)
+  const [matchMode, setMatchMode] = useState<MatchMode>('solo')
+  const [groupRoomId, setGroupRoomId] = useState<string | null>(null)
+  const [groupVisibility, setGroupVisibility] = useState<GroupVisibility>('public')
+  const [groupParticipants, setGroupParticipants] = useState<GroupMatchParticipant[]>([])
+  const [groupPeers, setGroupPeers] = useState<GroupMatchPeer[]>([])
 
   const localVideo = useRef<HTMLVideoElement>(null)
   const remoteVideo = useRef<HTMLVideoElement>(null)
@@ -71,14 +82,16 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   findingRef.current = finding
   const matchedRef = useRef(matched)
   matchedRef.current = matched
+  const groupRoomIdRef = useRef(groupRoomId)
+  groupRoomIdRef.current = groupRoomId
 
   const media = useMedia()
   const mediaRef = useRef(media)
   mediaRef.current = media
 
-  const signalOut = useRef<(payload: { kind: SignalKind; data: unknown }) => void>(() => undefined)
-  const onSignalOut = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }) => {
-    signalOut.current(payload)
+  const signalOut = useRef<(payload: { kind: SignalKind; data: unknown }, targetUserId?: number) => void>(() => undefined)
+  const onSignalOut = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, targetUserId?: number) => {
+    signalOut.current(payload, targetUserId)
   }, [])
 
   const webrtc = useWebRTC(onSignalOut)
@@ -95,8 +108,16 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     setPeerEmail(null)
     setPeerUserId(null)
     setRelationship('none')
+    setGroupPeers([])
     matchedAt.current = null
     if (remoteVideo.current) remoteVideo.current.srcObject = null
+  }
+
+  const clearGroupState = () => {
+    setGroupRoomId(null)
+    setGroupVisibility('public')
+    setGroupParticipants([])
+    groupRoomIdRef.current = null
   }
 
   const match = useMatchSocket({
@@ -125,7 +146,6 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       setPeerUserId(meta?.peerUserId ?? null)
       const rel = meta?.relationship ?? 'none'
       setRelationship(rel)
-      // Load previous conversation history for friends/follows
       if (rel !== 'none' && meta?.peerUserId) {
         try {
           const { messages } = await messagesApi.getConversation(meta.peerUserId, 50)
@@ -137,7 +157,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
             })))
           }
         } catch {
-          /* ignore history load errors */
+          /* ignore */
         }
       }
       if (isMatchSoundEnabled()) playMatchSound()
@@ -161,10 +181,16 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       setFinding(true)
       onStatus(t.requeueing)
       setChat([])
-      window.setTimeout(() => matchRef.current?.next(prefsRef.current), TIMING_MS.requeueDelay)
+      window.setTimeout(() => {
+        if (groupRoomIdRef.current) {
+          matchRef.current?.groupMatchStart(groupRoomIdRef.current)
+        } else {
+          matchRef.current?.next(prefsRef.current)
+        }
+      }, TIMING_MS.requeueDelay)
     },
-    onSignal: (payload) => {
-      void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current)
+    onSignal: (payload, fromUserId) => {
+      void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current, fromUserId)
     },
     onChat: (text, time) => setChat((m) => [...m, { text, time, mine: false }]),
     onStats: (onl, wait) => {
@@ -219,11 +245,58 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       onSocialEvent?.({ type: 'group:invite:declined', inviteId, groupId, userId })
       onGroupInviteDeclined?.(inviteId, groupId, userId)
     },
+    onGroupMatchCreated: (id, visibility) => {
+      setGroupRoomId(id)
+      setGroupVisibility(visibility)
+      groupRoomIdRef.current = id
+    },
+    onGroupMatchParticipantJoined: (id, userId, email) => {
+      setGroupParticipants((prev) => [...prev.filter((p) => p.userId !== userId), { userId, email }])
+    },
+    onGroupMatchParticipantLeft: (id, userId) => {
+      setGroupParticipants((prev) => prev.filter((p) => p.userId !== userId))
+    },
+    onGroupMatchInviteReceived: (id, host) => {
+      onSocialEvent?.({ type: 'group-match:invite-received', roomId: id, host })
+    },
+    onGroupMatchInviteSent: () => {
+      /* no-op for now */
+    },
+    onGroupMatchMatched: async (id, role, peers, interests) => {
+      console.debug('[match] group-match:matched', { roomId: id, role, peerCount: peers.length })
+      setRoomId(id)
+      setMatched(true)
+      setGroupPeers(peers)
+      setSharedInterests(interests)
+      waitingSince.current = null
+      setLongWait(false)
+      matchedAt.current = Date.now()
+      setCallSeconds(0)
+      onStatus(trRef.current.connecting)
+      setQueuePos(undefined)
+      if (isMatchSoundEnabled()) playMatchSound()
+      if (isMatchNotifyEnabled()) {
+        notifyMatch(trRef.current.brand, trRef.current.connecting)
+      }
+      const stream = mediaRef.current.streamRef.current
+      if (!stream) return
+      await webrtcRef.current.createMeshPeers(
+        stream,
+        peers.map((p) => ({ userId: p.userId, role: p.role })),
+        peers[0]?.userId ?? 0,
+      )
+    },
   })
 
   const matchRef = useRef(match)
   matchRef.current = match
-  signalOut.current = (payload) => match.send({ type: WS_MESSAGE_TYPE.signal, payload })
+  signalOut.current = (payload, targetUserId) => {
+    if (targetUserId != null) {
+      match.sendSignal(payload, targetUserId)
+    } else {
+      match.send({ type: WS_MESSAGE_TYPE.signal, payload })
+    }
+  }
 
   useEffect(() => {
     if (!matched) {
@@ -296,15 +369,41 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   beginMatchRef.current = beginMatch
 
+  const beginGroupMatch = useCallback(async (visibility: GroupVisibility, groupPrefs: MatchPreferences): Promise<boolean> => {
+    try {
+      const stream = await media.ensureStream()
+      setStreamTick((n) => n + 1)
+      if (localVideo.current) localVideo.current.srcObject = stream
+      setMatchMode('group')
+      match.groupMatchCreate(visibility, groupPrefs)
+      return true
+    } catch {
+      const code = media.errorCode
+      onStatus(mediaErrorMessage(trRef.current, code))
+      setFinding(false)
+      return false
+    }
+  }, [media, match, onStatus])
+
+  const startGroupQueue = useCallback(() => {
+    if (groupRoomId) {
+      setFinding(true)
+      match.groupMatchStart(groupRoomId)
+    }
+  }, [groupRoomId, match])
+
   const stop = useCallback(() => {
     console.debug('[match] stop()', { roomId: roomIdRef.current, duration: callSecondsRef.current })
     const endedRoom = roomIdRef.current
     const duration = callSecondsRef.current
     match.leave()
+    match.groupMatchLeave()
     webrtc.clear()
     clearPeerUi()
+    clearGroupState()
     setFinding(false)
     setQueuePos(undefined)
+    setMatchMode('solo')
     onStatus(trRef.current.ready)
     if (endedRoom && duration >= 5) setRateRoomId(endedRoom)
   }, [match, webrtc, onStatus])
@@ -320,7 +419,11 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     matchedAt.current = null
     onStatus(trRef.current.finding)
     setFinding(true)
-    match.next(prefsRef.current)
+    if (groupRoomIdRef.current) {
+      match.groupMatchStart(groupRoomIdRef.current)
+    } else {
+      match.next(prefsRef.current)
+    }
   }, [match, webrtc, onStatus])
 
   const sendChat = useCallback(
@@ -344,7 +447,6 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     return s
   }, [media, webrtc])
 
-  /** Switch cam/mic and push new tracks into the peer connection. */
   const changeDevice = useCallback(
     async (kind: 'video' | 'audio', id: string) => {
       const s = await media.switchDevice(kind, id)
@@ -387,10 +489,18 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     remoteVideo,
     messagesEnd,
     beginMatch,
+    beginGroupMatch,
+    startGroupQueue,
     stop,
     next,
     sendChat,
     bumpStream,
     changeDevice,
+    matchMode,
+    groupRoomId,
+    groupVisibility,
+    groupParticipants,
+    groupPeers,
+    setMatchMode,
   }
 }

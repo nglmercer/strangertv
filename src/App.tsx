@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { route } from 'preact-router'
-import type { Locale, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
+import type { GroupVisibility, Locale, MatchMode, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { SocialPage } from './pages/SocialPage'
 //import { getFlag, setFlag } from './utils/storage'
@@ -203,6 +203,10 @@ export function App(_props: AppProps) {
     setShowStart(true)
   }
 
+  const onBeginGroupMatch = useCallback((visibility: GroupVisibility) => {
+    void session.beginGroupMatch(visibility, prefs)
+  }, [session, prefs])
+
   const onAuthClick = useCallback(async () => {
     if (user) {
       try {
@@ -350,6 +354,7 @@ export function App(_props: AppProps) {
               onAuthClick={onAuthClick}
               onAddFriend={onAddFriend}
               onFollow={onFollow}
+              groupPeers={session.groupPeers.length > 0 ? session.groupPeers : undefined}
             />
             <CallBar
               t={tr}
@@ -498,8 +503,15 @@ export function App(_props: AppProps) {
             if (ok) setShowStart(false)
           })
         }}
+        onBeginGroupMatch={onBeginGroupMatch}
         onReport={onReport}
         onDeviceChange={onDeviceChange}
+        groupMatchState={{
+          groupRoomId: session.groupRoomId,
+          groupVisibility: session.groupVisibility,
+          matchMode: session.matchMode,
+          participants: session.groupParticipants,
+        }}
       />
     </SocialContext.Provider>
   )

@@ -11,7 +11,13 @@ import {
   send,
   blockPair,
   getSocketForUser,
+  createGroupMatchRoom,
+  getGroupRoom,
+  getGroupRoomById,
+  addParticipantToGroup,
+  startGroupMatch,
   type SocketLike,
+  type GroupRoom,
 } from '../matchmaking'
 import { userFromToken, publicUser, type UserRow } from '../auth'
 import {
@@ -83,6 +89,10 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Invalid preferences.' })
         return
       }
+      if (prefs.mode === 'group') {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Use group-match:create to start group matching.' })
+        return
+      }
       let userId: number | undefined
       let userEmail: string | undefined
       if (message.token) {
@@ -115,11 +125,133 @@ export function createWsHandler(state: WsState) {
       return
     }
 
+    // Group match: create a group room
+    if (message.type === 'group-match:create') {
+      if (!message.token) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to create group matches.' })
+        return
+      }
+      const user = await userFromToken(message.token)
+      if (!user) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Invalid token.' })
+        return
+      }
+      const visibility = message.visibility === 'private' ? 'private' : 'public'
+      const prefs = normalizePreferences(message.preferences)
+      if (!prefs) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Invalid preferences.' })
+        return
+      }
+      const mode = prefs.mode === 'group' ? 'group' : 'solo'
+      const roomId = createGroupMatchRoom(socket, visibility, { ...prefs, mode, matchScope: prefs.matchScope }, {
+        userId: user.id,
+        email: user.email,
+        sessionKey,
+      })
+      return
+    }
+
+    // Group match: invite a friend to join the group
+    if (message.type === 'group-match:invite') {
+      const meta = getMeta(socket)
+      if (!meta?.userId) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to invite.' })
+        return
+      }
+      const group = getGroupRoom(socket)
+      if (!group) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'No group room.' })
+        return
+      }
+      const targetSocket = getSocketForUser(message.userId)
+      if (!targetSocket) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'User is not online.' })
+        return
+      }
+      const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+      const inviterProfile = inviterRow.rows[0]
+      send(targetSocket, {
+        type: 'group-match:invite-received',
+        roomId: group.id,
+        host: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: meta.userId, email: '' },
+      })
+      send(socket, { type: WS_MESSAGE_TYPE.groupMatchInviteSent, userId: message.userId })
+      return
+    }
+
+    // Group match: join a group room (accepting invite)
+    if (message.type === 'group-match:join') {
+      if (!message.token) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to join.' })
+        return
+      }
+      const user = await userFromToken(message.token)
+      if (!user) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Invalid token.' })
+        return
+      }
+      const group = getGroupRoomById(message.roomId)
+      if (!group) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Group not found.' })
+        return
+      }
+      const prefs = normalizePreferences(group.preferences)
+      if (!prefs) return
+      addParticipantToGroup(group, socket, {
+        userId: user.id,
+        email: user.email,
+        preferences: prefs,
+        sessionKey,
+      })
+      return
+    }
+
+    // Group match: start matching (enter queue)
+    if (message.type === 'group-match:start') {
+      const group = getGroupRoomById(message.roomId)
+      if (!group) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Group not found.' })
+        return
+      }
+      startGroupMatch(group)
+      return
+    }
+
+    // Group match: leave group
+    if (message.type === 'group-match:leave') {
+      removeFromQueue(socket)
+      return
+    }
+
     if (message.type === WS_MESSAGE_TYPE.signal) {
       const partner = getPartner(socket)
       if (partner && message.payload) {
         send(partner, { type: WS_MESSAGE_TYPE.signal, payload: message.payload })
         inc(METRIC_NAMES.signalsRelayed)
+      } else {
+        const group = getGroupRoom(socket)
+        if (group && message.payload) {
+          const msgAsAny = message as unknown as { targetUserId?: number }
+          const targetId = msgAsAny.targetUserId
+          let relayed = false
+          if (targetId) {
+            for (const [sock, p] of group.participants) {
+              if (p.userId === targetId && sock !== socket) {
+                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: getMeta(socket)?.userId })
+                relayed = true
+                break
+              }
+            }
+          } else {
+            for (const [sock] of group.participants) {
+              if (sock !== socket) {
+                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: getMeta(socket)?.userId })
+                relayed = true
+              }
+            }
+          }
+          if (relayed) inc(METRIC_NAMES.signalsRelayed)
+        }
       }
       return
     }
@@ -133,15 +265,28 @@ export function createWsHandler(state: WsState) {
       const partner = getPartner(socket)
       const partnerId = getPartnerUserId(socket)
       const text = message.payload?.text?.slice(0, 500)
+      const time = message.payload?.time || new Date().toISOString()
       if (partner && text) {
         send(partner, {
           type: WS_MESSAGE_TYPE.chat,
-          payload: { text, time: message.payload.time || new Date().toISOString() },
+          payload: { text, time },
         })
         inc(METRIC_NAMES.chatsRelayed)
-        // Persist chat for friends/follows (unified chat history)
         if (meta?.userId && partnerId && (await hasRelationship(meta.userId, partnerId))) {
           await sendMessage(meta.userId, partnerId, text)
+        }
+      } else {
+        const group = getGroupRoom(socket)
+        if (group && text) {
+          for (const [sock] of group.participants) {
+            if (sock !== socket) {
+              send(sock, {
+                type: WS_MESSAGE_TYPE.chat,
+                payload: { text, time },
+              })
+            }
+          }
+          inc(METRIC_NAMES.chatsRelayed)
         }
       }
       return

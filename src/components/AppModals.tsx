@@ -1,8 +1,9 @@
-import type { Locale, MatchPreferences, ReportReason } from '../../shared/types'
+import type { GroupVisibility, Locale, MatchMode, MatchPreferences, ReportReason } from '../../shared/types'
 import { authApi, socialApi, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
 import type { MediaErrorCode } from '../utils/mediaErrors'
 import { AuthModal } from './AuthModal'
+import { GroupMatchLobby } from './GroupMatchLobby'
 import { PreferencesModal, type PrefsTabId } from './PreferencesModal'
 import { ProfileModal } from './ProfileModal'
 import { RatingPrompt } from './RatingPrompt'
@@ -53,8 +54,10 @@ export function AppModals({
   media,
   prefsInitialTab,
   onBeginMatch,
+  onBeginGroupMatch,
   onReport,
   onDeviceChange,
+  groupMatchState,
 }: {
   t: Messages
   locale: Locale
@@ -85,8 +88,15 @@ export function AppModals({
   media: MediaSlice
   prefsInitialTab?: PrefsTabId
   onBeginMatch: () => void
+  onBeginGroupMatch: (visibility: GroupVisibility) => void
   onReport: (reason: ReportReason, detail: string) => void
   onDeviceChange: (kind: 'video' | 'audio', id: string) => void
+  groupMatchState: {
+    groupRoomId: string | null
+    groupVisibility: GroupVisibility
+    matchMode: MatchMode
+    participants: Array<{ userId: number; email?: string }>
+  }
 }) {
   return (
     <>
@@ -107,8 +117,26 @@ export function AppModals({
           errorCode={media.errorCode}
           acquiring={media.acquiring}
           refreshDevices={media.refreshDevices}
-          onConfirm={onBeginMatch}
+          onConfirm={(mode, visibility) => {
+            setShowStart(false)
+            if (mode === 'group' && visibility) {
+              onBeginGroupMatch(visibility)
+            } else {
+              onBeginMatch()
+            }
+          }}
           onClose={() => setShowStart(false)}
+        />
+      )}
+      {groupMatchState.groupRoomId && groupMatchState.matchMode === 'group' && !authActive && (
+        <GroupMatchLobby
+          t={t}
+          roomId={groupMatchState.groupRoomId}
+          visibility={groupMatchState.groupVisibility}
+          participants={groupMatchState.participants}
+          onStartQueue={() => {}}
+          onInvite={() => {}}
+          onClose={() => {}}
         />
       )}
       {preferences && (

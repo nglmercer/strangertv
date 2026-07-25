@@ -123,6 +123,8 @@ export function applyUserToClient(user: PublicUser): {
     lookingFor,
     interests: Array.isArray(user.interests) ? user.interests.slice(0, 5) : [],
     allowMatchWithSameUsers,
+    mode: 'solo',
+    matchScope: 'all',
   }
 
   return { profileComplete, prefs }

@@ -52,6 +52,8 @@ export function mergePrefs(
     lookingFor: shared.lookingFor ?? defaults.lookingFor,
     interests: defaults.interests,
     allowMatchWithSameUsers: defaults.allowMatchWithSameUsers,
+    mode: shared.mode ?? defaults.mode,
+    matchScope: shared.matchScope ?? defaults.matchScope,
   }
 }
 
