@@ -235,4 +235,54 @@ describe('invitation flow', () => {
     clientA.close()
     clientB.close()
   })
+
+  it('re-authenticating after WS open allows sending invitations', async () => {
+    // Simulates: WS connection opens BEFORE user logs in, then user logs in
+    const userA = await createUser(`reauth_a_${Date.now()}@example.com`, 'password12')
+    const userB = await createUser(`reauth_b_${Date.now()}@example.com`, 'password12')
+
+    // Create WS connection WITHOUT sending auth (simulates pre-login state)
+    const clientA = await new Promise<WsClient>((resolve, reject) => {
+      const ws = new WebSocket(WS_URL)
+      const messages: Array<{ type: string; [k: string]: unknown }> = []
+      const timer = setTimeout(() => reject(new Error('timeout')), 10_000)
+      ws.onmessage = (ev) => messages.push(JSON.parse(String(ev.data)))
+      ws.onerror = () => { clearTimeout(timer); reject(new Error('ws error')) }
+      const client: WsClient = {
+        ws, messages,
+        send(msg: unknown) { ws.send(JSON.stringify(msg)) },
+        waitFor(type: string, timeout = 10_000) {
+          return new Promise((res, rej) => {
+            const existing = messages.find((m) => m.type === type)
+            if (existing) { res(existing); return }
+            const t = setTimeout(() => rej(new Error(`timeout waiting for ${type}`)), timeout)
+            const handler = (ev: MessageEvent) => {
+              const msg = JSON.parse(String(ev.data))
+              if (msg.type === type) { clearTimeout(t); ws.removeEventListener('message', handler); res(msg) }
+            }
+            ws.addEventListener('message', handler)
+          })
+        },
+        close() { ws.close() },
+      }
+      setTimeout(() => { clearTimeout(timer); resolve(client) }, 200)
+    })
+
+    const clientB = await connectWs(userB.token)
+
+    // NOW send auth (simulates user logging in after WS is already open)
+    clientA.send({ type: 'ws:auth', token: userA.token })
+
+    // Wait for auth to be processed
+    await sleep(300)
+
+    // Send invitation — should work because re-auth happened
+    clientA.send({ type: 'invitation:send', userId: userB.user.id, roomId: '' })
+    const invitation = await clientB.waitFor('invitation:send', 5000)
+    expect(invitation.invitationId).toBeTruthy()
+    expect(invitation.inviter.id).toBe(userA.user.id)
+
+    clientA.close()
+    clientB.close()
+  })
 })

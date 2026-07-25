@@ -347,6 +347,14 @@ export function useMatchSocket(handlers: Handlers) {
     }
   }, [ensureSocket])
 
+  // Re-authenticate when token changes (e.g. user logs in after WS is already open)
+  useEffect(() => {
+    const token = getToken()
+    if (token && socket.current?.readyState === WebSocket.OPEN) {
+      socket.current.send(JSON.stringify({ type: WS_MESSAGE_TYPE.wsAuth, token }))
+    }
+  }, [getToken()])
+
   return {
     send,
     sendSignal,
