@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { getToken, wsUrl } from '../api'
-import type { ClientMessage, GroupMessage, MatchPreferences, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
+import type { ClientMessage, GroupMessage, MatchPreferences, Message, PublicUser, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
 import { WS_MESSAGE_TYPE, TIMING_MS } from '../../shared/constants'
 
 type Handlers = {
@@ -19,6 +19,12 @@ type Handlers = {
   onBlockAck?: () => void
   onDraining?: (message?: string) => void
   onGroupMessage?: (message: GroupMessage) => void
+  onFriendRequest?: (friendId: number, from: PublicUser) => void
+  onFriendAccepted?: (friendId: number, from: PublicUser) => void
+  onFriendDeclined?: (friendId: number) => void
+  onFriendRemoved?: (friendId: number) => void
+  onMessageNew?: (message: Message) => void
+  onInvitation?: (invitationId: number, roomId: string, inviter: PublicUser) => void
 }
 
 export function useMatchSocket(handlers: Handlers) {
@@ -36,7 +42,6 @@ export function useMatchSocket(handlers: Handlers) {
   }
 
   const send = useCallback((message: ClientMessage) => {
-    //console.debug('[ws] send', message.type, message)
     if (socket.current?.readyState === WebSocket.OPEN) {
       socket.current.send(JSON.stringify(message))
     }
@@ -72,7 +77,6 @@ export function useMatchSocket(handlers: Handlers) {
       } catch {
         return
       }
-      //console.debug('[ws] recv', msg.type, msg)
       const h = handlersRef.current
       switch (msg.type) {
         case WS_MESSAGE_TYPE.queueWaiting:
@@ -113,6 +117,24 @@ export function useMatchSocket(handlers: Handlers) {
           break
         case WS_MESSAGE_TYPE.groupMessageNew:
           h.onGroupMessage?.(msg.message)
+          break
+        case WS_MESSAGE_TYPE.friendRequest:
+          h.onFriendRequest?.(msg.friendId, msg.from)
+          break
+        case WS_MESSAGE_TYPE.friendAccepted:
+          h.onFriendAccepted?.(msg.friendId, msg.from)
+          break
+        case WS_MESSAGE_TYPE.friendDeclined:
+          h.onFriendDeclined?.(msg.friendId)
+          break
+        case WS_MESSAGE_TYPE.friendRemoved:
+          h.onFriendRemoved?.(msg.friendId)
+          break
+        case WS_MESSAGE_TYPE.messageNew:
+          h.onMessageNew?.(msg.message)
+          break
+        case WS_MESSAGE_TYPE.invitationSend:
+          h.onInvitation?.(msg.invitationId, msg.roomId, msg.inviter)
           break
       }
     }
@@ -167,7 +189,6 @@ export function useMatchSocket(handlers: Handlers) {
   }, [send])
 
   useEffect(() => {
-    // Open signaling early for stats/heartbeat and connection indicator
     ensureSocket()
     return () => {
       stopHeartbeat()

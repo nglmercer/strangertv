@@ -184,7 +184,7 @@ export function SocialChatApp({ t, currentUserId }: { t: Messages; currentUserId
   }
 
   return (
-    <div class="social-app">
+    <div class={`social-app ${activeChat ? 'has-active' : ''}`}>
       <SocialSidebar
         t={t}
         groups={groups}

@@ -8,7 +8,8 @@ import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
 import { FriendManager } from './components/FriendManager'
-import { GroupsSection } from './components/GroupsSection'
+import { SocialChatApp } from './components/socialchat/SocialChatApp'
+import { GroupsLanding } from './components/groups/GroupsLanding'
 import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
 import { VideoStage } from './components/VideoStage'
@@ -324,7 +325,11 @@ export function App() {
         />
       </section>
 
-      <GroupsSection t={tr} user={user} onSignIn={() => setAuth(true)} />
+      {user ? (
+        <SocialChatApp t={tr} currentUserId={user.id} />
+      ) : (
+        <GroupsLanding t={tr} onSignIn={() => setAuth(true)} />
+      )}
 
       <AppModals
         t={tr}
