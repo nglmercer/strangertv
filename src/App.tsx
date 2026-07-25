@@ -107,6 +107,8 @@ export function App(_props: AppProps) {
         : msg.type === 'friend:accepted' ? 'friend_accepted'
         : msg.type === 'message:new' ? 'message'
         : msg.type === 'invitation:send' ? 'invitation'
+        : msg.type === 'invitation:accepted' ? 'invitation'
+        : msg.type === 'invitation:declined' ? 'invitation'
         : msg.type === 'group:invite' ? 'group_invite'
         : msg.type === 'group:invite:accepted' ? 'group_invite'
         : 'group_invite',
@@ -114,9 +116,13 @@ export function App(_props: AppProps) {
         : msg.type === 'friend:accepted' ? 'Request Accepted'
         : msg.type === 'message:new' ? 'New Message'
         : msg.type === 'invitation:send' ? 'Match Invitation'
+        : msg.type === 'invitation:accepted' ? 'Invitation Accepted'
+        : msg.type === 'invitation:declined' ? 'Invitation Declined'
         : msg.type === 'group:invite' ? 'Group Invite'
         : 'Group Invite',
       body: msg.type === 'invitation:send' ? `${msg.inviter.email.split('@')[0]} invited you to a match`
+        : msg.type === 'invitation:accepted' ? 'Your invitation was accepted'
+        : msg.type === 'invitation:declined' ? 'Your invitation was declined'
         : msg.type === 'message:new' ? msg.message.text.slice(0, 80)
         : msg.type === 'group:invite' ? `${msg.inviter.email.split('@')[0]} invited you to "${msg.groupName}"`
         : msg.type === 'group:invite:accepted' ? `Someone joined your group`
@@ -124,11 +130,18 @@ export function App(_props: AppProps) {
       from: 'from' in msg && msg.from ? msg.from as SharedPublicUser : undefined,
       data: msg.type === 'message:new' ? { senderId: msg.message.senderId }
         : msg.type === 'invitation:send' ? { invitationId: msg.invitationId, roomId: msg.roomId }
+        : msg.type === 'invitation:accepted' ? { invitationId: msg.invitationId, roomId: msg.roomId }
         : msg.type === 'group:invite' ? { inviteId: msg.inviteId, groupId: msg.groupId }
         : undefined,
     })
     if (msg.type === 'invitation:send') {
       showToast(`${tr.invitationReceived ?? 'Match Invitation'}: ${msg.inviter.email.split('@')[0]}`, 'success')
+    }
+    if (msg.type === 'invitation:accepted') {
+      showToast('Invitation Accepted', 'success')
+    }
+    if (msg.type === 'invitation:declined') {
+      showToast('Invitation Declined', 'error')
     }
   }, [showToast, tr])
 

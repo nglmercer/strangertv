@@ -20,6 +20,8 @@ type Options = {
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
   onGroupInviteDeclined?: (inviteId: number, groupId: number, userId: number) => void
+  onInvitationAccepted?: (invitationId: number, roomId: string) => void
+  onInvitationDeclined?: (invitationId: number) => void
 }
 
 export type SocialWsEvent =
@@ -29,6 +31,8 @@ export type SocialWsEvent =
   | { type: 'friend:removed'; friendId: number }
   | { type: 'message:new'; message: { id: number; senderId: number; recipientId: number; text: string; createdAt: string } }
   | { type: 'invitation:send'; invitationId: number; roomId: string; inviter: { id: number; email: string } }
+  | { type: 'invitation:accepted'; invitationId: number; roomId: string }
+  | { type: 'invitation:declined'; invitationId: number }
   | { type: 'group:invite'; inviteId: number; groupId: number; groupName: string; inviter: { id: number; email: string } }
   | { type: 'group:invite:accepted'; inviteId: number; groupId: number; userId: number }
   | { type: 'group:invite:declined'; inviteId: number; groupId: number; userId: number }
@@ -164,8 +168,16 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       if (isMatchNotifyEnabled()) {
         notifyMatch(trRef.current.brand, trRef.current.connecting)
       }
-      const stream = mediaRef.current.streamRef.current
-      if (!stream) return
+      let stream = mediaRef.current.streamRef.current
+      if (!stream) {
+        try {
+          stream = await mediaRef.current.ensureStream()
+          setStreamTick((n) => n + 1)
+          if (localVideo.current) localVideo.current.srcObject = stream
+        } catch {
+          return
+        }
+      }
       await webrtcRef.current.createPeer(stream, remoteVideo.current, role === 'offerer')
     },
     onPeerLeft: (reason) => {
@@ -233,6 +245,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     onFriendRemoved: (friendId) => onSocialEvent?.({ type: 'friend:removed', friendId }),
     onMessageNew: (message) => onSocialEvent?.({ type: 'message:new', message }),
     onInvitation: (invitationId, roomId, inviter) => onSocialEvent?.({ type: 'invitation:send', invitationId, roomId, inviter }),
+    onInvitationAccepted: (invitationId, roomId) => onSocialEvent?.({ type: 'invitation:accepted', invitationId, roomId }),
+    onInvitationDeclined: (invitationId) => onSocialEvent?.({ type: 'invitation:declined', invitationId }),
     onGroupInvite: (inviteId, groupId, groupName, inviter) => {
       onSocialEvent?.({ type: 'group:invite', inviteId, groupId, groupName, inviter })
       onGroupInvite?.(inviteId, groupId, groupName, inviter)

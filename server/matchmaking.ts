@@ -15,6 +15,7 @@ import {
 import { inc, observeMs } from './metrics'
 import { getRelationship } from './messages'
 import type { RelationshipStatus } from '../shared/types'
+import { db } from './db'
 
 export type SocketLike = {
   send: (message: string) => void
@@ -353,6 +354,89 @@ let groupRoomSeq = 0
 function newGroupRoomId() {
   groupRoomSeq += 1
   return `groom_${Date.now().toString(36)}_${groupRoomSeq}`
+}
+
+async function buildPeer(userId: number, socket: SocketLike): Promise<QueuePeer | null> {
+  const meta = peerMeta.get(socket)
+  if (meta) return meta
+  const user = await db.execute({ sql: 'SELECT email, gender, country, language, interests FROM users WHERE id = ?', args: [userId] })
+  const row = user.rows[0] as unknown as { email: string; gender: string; country: string; language: string; interests: string } | undefined
+  if (!row) return null
+  return {
+    socket,
+    preferences: normalizePreferences({
+      gender: row.gender,
+      country: row.country,
+      language: row.language,
+      interests: row.interests ? JSON.parse(row.interests) : [],
+      lookingFor: 'any',
+      mode: 'solo',
+      matchScope: 'all',
+    })!,
+    userId,
+    email: row.email,
+    sessionKey: '',
+    joinedAt: Date.now(),
+    lastBeat: Date.now(),
+  }
+}
+
+export async function matchUsers(aUserId: number, bUserId: number): Promise<boolean> {
+  const aSockets = userSockets.get(aUserId)
+  const bSockets = userSockets.get(bUserId)
+  if (!aSockets || aSockets.size === 0 || !bSockets || bSockets.size === 0) return false
+
+  const aSocket = aSockets.values().next().value as SocketLike
+  const bSocket = bSockets.values().next().value as SocketLike
+
+  const aMeta = await buildPeer(aUserId, aSocket)
+  const bMeta = await buildPeer(bUserId, bSocket)
+  if (!aMeta || !bMeta) return false
+
+  leaveRoom(aSocket, false, PEER_LEFT_REASON.leave)
+  leaveRoom(bSocket, false, PEER_LEFT_REASON.leave)
+
+  const room: Room = {
+    id: newRoomId(),
+    a: aSocket,
+    b: bSocket,
+    aUserId,
+    bUserId,
+    createdAt: Date.now(),
+    mode: 'solo',
+  }
+  partners.set(aSocket, bSocket)
+  partners.set(bSocket, aSocket)
+  roomsBySocket.set(aSocket, room)
+  roomsBySocket.set(bSocket, room)
+
+  const sharedInterests = aMeta.preferences.interests.filter((x) => bMeta.preferences.interests.includes(x))
+  const relA = await getRelationship(aUserId, bUserId)
+  const relB = await getRelationship(bUserId, aUserId)
+
+  console.debug('[mm] invitation:matched', { roomId: room.id, aUserId, bUserId })
+  send(aSocket, {
+    type: WS_MESSAGE_TYPE.roomMatched,
+    roomId: room.id,
+    role: ROLE.offerer as Role,
+    peerCountry: bMeta.preferences.country,
+    peerEmail: bMeta.email,
+    peerUserId: bUserId,
+    sharedInterests,
+    relationship: relA,
+  })
+  send(bSocket, {
+    type: WS_MESSAGE_TYPE.roomMatched,
+    roomId: room.id,
+    role: ROLE.answerer as Role,
+    peerCountry: aMeta.preferences.country,
+    peerEmail: aMeta.email,
+    peerUserId: aUserId,
+    sharedInterests,
+    relationship: relB,
+  })
+  broadcastStats()
+  return true
 }
 
 export async function joinQueue(

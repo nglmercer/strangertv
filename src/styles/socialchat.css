@@ -781,6 +781,41 @@
   flex-shrink: 0;
 }
 
+.notification-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.notification-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  color: var(--text-primary);
+}
+
+.notification-action-accept {
+  background: var(--success-bg, #1a3d1a);
+}
+
+.notification-action-accept:hover {
+  background: var(--success-bg-hover, #2d5a2d);
+}
+
+.notification-action-decline {
+  background: var(--danger-bg, #3d1a1a);
+}
+
+.notification-action-decline:hover {
+  background: var(--danger-bg-hover, #5a2d2d);
+}
+
 /* ------------------------------------------------------------------ */
 /* Toast                                                               */
 /* ------------------------------------------------------------------ */

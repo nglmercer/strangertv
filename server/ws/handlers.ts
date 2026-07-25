@@ -7,6 +7,7 @@ import {
   getRoom,
   heartbeat,
   leaveRoom,
+  matchUsers,
   removeFromQueue,
   send,
   blockPair,
@@ -423,13 +424,13 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to send invitations.' })
         return
       }
-      await sendInvitation(meta.userId, message.userId, message.roomId)
+      const { invitationId } = await sendInvitation(meta.userId, message.userId, message.roomId)
       const targetSocket = getSocketForUser(message.userId)
-      console.debug('[ws] invitation:send target', { targetOnline: !!targetSocket, targetUserId: message.userId })
+      console.debug('[ws] invitation:send target', { targetOnline: !!targetSocket, targetUserId: message.userId, invitationId })
       if (targetSocket) {
         const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
         const inviterProfile = inviterRow.rows[0]
-        send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId: 0, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
+        send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
       }
       return
     }
@@ -437,14 +438,31 @@ export function createWsHandler(state: WsState) {
     if (message.type === WS_MESSAGE_TYPE.invitationAccept) {
       const meta = getMeta(socket)
       if (!meta?.userId) return
+      const invitation = await db.execute({ sql: 'SELECT inviter_id, room_id FROM invitations WHERE id = ?', args: [message.invitationId] })
+      const row = invitation.rows[0] as unknown as { inviter_id: number; room_id: string } | undefined
       await respondInvitation(message.invitationId, meta.userId, 'accept')
+      if (row) {
+        await matchUsers(row.inviter_id, meta.userId)
+        const inviterSocket = getSocketForUser(row.inviter_id)
+        if (inviterSocket) {
+          send(inviterSocket, { type: WS_MESSAGE_TYPE.invitationAccepted, invitationId: message.invitationId, roomId: row.room_id })
+        }
+      }
       return
     }
 
     if (message.type === WS_MESSAGE_TYPE.invitationDecline) {
       const meta = getMeta(socket)
       if (!meta?.userId) return
+      const invitation = await db.execute({ sql: 'SELECT inviter_id FROM invitations WHERE id = ?', args: [message.invitationId] })
+      const row = invitation.rows[0] as unknown as { inviter_id: number } | undefined
       await respondInvitation(message.invitationId, meta.userId, 'decline')
+      if (row) {
+        const inviterSocket = getSocketForUser(row.inviter_id)
+        if (inviterSocket) {
+          send(inviterSocket, { type: WS_MESSAGE_TYPE.invitationDeclined, invitationId: message.invitationId })
+        }
+      }
       return
     }
 

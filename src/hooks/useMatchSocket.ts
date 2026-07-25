@@ -25,6 +25,8 @@ type Handlers = {
   onFriendRemoved?: (friendId: number) => void
   onMessageNew?: (message: Message) => void
   onInvitation?: (invitationId: number, roomId: string, inviter: PublicUser) => void
+  onInvitationAccepted?: (invitationId: number, roomId: string) => void
+  onInvitationDeclined?: (invitationId: number) => void
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
   onGroupInviteDeclined?: (inviteId: number, groupId: number, userId: number) => void
@@ -151,6 +153,12 @@ export function useMatchSocket(handlers: Handlers) {
         case WS_MESSAGE_TYPE.invitationSend:
           console.debug('[ws] received invitation', { invitationId: msg.invitationId, roomId: msg.roomId, inviter: msg.inviter })
           h.onInvitation?.(msg.invitationId, msg.roomId, msg.inviter)
+          break
+        case WS_MESSAGE_TYPE.invitationAccepted:
+          h.onInvitationAccepted?.(msg.invitationId, msg.roomId)
+          break
+        case WS_MESSAGE_TYPE.invitationDeclined:
+          h.onInvitationDeclined?.(msg.invitationId)
           break
         case 'group:invite':
           h.onGroupInvite?.(msg.inviteId, msg.groupId, msg.groupName, msg.inviter)
@@ -297,6 +305,20 @@ export function useMatchSocket(handlers: Handlers) {
     [send],
   )
 
+  const invitationAccept = useCallback(
+    (invitationId: number, roomId: string) => {
+      send({ type: WS_MESSAGE_TYPE.invitationAccept, invitationId, roomId })
+    },
+    [send],
+  )
+
+  const invitationDecline = useCallback(
+    (invitationId: number) => {
+      send({ type: WS_MESSAGE_TYPE.invitationDecline, invitationId })
+    },
+    [send],
+  )
+
   useEffect(() => {
     ensureSocket()
     return () => {
@@ -323,6 +345,8 @@ export function useMatchSocket(handlers: Handlers) {
     groupMatchStart,
     groupMatchLeave,
     invitationSend,
+    invitationAccept,
+    invitationDecline,
     connected,
     socket,
   }

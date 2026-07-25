@@ -167,10 +167,10 @@ export function registerSocialRoutes(app: Hono, send: (socket: SocketLike, msg: 
     if (userId === user.id) return c.json({ error: 'Cannot invite yourself' }, HTTP_STATUS.badRequest)
     const target = await db.execute({ sql: 'SELECT id FROM users WHERE id = ?', args: [userId] })
     if (!target.rows[0]) return c.json({ error: 'User not found' }, HTTP_STATUS.notFound)
-    await sendInvitation(user.id, userId, roomId)
+    const { invitationId } = await sendInvitation(user.id, userId, roomId)
     const targetSocket = getSocketForUser(userId)
     if (targetSocket) {
-      send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId: 0, roomId, inviter: publicUser(user) })
+      send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId, roomId, inviter: publicUser(user) })
     }
     return c.json({ ok: true })
   })

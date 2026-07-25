@@ -9,6 +9,7 @@ import { SocialChat } from './SocialChat'
 import { GroupCreateModal } from '../groups/GroupCreateModal'
 import { GroupMembersModal } from '../groups/GroupMembersModal'
 import { GroupInviteModal } from './GroupInviteModal'
+import { NotificationCenter } from './NotificationCenter'
 import { Icon, icons } from '../icons'
 
 type ActiveChat =
@@ -297,6 +298,11 @@ export function SocialChatApp({
             <p>{t.chooseConversation}</p>
           </div>
         )}
+        <NotificationCenter
+          t={t}
+          onAccept={(invitationId, roomId) => match?.invitationAccept(invitationId, roomId)}
+          onDecline={(invitationId) => match?.invitationDecline(invitationId)}
+        />
       </div>
 
       {showCreate && (

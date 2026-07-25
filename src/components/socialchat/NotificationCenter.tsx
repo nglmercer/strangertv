@@ -15,7 +15,12 @@ const notificationIcon = (type: Notification['type']) => {
   }
 }
 
-export function NotificationCenter({ t }: { t: Messages }) {
+type InvitationActions = {
+  onAccept?: (invitationId: number, roomId: string) => void
+  onDecline?: (invitationId: number) => void
+}
+
+export function NotificationCenter({ t, onAccept, onDecline }: { t: Messages } & InvitationActions) {
   const [open, setOpen] = useState(false)
   const notifications = useSocialStore().notifications
   const unread = useSocialStore().unreadNotifications
@@ -62,13 +67,30 @@ export function NotificationCenter({ t }: { t: Messages }) {
                 <div
                   class={`notification-item ${n.read ? '' : 'unread'}`}
                   key={n.id}
-                  onClick={() => socialStore.markNotificationRead(n.id)}
                 >
                    <span class="notification-icon">{notificationIcon(n.type)}</span>
-                  <div class="notification-content">
+                  <div class="notification-content" onClick={() => socialStore.markNotificationRead(n.id)}>
                     <span class="notification-title">{n.title}</span>
                     <span class="notification-body">{n.body}</span>
                   </div>
+                  {n.type === 'invitation' && !n.read && n.data?.invitationId && n.data?.roomId && (
+                    <div class="notification-actions">
+                      <button
+                        type="button"
+                        class="notification-action notification-action-accept"
+                        onClick={(e) => { e.stopPropagation(); onAccept?.(Number(n.data!.invitationId), String(n.data!.roomId)) }}
+                      >
+                        <Icon d={icons.check} size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        class="notification-action notification-action-decline"
+                        onClick={(e) => { e.stopPropagation(); onDecline?.(Number(n.data!.invitationId)) }}
+                      >
+                        <Icon d={icons.close} size={14} />
+                      </button>
+                    </div>
+                  )}
                   <span class="notification-time">{timeAgo(n.timestamp)}</span>
                 </div>
               ))

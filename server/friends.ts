@@ -208,7 +208,12 @@ export async function sendInvitation(inviterId: number, inviteeId: number, roomI
     sql: "INSERT OR REPLACE INTO invitations (inviter_id, invitee_id, room_id, status, expires_at) VALUES (?, ?, ?, 'pending', ?)",
     args: [inviterId, inviteeId, roomId, expiresAt],
   })
-  return { ok: true }
+  const result = await db.execute({
+    sql: "SELECT id FROM invitations WHERE inviter_id = ? AND invitee_id = ? AND room_id = ? AND status = 'pending'",
+    args: [inviterId, inviteeId, roomId],
+  })
+  const row = result.rows[0] as unknown as { id: number } | undefined
+  return { ok: true, invitationId: row?.id ?? 0 }
 }
 
 export async function respondInvitation(invitationId: number, inviteeId: number, action: 'accept' | 'decline') {

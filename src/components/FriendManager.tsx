@@ -21,7 +21,8 @@ export function FriendManager({
   roomId?: string | null
   match?: { invitationSend: (userId: number, roomId: string) => void }
 }) {
-  console.debug('[friend] render', { inviteMode, roomId, hasMatch: !!match, hasUser: !!user })
+  const canInvite = Boolean(inviteMode && roomId && match)
+  console.debug('[friend] render', { inviteMode, roomId, hasMatch: !!match, hasUser: !!user, canInvite })
   const [tab, setTab] = useState<Tab>('friends')
   const [friends, setFriends] = useState<Friend[]>([])
   const [requests, setRequests] = useState<Friend[]>([])
@@ -126,7 +127,10 @@ export function FriendManager({
       <button type="button" class="modal-close" onClick={onClose} aria-label={t.close}>
         ×
       </button>
-      <h2>{t.friends}</h2>
+      <h2>{canInvite ? t.inviteToMatch : t.friends}</h2>
+      {canInvite && (
+        <p class="modal-copy">Select a friend to invite them to your current match.</p>
+      )}
 
       <div class="friend-tabs">
         <button
@@ -170,13 +174,23 @@ export function FriendManager({
                   )}
                 </div>
                 <div class="friend-actions">
-                  <button
-                    type="button"
-                    class="friend-btn invite"
-                    onClick={() => handleRequest(f.otherUser.id)}
-                  >
-                    {t.inviteToMatch}
-                  </button>
+                  {canInvite ? (
+                    <button
+                      type="button"
+                      class="friend-btn invite"
+                      onClick={() => handleRequest(f.otherUser.id)}
+                    >
+                      {t.inviteToMatch}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      class="friend-btn"
+                      onClick={() => handleRequest(f.otherUser.id)}
+                    >
+                      {t.addFriend}
+                    </button>
+                  )}
                   <button
                     type="button"
                     class="friend-btn danger"
@@ -255,10 +269,10 @@ export function FriendManager({
               <div class="friend-actions">
                 <button
                   type="button"
-                  class="friend-btn accept"
+                  class={`friend-btn ${canInvite ? 'invite' : 'accept'}`}
                   onClick={() => void handleRequest(searchResult.id)}
                 >
-                  {t.sendRequest}
+                  {canInvite ? t.inviteToMatch : t.sendRequest}
                 </button>
               </div>
             </div>
