@@ -1,6 +1,6 @@
 /* ------------------------------------------------------------------ */
 /* SocialChat — unified groups + friends messaging                    */
-/* All colors driven by CSS custom properties from themes.css          */
+/* All colors driven by common CSS custom properties from themes.css   */
 /* ------------------------------------------------------------------ */
 
 .social-app {
@@ -8,7 +8,7 @@
   grid-template-columns: 280px 1fr;
   flex: 1;
   min-height: 100dvh;
-  background: var(--social-app-bg);
+  background: var(--bg-app);
 }
 
 /* ------------------------------------------------------------------ */
@@ -16,8 +16,8 @@
 /* ------------------------------------------------------------------ */
 
 .social-sidebar {
-  background: var(--social-sidebar-bg);
-  border-right: 1px solid var(--social-border);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -25,7 +25,7 @@
 
 .social-sidebar-header {
   padding: 12px 12px 8px;
-  border-bottom: 1px solid var(--social-border);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -35,7 +35,7 @@
   display: flex;
   gap: 4px;
   flex: 1;
-  background: var(--social-panel-bg);
+  background: var(--bg-surface-2);
   border-radius: 8px;
   padding: 3px;
 }
@@ -46,9 +46,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: var(--social-tab-bg);
+  background: transparent;
   border: none;
-  color: var(--social-tab-text);
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   padding: 7px 10px;
@@ -59,17 +59,17 @@
 }
 
 .social-tab:hover {
-  color: var(--social-tab-text-active);
+  color: var(--text-primary);
 }
 
 .social-tab.active {
-  background: var(--social-tab-active-bg);
-  color: var(--social-tab-text-active);
+  background: var(--bg-active);
+  color: var(--text-primary);
 }
 
 .social-sidebar-new {
   background: none;
-  border: 1px solid var(--social-border);
+  border: 1px solid var(--border);
   color: var(--green);
   border-radius: 8px;
   width: 32px;
@@ -82,7 +82,7 @@
 }
 
 .social-sidebar-new:hover {
-  background: var(--social-hover-bg);
+  background: var(--bg-hover);
   border-color: var(--green);
 }
 
@@ -99,7 +99,7 @@
 .social-empty {
   padding: 20px 12px;
   text-align: center;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -120,11 +120,11 @@
 }
 
 .social-item:hover {
-  background: var(--social-hover-bg);
+  background: var(--bg-hover);
 }
 
 .social-item.active {
-  background: var(--social-active-bg);
+  background: var(--bg-active);
 }
 
 .social-item-avatar {
@@ -138,11 +138,11 @@
 }
 
 .social-item-avatar.group-avatar {
-  background: linear-gradient(135deg, var(--green) 0%, #3a9d7c 100%);
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-dark) 100%);
 }
 
 .social-item-avatar.friend-avatar {
-  background: var(--social-friend-avatar-bg);
+  background: var(--accent);
   opacity: 0.5;
   transition: opacity 0.2s ease;
 }
@@ -154,7 +154,7 @@
 .social-item-avatar svg {
   width: 20px;
   height: 20px;
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .presence-dot {
@@ -164,20 +164,20 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2px solid var(--social-sidebar-bg);
+  border: 2px solid var(--bg-surface);
 }
 
 .presence-dot.online {
-  background: var(--social-online);
+  background: var(--green);
 }
 
 .presence-dot.offline {
-  background: var(--social-offline);
+  background: var(--text-muted);
 }
 
 .social-unread-badge {
-  background: var(--social-unread-bg);
-  color: var(--social-unread-text);
+  background: var(--accent);
+  color: var(--on-accent);
   border-radius: 999px;
   padding: 2px 7px;
   font-size: 10px;
@@ -195,7 +195,7 @@
 .social-item-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--social-text);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -204,7 +204,7 @@
 
 .social-item-sub {
   font-size: 11px;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   display: block;
 }
 
@@ -226,7 +226,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
 }
 
 .social-main-empty svg {
@@ -251,26 +251,26 @@
 
 .social-chat-header {
   padding: 12px 16px;
-  border-bottom: 1px solid var(--social-border);
+  border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--social-panel-bg);
+  background: var(--bg-surface-2);
 }
 
 .social-back-btn {
   display: none;
   background: none;
   border: none;
-  color: var(--social-text-soft);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
 }
 
 .social-back-btn:hover {
-  color: var(--social-text);
-  background: var(--social-active-bg);
+  color: var(--text-primary);
+  background: var(--bg-active);
 }
 
 .social-back-btn svg {
@@ -282,14 +282,14 @@
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: var(--social-hover-bg);
+  background: var(--bg-hover);
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 
 .social-chat-header-avatar svg {
-  color: var(--social-text-soft);
+  color: var(--text-secondary);
   width: 18px;
   height: 18px;
 }
@@ -303,7 +303,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: var(--social-text);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -311,12 +311,12 @@
 
 .social-chat-header-sub {
   font-size: 11px;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
 }
 
 .social-header-action {
   background: none;
-  border: 1px solid var(--social-border);
+  border: 1px solid var(--border);
   color: var(--green);
   border-radius: 8px;
   width: 36px;
@@ -328,7 +328,7 @@
 }
 
 .social-header-action:hover {
-  background: var(--social-hover-bg);
+  background: var(--bg-hover);
 }
 
 .social-header-action svg {
@@ -351,7 +351,7 @@
 
 .social-messages-empty {
   text-align: center;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   font-size: 13px;
   margin: auto;
 }
@@ -374,7 +374,7 @@
 
 .social-message-sender {
   font-size: 11px;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   margin-bottom: 2px;
   padding: 0 12px;
 }
@@ -382,15 +382,15 @@
 .social-message-bubble {
   padding: 8px 14px;
   border-radius: 16px;
-  background: var(--social-bubble);
+  background: var(--chat-message);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
 .social-message.mine .social-message-bubble {
-  background: var(--social-bubble-mine);
-  color: var(--social-bubble-mine-text);
+  background: var(--chat-message-mine);
+  color: var(--text-primary);
   border-bottom-right-radius: 4px;
 }
 
@@ -418,17 +418,17 @@
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid var(--social-border);
-  background: var(--social-panel-bg);
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface-2);
 }
 
 .social-message-input input {
   flex: 1;
   padding: 10px 16px;
   border-radius: 20px;
-  border: 1px solid var(--social-border);
-  background: var(--social-input-bg);
-  color: var(--social-text);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s ease;
@@ -439,7 +439,7 @@
 }
 
 .social-message-input input::placeholder {
-  color: var(--social-text-muted);
+  color: var(--text-muted);
 }
 
 .social-message-input button {
@@ -448,7 +448,7 @@
   border-radius: 50%;
   border: none;
   background: var(--green);
-  color: var(--social-bubble-mine-text);
+  color: var(--on-accent);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -486,13 +486,13 @@
 
 .social-list::-webkit-scrollbar-thumb,
 .social-messages::-webkit-scrollbar-thumb {
-  background: var(--social-scroll);
+  background: var(--border);
   border-radius: 3px;
 }
 
 .social-list::-webkit-scrollbar-thumb:hover,
 .social-messages::-webkit-scrollbar-thumb:hover {
-  background: var(--social-scroll-hover);
+  background: var(--border-mid);
 }
 
 /* ------------------------------------------------------------------ */
@@ -502,8 +502,8 @@
 .social-menu-toggle {
   display: none;
   background: none;
-  border: 1px solid var(--social-border);
-  color: var(--social-text-soft);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   border-radius: 8px;
   width: 36px;
   height: 36px;
@@ -514,7 +514,7 @@
 }
 
 .social-menu-toggle:hover {
-  background: var(--social-hover-bg);
+  background: var(--bg-hover);
 }
 
 .social-menu-toggle svg {
@@ -538,7 +538,7 @@
     width: 280px;
     z-index: 50;
     flex-direction: column;
-    border-right: 1px solid var(--social-border);
+    border-right: 1px solid var(--border);
     border-bottom: none;
     overflow: hidden;
     transform: translateX(-100%);
@@ -554,7 +554,7 @@
   }
 
   .social-sidebar-header {
-    border-bottom: 1px solid var(--social-border);
+    border-bottom: 1px solid var(--border);
     border-right: none;
     flex-shrink: 0;
     padding: 12px 12px 8px;
@@ -633,7 +633,7 @@
     display: block;
     position: absolute;
     inset: 0;
-    background: var(--social-toast-shadow);
+    background: var(--overlay);
     z-index: 40;
   }
 }
@@ -650,7 +650,7 @@
   position: relative;
   background: none;
   border: none;
-  color: var(--social-text-soft);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 6px;
   border-radius: 8px;
@@ -658,15 +658,15 @@
 }
 
 .notification-bell:hover {
-  background: var(--social-hover-bg);
+  background: var(--bg-hover);
 }
 
 .notification-badge {
   position: absolute;
   top: 0;
   right: 0;
-  background: var(--social-unread-bg);
-  color: var(--social-unread-text);
+  background: var(--accent);
+  color: var(--on-accent);
   border-radius: 999px;
   padding: 1px 5px;
   font-size: 9px;
@@ -681,10 +681,10 @@
   right: 0;
   width: 320px;
   max-height: 400px;
-  background: var(--social-notification-bg);
-  border: 1px solid var(--social-notification-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 12px 40px var(--social-toast-shadow);
+  box-shadow: 0 12px 40px var(--shadow-lg);
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -696,10 +696,10 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--social-notification-border);
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
   font-weight: 600;
-  color: var(--social-text);
+  color: var(--text-primary);
 }
 
 .notification-clear {
@@ -713,7 +713,7 @@
 }
 
 .notification-clear:hover {
-  background: var(--social-notification-hover);
+  background: var(--bg-hover);
 }
 
 .notification-list {
@@ -725,7 +725,7 @@
 .notification-empty {
   padding: 24px 14px;
   text-align: center;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -734,17 +734,17 @@
   align-items: flex-start;
   gap: 10px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--social-notification-border);
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.1s ease;
 }
 
 .notification-item:hover {
-  background: var(--social-notification-hover);
+  background: var(--bg-hover);
 }
 
 .notification-item.unread {
-  background: var(--social-notification-unread-bg);
+  background: var(--bg-active);
 }
 
 .notification-icon {
@@ -764,12 +764,12 @@
 .notification-title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--social-text);
+  color: var(--text-primary);
 }
 
 .notification-body {
   font-size: 11px;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -777,7 +777,7 @@
 
 .notification-time {
   font-size: 10px;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -794,10 +794,10 @@
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: var(--social-toast-bg);
-  border: 1px solid var(--social-toast-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 8px 32px var(--social-toast-shadow);
+  box-shadow: 0 8px 32px var(--shadow-lg);
   max-width: 340px;
   cursor: pointer;
   animation: toast-in 0.25s ease;
@@ -829,12 +829,12 @@
 .notification-toast-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--social-text);
+  color: var(--text-primary);
 }
 
 .notification-toast-body {
   font-size: 11px;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -843,7 +843,7 @@
 .notification-toast-close {
   background: none;
   border: none;
-  color: var(--social-text-muted);
+  color: var(--text-muted);
   font-size: 18px;
   cursor: pointer;
   padding: 2px 4px;
@@ -852,6 +852,6 @@
 }
 
 .notification-toast-close:hover {
-  color: var(--social-text);
-  background: var(--social-notification-hover);
+  color: var(--text-primary);
+  background: var(--bg-hover);
 }

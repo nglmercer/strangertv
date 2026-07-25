@@ -12,13 +12,13 @@
   margin: 0 0 12px;
   font-size: 28px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-strong);
 }
 
 .groups-landing p {
   margin: 0 0 24px;
   font-size: 15px;
-  color: #aaa;
+  color: var(--text-secondary);
   line-height: 1.5;
   max-width: 500px;
   margin-left: auto;
@@ -34,8 +34,8 @@
 }
 
 .group-feature-card {
-  background: #16213e;
-  border: 1px solid #2a2a4a;
+  background: var(--bg-surface-2);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px 16px;
   text-align: center;
@@ -51,13 +51,13 @@
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-strong);
 }
 
 .group-feature-card p {
   margin: 0;
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
@@ -67,7 +67,7 @@
   gap: 8px;
   background: var(--accent);
   border: 0;
-  color: #fff;
+  color: var(--on-accent);
   border-radius: 10px;
   padding: 14px 28px;
   font-size: 15px;
@@ -97,9 +97,9 @@
   width: 100%;
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid #2a2a4a;
-  background: #1a1a3e;
-  color: #e0e0e0;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 14px;
   outline: none;
   margin-bottom: 16px;
@@ -107,7 +107,7 @@
 }
 
 .group-create-name-input:focus {
-  border-color: #57c9a1;
+  border-color: var(--green);
 }
 
 .group-create-friends {
@@ -116,13 +116,13 @@
 
 .group-create-friends-label {
   font-size: 13px;
-  color: #aaa;
+  color: var(--text-secondary);
   margin: 0 0 8px;
 }
 
 .group-create-empty {
   font-size: 13px;
-  color: #666;
+  color: var(--text-muted);
   text-align: center;
   padding: 16px;
 }
@@ -146,16 +146,16 @@
 }
 
 .group-create-friend-item:hover {
-  background: #1a1a3e;
+  background: var(--bg-hover);
 }
 
 .group-create-friend-item input {
-  accent-color: #57c9a1;
+  accent-color: var(--green);
 }
 
 .group-create-friend-item span {
   font-size: 13px;
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 /* ------------------------------------------------------------------ */
@@ -170,14 +170,14 @@
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
-  border-bottom: 1px solid #2a2a4a;
+  border-bottom: 1px solid var(--border);
   padding-bottom: 8px;
 }
 
 .group-members-tab {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-muted);
   font-size: 13px;
   padding: 6px 12px;
   border-radius: 6px;
@@ -186,13 +186,13 @@
 }
 
 .group-members-tab:hover {
-  color: #ccc;
-  background: #1a1a3e;
+  color: var(--text-secondary);
+  background: var(--bg-hover);
 }
 
 .group-members-tab.on {
-  color: #57c9a1;
-  background: #1a1a3e;
+  color: var(--green);
+  background: var(--bg-hover);
 }
 
 .group-members-list {
@@ -213,7 +213,7 @@
 }
 
 .group-member-item:hover {
-  background: #1a1a3e;
+  background: var(--bg-hover);
 }
 
 .group-member-info {
@@ -224,13 +224,13 @@
 
 .group-member-email {
   font-size: 13px;
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 .group-member-role {
   font-size: 10px;
-  color: #57c9a1;
-  background: rgba(87, 201, 161, 0.1);
+  color: var(--green);
+  background: color-mix(in srgb, var(--green) 12%, transparent);
   padding: 2px 6px;
   border-radius: 4px;
   text-transform: uppercase;
@@ -238,13 +238,13 @@
 
 .group-member-you {
   font-size: 11px;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .group-member-remove {
   background: none;
   border: none;
-  color: #666;
+  color: var(--text-muted);
   font-size: 18px;
   cursor: pointer;
   padding: 4px 8px;
@@ -254,7 +254,7 @@
 
 .group-member-remove:hover {
   color: var(--danger);
-  background: rgba(200, 83, 67, 0.1);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
 .group-members-add {
@@ -271,7 +271,7 @@
 
 .group-settings-label {
   font-size: 13px;
-  color: #aaa;
+  color: var(--text-secondary);
 }
 
 .group-settings-row {
@@ -283,23 +283,23 @@
   flex: 1;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid #2a2a4a;
-  background: #1a1a3e;
-  color: #e0e0e0;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
 }
 
 .group-settings-row input:focus {
-  border-color: #57c9a1;
+  border-color: var(--green);
 }
 
 .group-settings-row button {
   padding: 8px 16px;
   border-radius: 8px;
   border: none;
-  background: #57c9a1;
-  color: #fff;
+  background: var(--green);
+  color: var(--on-accent);
   font-size: 13px;
   cursor: pointer;
   transition: filter 0.15s ease;
@@ -330,13 +330,13 @@
 
 .group-create-friends-list::-webkit-scrollbar-thumb,
 .group-members-list::-webkit-scrollbar-thumb {
-  background: #2a2a4a;
+  background: var(--border);
   border-radius: 3px;
 }
 
 .group-create-friends-list::-webkit-scrollbar-thumb:hover,
 .group-members-list::-webkit-scrollbar-thumb:hover {
-  background: #3a3a5a;
+  background: var(--border-mid);
 }
 
 /* ------------------------------------------------------------------ */
