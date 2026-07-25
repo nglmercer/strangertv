@@ -1,34 +1,27 @@
-import type { Gender, MatchPreferences } from '../../shared/types'
+import type { MatchPreferences } from '../../shared/types'
 import { DEFAULT_GENDER } from '../../shared/constants'
 
-/** Fields that can be shared via a ?prefs= compact code. */
-const SHARE_FIELDS = ['country', 'language', 'lookingFor', 'gender'] as const
-type ShareField = (typeof SHARE_FIELDS)[number]
-
-/** Encode match prefs into a compact URL-safe string: "PE-es-female-any". */
+/** Encode match prefs as base64-encoded JSON for extensibility (future: tokens, keys, etc.). */
 export function encodePrefs(prefs: MatchPreferences): string {
-  const parts = SHARE_FIELDS.map((f) => {
-    const v = prefs[f]
-    return typeof v === 'string' ? v.replace(/-/g, '~') : ''
-  })
-  return parts.join('-')
+  const payload: Partial<MatchPreferences> = {
+    country: prefs.country,
+    language: prefs.language,
+    gender: prefs.gender,
+    lookingFor: prefs.lookingFor,
+  }
+  return btoa(JSON.stringify(payload))
 }
 
-/** Decode a compact pref string back into partial prefs. Returns null on malformed input. */
+/** Decode base64-encoded JSON prefs. Returns null on malformed input. */
 export function decodePrefs(code: string): Partial<MatchPreferences> | null {
-  const parts = code.split('-')
-  if (parts.length < SHARE_FIELDS.length) return null
-  const out: Partial<MatchPreferences> = {}
-  for (let i = 0; i < SHARE_FIELDS.length; i++) {
-    const field = SHARE_FIELDS[i]!
-    const raw = parts[i]!.replace(/~/g, '-')
-    if (!raw) continue
-    if (field === 'country') out.country = raw
-    else if (field === 'language') out.language = raw
-    else if (field === 'lookingFor') out.lookingFor = raw as Gender
-    else if (field === 'gender') out.gender = raw as Gender
+  try {
+    const json = atob(code)
+    const parsed = JSON.parse(json)
+    if (typeof parsed !== 'object' || parsed === null) return null
+    return parsed as Partial<MatchPreferences>
+  } catch {
+    return null
   }
-  return out
 }
 
 /** Build a shareable URL with encoded prefs. */
