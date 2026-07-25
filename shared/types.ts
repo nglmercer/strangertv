@@ -106,6 +106,17 @@ export type GroupMessage = {
   sender?: PublicUser
 }
 
+export type GroupInvite = {
+  id: number
+  groupId: number
+  inviterId: number
+  inviteeId: number
+  status: 'pending' | 'accepted' | 'declined'
+  createdAt: string
+  groupName: string
+  inviterUser?: PublicUser
+}
+
 export type ClientMessage =
   | { type: 'queue:join'; preferences: MatchPreferences; token?: string }
   | { type: 'queue:leave' }
@@ -128,6 +139,9 @@ export type ClientMessage =
   | { type: 'message:send'; friendId: number; text: string }
   | { type: 'message:history'; friendId: number; limit?: number; beforeId?: number }
   | { type: 'group:message:send'; groupId: number; text: string }
+  | { type: 'group:invite:send'; groupId: number; userId: number }
+  | { type: 'group:invite:accept'; inviteId: number }
+  | { type: 'group:invite:decline'; inviteId: number }
   | {
       type: 'telemetry:quality'
       roomId?: string
@@ -171,6 +185,15 @@ export type ServerMessage =
   | { type: 'message:new'; message: Message }
   | { type: 'message:history'; friendId: number; messages: Message[] }
   | { type: 'group:message:new'; message: GroupMessage }
+  | {
+      type: 'group:invite'
+      inviteId: number
+      groupId: number
+      groupName: string
+      inviter: PublicUser
+    }
+  | { type: 'group:invite:accepted'; inviteId: number; groupId: number; userId: number }
+  | { type: 'group:invite:declined'; inviteId: number; groupId: number; userId: number }
 
 /** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [

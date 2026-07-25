@@ -24,7 +24,7 @@ import {
   respondInvitation,
 } from '../friends'
 import { sendMessage, getConversation, hasRelationship } from '../messages'
-import { sendGroupMessage, getGroupMembers } from '../groups'
+import { sendGroupMessage, getGroupMembers, sendGroupInvite, respondGroupInvite, getGroupInvite } from '../groups'
 import { noteReport } from '../alerts'
 import { inc } from '../metrics'
 import { rateLimit } from '../rateLimit'
@@ -354,6 +354,84 @@ export function createWsHandler(state: WsState) {
         if (targetSocket) {
           send(targetSocket, { type: WS_MESSAGE_TYPE.groupMessageNew, message: sentMessage })
         }
+      }
+      return
+    }
+
+    // Group invite WS handlers
+    if (message.type === WS_MESSAGE_TYPE.groupInviteSend) {
+      const meta = getMeta(socket)
+      if (!meta?.userId) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to invite.' })
+        return
+      }
+      if (!rateLimit(`wsginvite:${meta.userId}`, 10, 60_000)) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.rateLimit, message: 'Slow down invites.' })
+        return
+      }
+      try {
+        const invite = await sendGroupInvite(message.groupId, meta.userId, message.userId)
+        const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+        const inviterProfile = inviterRow.rows[0]
+        const targetSocket = getSocketForUser(message.userId)
+        if (targetSocket) {
+          send(targetSocket, {
+            type: 'group:invite',
+            inviteId: invite.id,
+            groupId: invite.groupId,
+            groupName: invite.groupName,
+            inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: meta.userId, email: '' },
+          })
+        }
+      } catch (err) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: err instanceof Error ? err.message : 'Invite failed.' })
+      }
+      return
+    }
+
+    if (message.type === WS_MESSAGE_TYPE.groupInviteAccept) {
+      const meta = getMeta(socket)
+      if (!meta?.userId) return
+      try {
+        const result = await respondGroupInvite(message.inviteId, meta.userId, 'accept')
+        const invite = await getGroupInvite(message.inviteId)
+        if (invite) {
+          const accepterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+          const accepterProfile = accepterRow.rows[0]
+          const inviterSocket = getSocketForUser(result.inviterId)
+          if (inviterSocket) {
+            send(inviterSocket, {
+              type: 'group:invite:accepted',
+              inviteId: message.inviteId,
+              groupId: result.groupId,
+              userId: meta.userId,
+            })
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+
+    if (message.type === WS_MESSAGE_TYPE.groupInviteDecline) {
+      const meta = getMeta(socket)
+      if (!meta?.userId) return
+      try {
+        const result = await respondGroupInvite(message.inviteId, meta.userId, 'decline')
+        const declinerRow = await db.execute({ sql: 'SELECT id, email FROM users WHERE id = ?', args: [meta.userId] })
+        const declinerProfile = declinerRow.rows[0]
+        const inviterSocket = getSocketForUser(result.inviterId)
+        if (inviterSocket) {
+          send(inviterSocket, {
+            type: 'group:invite:declined',
+            inviteId: message.inviteId,
+            groupId: result.groupId,
+            userId: meta.userId,
+          })
+        }
+      } catch {
+        /* ignore */
       }
       return
     }

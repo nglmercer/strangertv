@@ -11,6 +11,7 @@ const notificationIcon = (type: Notification['type']) => {
     case 'message': return <Icon d={icons.chatBubble} size={20} />
     case 'invitation': return <Icon d={icons.game} size={20} />
     case 'group_message': return <Icon d={icons.users} size={20} />
+    case 'group_invite': return <Icon d={icons.users} size={20} />
   }
 }
 

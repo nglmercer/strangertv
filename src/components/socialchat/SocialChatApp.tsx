@@ -1,24 +1,30 @@
 import { useState, useEffect, useCallback } from 'preact/hooks'
 import type { Group, GroupMember, GroupMessage, Friend, Message } from '../../../shared/types'
 import type { Messages } from '../../i18n'
+import type { useMatchSocket } from '../../hooks/useMatchSocket'
 import { groupsApi, friendsApi, messagesApi, onGroupMessage } from '../../api'
 import { socialStore } from '../../store/socialStore'
 import { SocialSidebar } from './SocialSidebar'
 import { SocialChat } from './SocialChat'
 import { GroupCreateModal } from '../groups/GroupCreateModal'
 import { GroupMembersModal } from '../groups/GroupMembersModal'
+import { GroupInviteModal } from './GroupInviteModal'
 import { Icon, icons } from '../icons'
 
 type ActiveChat =
   | { type: 'group'; id: number }
   | { type: 'friend'; id: number }
 
+type MatchSocket = ReturnType<typeof useMatchSocket>
+
 export function SocialChatApp({
   t,
   currentUserId,
+  match,
 }: {
   t: Messages
   currentUserId: number
+  match: MatchSocket
 }) {
   const [groups, setGroups] = useState<Group[]>([])
   const [friends, setFriends] = useState<Friend[]>([])
@@ -29,6 +35,8 @@ export function SocialChatApp({
   const [messageText, setMessageText] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteFriendId, setInviteFriendId] = useState<number | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [error, setError] = useState('')
 
@@ -230,6 +238,29 @@ export function SocialChatApp({
     }
   }
 
+  const handleOpenInvite = (friendId: number) => {
+    setInviteFriendId(friendId)
+    setShowInvite(true)
+  }
+
+  const handleSelectInviteGroup = (groupId: number) => {
+    if (inviteFriendId != null) {
+      match.groupInvite(groupId, inviteFriendId)
+    }
+    setShowInvite(false)
+    setInviteFriendId(null)
+  }
+
+  // Refresh groups when a group invite is accepted/declined
+  useEffect(() => {
+    return socialStore.subscribe(() => {
+      const last = socialStore.notifications[0]
+      if (last?.type === 'group_invite') {
+        void loadGroups()
+      }
+    })
+  }, [loadGroups])
+
   return (
     <div class={`social-app ${activeChat ? 'has-active' : ''} ${sidebarOpen ? 'sidebar-open' : ''}`}>
       {sidebarOpen && <div class="social-sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
@@ -258,6 +289,7 @@ export function SocialChatApp({
             onOpenMembers={() => setShowMembers(true)}
             onSend={handleSend}
             onToggleMenu={() => setSidebarOpen((v) => !v)}
+            onInviteToGroup={activeChat?.type === 'friend' ? () => handleOpenInvite(activeChat.id) : undefined}
           />
         ) : (
           <div class="social-main-empty">
@@ -287,6 +319,19 @@ export function SocialChatApp({
           onAddMembers={handleAddMembers}
           onRemoveMember={handleRemoveMember}
           onRename={handleRename}
+        />
+      )}
+
+      {showInvite && inviteFriendId != null && (
+        <GroupInviteModal
+          t={t}
+          groups={groups}
+          friendName={activeFriend?.otherUser.email.split('@')[0] ?? ''}
+          onSelect={handleSelectInviteGroup}
+          onClose={() => {
+            setShowInvite(false)
+            setInviteFriendId(null)
+          }}
         />
       )}
     </div>

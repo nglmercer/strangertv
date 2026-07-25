@@ -389,4 +389,19 @@ Las conversaciones no son privadas frente a tu pareja; trata a los desconocidos 
   chooseConversation: 'Elige una conversación para comenzar a mensajear',
   noNotifications: 'Sin notificaciones aún',
   markAllRead: 'Marcar todo como leído',
+  // Share match prefs
+  sharePrefs: 'Compartir preferencias',
+  sharePrefsDesc: 'Copia un enlace para emparejar con tus preferencias actuales',
+  sharePrefsCopied: '¡Enlace copiado!',
+  sharedPrefsTitle: '¿Unirse con estas preferencias?',
+  sharedPrefsFrom: 'Compartido por un amigo',
+  sharedPrefsApply: 'Aplicar e iniciar',
+  sharedPrefsDismiss: 'Descartar',
+  // Group invite via DM
+  inviteToGroup: 'Invitar al grupo',
+  selectGroupToInvite: 'Selecciona un grupo para invitar',
+  groupInviteSent: 'Invitación al grupo enviada',
+  groupInviteAccepted: 'Se unió al grupo',
+  groupInviteDeclined: 'Invitación al grupo rechazada',
+  noGroupsToInvite: 'Aún no hay grupos. ¡Crea uno primero!',
 }

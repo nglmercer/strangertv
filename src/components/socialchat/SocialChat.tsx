@@ -24,6 +24,7 @@ export function SocialChat({
   onOpenMembers,
   onSend,
   onToggleMenu,
+  onInviteToGroup,
 }: {
   t: Messages
   activeChat: ActiveChat
@@ -38,6 +39,7 @@ export function SocialChat({
   onOpenMembers: () => void
   onSend: (e: Event) => void
   onToggleMenu?: () => void
+  onInviteToGroup?: () => void
 }) {
   const messagesEnd = useRef<HTMLDivElement>(null)
 
@@ -52,6 +54,7 @@ export function SocialChat({
         onBack={onBack}
         onOpenMembers={onOpenMembers}
         onToggleMenu={onToggleMenu}
+        onInviteToGroup={onInviteToGroup}
       />
       <MessagesList
         t={t}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import { COUNTRY_CODES, type Gender, type MatchPreferences } from '../../shared/types'
 import { countryLabel, type Messages } from '../i18n'
 import { DEFAULT_COUNTRY, GENDERS } from '../../shared/constants'
+import { sharePrefsUrl } from '../utils/sharePrefs'
 import { Icon, icons } from './icons'
 
 type DropdownKind = 'country' | 'gender' | null
@@ -35,6 +36,18 @@ export function ControlDeck({
 
   const isActive = finding || matched
   const countryDisplay = prefs.country === DEFAULT_COUNTRY ? <Icon d={icons.globe} size={18} /> : prefs.country
+  const [copied, setCopied] = useState(false)
+
+  const handleShare = async () => {
+    const url = sharePrefsUrl(prefs)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* clipboard unavailable — ignore */
+    }
+  }
 
   useEffect(() => {
     if (!dropdown) return
@@ -173,6 +186,18 @@ export function ControlDeck({
           </div>
         )}
       </div>
+      <button
+        type="button"
+        class={`deck-card deck-share ${copied ? 'copied' : ''}`}
+        onClick={handleShare}
+        title={t.sharePrefs}
+        aria-label={t.sharePrefs}
+      >
+        <span class="deck-emoji" aria-hidden="true">
+          <Icon d={icons.share} size={18} />
+        </span>
+        <small>{copied ? t.sharePrefsCopied : t.sharePrefs}</small>
+      </button>
     </div>
   )
 }

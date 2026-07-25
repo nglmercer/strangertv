@@ -84,16 +84,23 @@ export const API_ROUTES = {
   groupMessages: (id: number | string) => `/api/groups/${id}/messages`,
   groupLeave: (id: number | string) => `/api/groups/${id}/leave`,
   groupRemoveMember: (id: number | string, userId: number | string) => `/api/groups/${id}/members/${userId}`,
+  // Group invites
+  groupInvites: '/api/group-invites',
+  groupInviteById: (id: number | string, action?: string) => `/api/group-invites/${id}${action ? `/${action}` : ''}`,
 } as const
 
 export const API_PREFIX = '/api'
 
 export const WS_PATH = '/ws'
 
-/** URL query-parameter names for deep links (email verify / password reset). */
+/** URL query-parameter names for deep links (email verify / password reset / pref share). */
 export const URL_PARAM = {
   reset: 'reset',
   verify: 'verify',
+  prefs: 'prefs',
+  shareCountry: 'country',
+  shareLang: 'lang',
+  shareLooking: 'looking',
 } as const
 
 export const ADMIN_PATH = '/admin'
@@ -150,6 +157,9 @@ export const WS_MESSAGE_TYPE = {
   groupMessageNew: 'group:message:new',
   groupMemberJoined: 'group:member:joined',
   groupMemberLeft: 'group:member:left',
+  groupInviteSend: 'group:invite:send',
+  groupInviteAccept: 'group:invite:accept',
+  groupInviteDecline: 'group:invite:decline',
 } as const
 
 export type WsMessageType = (typeof WS_MESSAGE_TYPE)[keyof typeof WS_MESSAGE_TYPE]

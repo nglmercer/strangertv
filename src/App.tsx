@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'preact/hooks'
-import type { Locale, MatchPreferences, ReportReason } from '../shared/types'
+import type { Locale, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { getFlag, setFlag } from './utils/storage'
+import { mergePrefs } from './utils/sharePrefs'
 import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, type PublicUser } from './api'
 import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
@@ -90,17 +91,25 @@ export function App() {
       type: msg.type === 'friend:request' ? 'friend_request'
         : msg.type === 'friend:accepted' ? 'friend_accepted'
         : msg.type === 'message:new' ? 'message'
-        : 'invitation',
+        : msg.type === 'invitation:send' ? 'invitation'
+        : msg.type === 'group:invite' ? 'group_invite'
+        : msg.type === 'group:invite:accepted' ? 'group_invite'
+        : 'group_invite',
       title: msg.type === 'friend:request' ? 'Friend Request'
         : msg.type === 'friend:accepted' ? 'Request Accepted'
         : msg.type === 'message:new' ? 'New Message'
-        : 'Match Invitation',
+        : msg.type === 'invitation:send' ? 'Match Invitation'
+        : msg.type === 'group:invite' ? 'Group Invite'
+        : 'Group Invite',
       body: msg.type === 'invitation:send' ? `${msg.inviter.email.split('@')[0]} invited you to a match`
         : msg.type === 'message:new' ? msg.message.text.slice(0, 80)
+        : msg.type === 'group:invite' ? `${msg.inviter.email.split('@')[0]} invited you to "${msg.groupName}"`
+        : msg.type === 'group:invite:accepted' ? `Someone joined your group`
         : `${'from' in msg && msg.from ? msg.from.email.split('@')[0] : ''} ${msg.type === 'friend:request' ? 'wants to be your friend' : 'accepted your request'}`,
-      from: 'from' in msg && msg.from ? msg.from : undefined,
+      from: 'from' in msg && msg.from ? msg.from as SharedPublicUser : undefined,
       data: msg.type === 'message:new' ? { senderId: msg.message.senderId }
         : msg.type === 'invitation:send' ? { invitationId: msg.invitationId, roomId: msg.roomId }
+        : msg.type === 'group:invite' ? { inviteId: msg.inviteId, groupId: msg.groupId }
         : undefined,
     })
   }, [])
@@ -113,7 +122,7 @@ export function App() {
     onSocialEvent: handleSocialEvent,
   })
 
-  const { appVersion } = useSessionBootstrap({
+  const { appVersion, sharedPrefs } = useSessionBootstrap({
     setUser: applyUser,
     setAuth,
     setResetToken: setResetTokenFromUrl,
@@ -121,6 +130,7 @@ export function App() {
     setOnline: session.setOnline,
     setWaitingCount: session.setWaitingCount,
   })
+  const [showSharedPrefs, setShowSharedPrefs] = useState(Boolean(sharedPrefs))
 
   useEffect(() => {
     const onFullscreenChange = () => {
@@ -215,9 +225,33 @@ export function App() {
           ? tr.other
           : tr.everyone
 
+  const handleApplySharedPrefs = () => {
+    if (!sharedPrefs) return
+    const merged = mergePrefs(sharedPrefs, prefs)
+    setPrefs(merged)
+    setShowSharedPrefs(false)
+  }
+
   return (
     <main class="app">
       <OfflineBanner label={tr.offline} />
+
+      {showSharedPrefs && sharedPrefs && (
+        <div class="shared-prefs-banner">
+          <div class="shared-prefs-info">
+            <span class="shared-prefs-label">{tr.sharedPrefsFrom}</span>
+            <span class="shared-prefs-title">{tr.sharedPrefsTitle}</span>
+          </div>
+          <div class="shared-prefs-actions">
+            <button type="button" class="shared-prefs-apply" onClick={handleApplySharedPrefs}>
+              {tr.sharedPrefsApply}
+            </button>
+            <button type="button" class="shared-prefs-dismiss" onClick={() => setShowSharedPrefs(false)}>
+              {tr.sharedPrefsDismiss}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div class="stage-wrap">
         <VideoStage
@@ -337,7 +371,7 @@ export function App() {
       </section>
 
       {user ? (
-        <SocialChatApp t={tr} currentUserId={user.id} />
+        <SocialChatApp t={tr} currentUserId={user.id} match={session.match} />
       ) : (
         <GroupsLanding t={tr} onSignIn={() => setAuth(true)} />
       )}

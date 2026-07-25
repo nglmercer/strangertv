@@ -11,6 +11,9 @@ import {
   leaveGroup,
   sendGroupMessage,
   getGroupMessages,
+  respondGroupInvite,
+  getGroupInvite,
+  getGroupInvites,
 } from '../groups'
 import { getSocketForUser, type SocketLike } from '../matchmaking'
 import { rateLimit } from '../rateLimit'
@@ -141,5 +144,55 @@ export function registerGroupsRoutes(app: Hono, send: (socket: SocketLike, msg: 
       }
     }
     return c.json({ message })
+  })
+
+  // Group invites
+  app.get(API_ROUTES.groupInvites, async (c) => {
+    const user = await userFromToken(getBearer(c))
+    if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+    const invites = await getGroupInvites(user.id)
+    return c.json({ invites })
+  })
+
+  app.patch(API_ROUTES.groupInviteById(':id', 'accept'), async (c) => {
+    const user = await userFromToken(getBearer(c))
+    if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+    const inviteId = Number(c.req.param('id'))
+    if (!inviteId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+    const result = await respondGroupInvite(inviteId, user.id, 'accept')
+    const invite = await getGroupInvite(inviteId)
+    if (invite) {
+      const inviterSocket = getSocketForUser(result.inviterId)
+      if (inviterSocket) {
+        send(inviterSocket, {
+          type: 'group:invite:accepted',
+          inviteId,
+          groupId: result.groupId,
+          userId: user.id,
+        } as ServerMessage)
+      }
+    }
+    return c.json({ ok: true })
+  })
+
+  app.patch(API_ROUTES.groupInviteById(':id', 'decline'), async (c) => {
+    const user = await userFromToken(getBearer(c))
+    if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
+    const inviteId = Number(c.req.param('id'))
+    if (!inviteId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
+    const result = await respondGroupInvite(inviteId, user.id, 'decline')
+    const invite = await getGroupInvite(inviteId)
+    if (invite) {
+      const inviterSocket = getSocketForUser(result.inviterId)
+      if (inviterSocket) {
+        send(inviterSocket, {
+          type: 'group:invite:declined',
+          inviteId,
+          groupId: result.groupId,
+          userId: user.id,
+        } as ServerMessage)
+      }
+    }
+    return c.json({ ok: true })
   })
 }

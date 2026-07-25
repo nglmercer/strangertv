@@ -10,6 +10,8 @@ import {
 } from '../api'
 import { detectLocale, t as translate } from '../i18n'
 import { TIMING_MS, URL_PARAM } from '../../shared/constants'
+import type { MatchPreferences } from '../../shared/types'
+import { readSharedPrefs, sanitizeSharedPrefs } from '../utils/sharePrefs'
 
 type Options = {
   setUser: (u: PublicUser | null) => void
@@ -30,6 +32,7 @@ export function useSessionBootstrap({
   setWaitingCount,
 }: Options) {
   const [appVersion, setAppVersion] = useState('')
+  const [sharedPrefs, setSharedPrefs] = useState<Partial<MatchPreferences> | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -54,6 +57,12 @@ export function useSessionBootstrap({
           }
         })
         .catch(() => setStatus(translate(detectLocale()).emailVerifyFailed))
+    }
+    const raw = readSharedPrefs()
+    if (raw) {
+      const cleaned = sanitizeSharedPrefs(raw)
+      if (cleaned) setSharedPrefs(cleaned)
+      history.replaceState({}, '', location.pathname)
     }
 
     if (getToken()) {
@@ -94,5 +103,5 @@ export function useSessionBootstrap({
     return () => clearInterval(iv)
   }, [setUser, setAuth, setResetToken, setStatus, setOnline, setWaitingCount])
 
-  return { appVersion }
+  return { appVersion, sharedPrefs }
 }

@@ -25,6 +25,9 @@ type Handlers = {
   onFriendRemoved?: (friendId: number) => void
   onMessageNew?: (message: Message) => void
   onInvitation?: (invitationId: number, roomId: string, inviter: PublicUser) => void
+  onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
+  onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
+  onGroupInviteDeclined?: (inviteId: number, groupId: number, userId: number) => void
 }
 
 export function useMatchSocket(handlers: Handlers) {
@@ -136,6 +139,15 @@ export function useMatchSocket(handlers: Handlers) {
         case WS_MESSAGE_TYPE.invitationSend:
           h.onInvitation?.(msg.invitationId, msg.roomId, msg.inviter)
           break
+        case 'group:invite':
+          h.onGroupInvite?.(msg.inviteId, msg.groupId, msg.groupName, msg.inviter)
+          break
+        case 'group:invite:accepted':
+          h.onGroupInviteAccepted?.(msg.inviteId, msg.groupId, msg.userId)
+          break
+        case 'group:invite:declined':
+          h.onGroupInviteDeclined?.(msg.inviteId, msg.groupId, msg.userId)
+          break
       }
     }
 
@@ -188,6 +200,27 @@ export function useMatchSocket(handlers: Handlers) {
     send({ type: WS_MESSAGE_TYPE.block })
   }, [send])
 
+  const groupInvite = useCallback(
+    (groupId: number, userId: number) => {
+      send({ type: WS_MESSAGE_TYPE.groupInviteSend, groupId, userId })
+    },
+    [send],
+  )
+
+  const groupInviteAccept = useCallback(
+    (inviteId: number) => {
+      send({ type: WS_MESSAGE_TYPE.groupInviteAccept, inviteId })
+    },
+    [send],
+  )
+
+  const groupInviteDecline = useCallback(
+    (inviteId: number) => {
+      send({ type: WS_MESSAGE_TYPE.groupInviteDecline, inviteId })
+    },
+    [send],
+  )
+
   useEffect(() => {
     ensureSocket()
     return () => {
@@ -197,5 +230,5 @@ export function useMatchSocket(handlers: Handlers) {
     }
   }, [ensureSocket])
 
-  return { send, join, next, leave, report, block, connected, socket }
+  return { send, join, next, leave, report, block, groupInvite, groupInviteAccept, groupInviteDecline, connected, socket }
 }

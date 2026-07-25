@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
-import type { GroupMessage, MatchPreferences, RelationshipStatus } from '../../shared/types'
+import type { GroupMessage, MatchPreferences, PublicUser, RelationshipStatus } from '../../shared/types'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
@@ -17,6 +17,9 @@ type Options = {
   onStatus: (s: string) => void
   onGroupMessage?: (message: GroupMessage) => void
   onSocialEvent?: (msg: SocialWsEvent) => void
+  onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
+  onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
+  onGroupInviteDeclined?: (inviteId: number, groupId: number, userId: number) => void
 }
 
 export type SocialWsEvent =
@@ -26,11 +29,14 @@ export type SocialWsEvent =
   | { type: 'friend:removed'; friendId: number }
   | { type: 'message:new'; message: { id: number; senderId: number; recipientId: number; text: string; createdAt: string } }
   | { type: 'invitation:send'; invitationId: number; roomId: string; inviter: { id: number; email: string } }
+  | { type: 'group:invite'; inviteId: number; groupId: number; groupName: string; inviter: { id: number; email: string } }
+  | { type: 'group:invite:accepted'; inviteId: number; groupId: number; userId: number }
+  | { type: 'group:invite:declined'; inviteId: number; groupId: number; userId: number }
 
 /**
  * Orchestrates media, signaling socket, WebRTC, queue, chat, and call lifecycle.
  */
-export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialEvent }: Options) {
+export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -201,6 +207,18 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     onFriendRemoved: (friendId) => onSocialEvent?.({ type: 'friend:removed', friendId }),
     onMessageNew: (message) => onSocialEvent?.({ type: 'message:new', message }),
     onInvitation: (invitationId, roomId, inviter) => onSocialEvent?.({ type: 'invitation:send', invitationId, roomId, inviter }),
+    onGroupInvite: (inviteId, groupId, groupName, inviter) => {
+      onSocialEvent?.({ type: 'group:invite', inviteId, groupId, groupName, inviter })
+      onGroupInvite?.(inviteId, groupId, groupName, inviter)
+    },
+    onGroupInviteAccepted: (inviteId, groupId, userId) => {
+      onSocialEvent?.({ type: 'group:invite:accepted', inviteId, groupId, userId })
+      onGroupInviteAccepted?.(inviteId, groupId, userId)
+    },
+    onGroupInviteDeclined: (inviteId, groupId, userId) => {
+      onSocialEvent?.({ type: 'group:invite:declined', inviteId, groupId, userId })
+      onGroupInviteDeclined?.(inviteId, groupId, userId)
+    },
   })
 
   const matchRef = useRef(match)

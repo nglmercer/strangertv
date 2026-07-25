@@ -389,4 +389,19 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   chooseConversation: 'Escolha uma conversa para começar a mensar',
   noNotifications: 'Nenhuma notificação ainda',
   markAllRead: 'Marcar tudo como lido',
+  // Share match prefs
+  sharePrefs: 'Compartilhar preferências',
+  sharePrefsDesc: 'Copie um link para combinar com suas preferências atuais',
+  sharePrefsCopied: 'Link copiado!',
+  sharedPrefsTitle: 'Entrar com estas preferências?',
+  sharedPrefsFrom: 'Compartilhado por um amigo',
+  sharedPrefsApply: 'Aplicar e iniciar',
+  sharedPrefsDismiss: 'Descartar',
+  // Group invite via DM
+  inviteToGroup: 'Convidar para o grupo',
+  selectGroupToInvite: 'Selecione um grupo para convidar',
+  groupInviteSent: 'Convite para o grupo enviado',
+  groupInviteAccepted: 'Entrou no grupo',
+  groupInviteDeclined: 'Convite para o grupo recusado',
+  noGroupsToInvite: 'Nenhum grupo ainda. Crie um primeiro!',
 }

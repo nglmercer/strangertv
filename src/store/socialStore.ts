@@ -3,7 +3,7 @@ import type { Friend, Message, PublicUser } from '../../shared/types'
 
 export type Notification = {
   id: string
-  type: 'friend_request' | 'friend_accepted' | 'message' | 'invitation' | 'group_message'
+  type: 'friend_request' | 'friend_accepted' | 'message' | 'invitation' | 'group_message' | 'group_invite'
   title: string
   body: string
   from?: PublicUser

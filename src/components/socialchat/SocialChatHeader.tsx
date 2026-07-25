@@ -15,6 +15,7 @@ export function SocialChatHeader({
   onBack,
   onOpenMembers,
   onToggleMenu,
+  onInviteToGroup,
 }: {
   t: Messages
   activeChat: ActiveChat
@@ -24,6 +25,7 @@ export function SocialChatHeader({
   onBack: () => void
   onOpenMembers: () => void
   onToggleMenu?: () => void
+  onInviteToGroup?: () => void
 }) {
   const isGroup = activeChat.type === 'group'
   const title = isGroup ? group?.name ?? '' : friend?.otherUser.email.split('@')[0] ?? ''
@@ -57,6 +59,11 @@ export function SocialChatHeader({
 
       {isGroup && (
         <button type="button" class="social-header-action" onClick={onOpenMembers} aria-label={t.addMembers}>
+          <Icon d={icons.userPlus} />
+        </button>
+      )}
+      {!isGroup && onInviteToGroup && (
+        <button type="button" class="social-header-action" onClick={onInviteToGroup} aria-label={t.inviteToGroup} title={t.inviteToGroup}>
           <Icon d={icons.userPlus} />
         </button>
       )}

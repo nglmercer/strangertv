@@ -388,6 +388,21 @@ Conversations are not private from your peer; treat strangers carefully.`,
   chooseConversation: 'Choose a conversation to start messaging',
   noNotifications: 'No notifications yet',
   markAllRead: 'Mark all read',
+  // Share match prefs
+  sharePrefs: 'Share preferences',
+  sharePrefsDesc: 'Copy a link to match with your current preferences',
+  sharePrefsCopied: 'Link copied!',
+  sharedPrefsTitle: 'Join with these preferences?',
+  sharedPrefsFrom: 'Shared by a friend',
+  sharedPrefsApply: 'Apply & start',
+  sharedPrefsDismiss: 'Dismiss',
+  // Group invite via DM
+  inviteToGroup: 'Invite to group',
+  selectGroupToInvite: 'Select a group to invite',
+  groupInviteSent: 'Group invite sent',
+  groupInviteAccepted: 'Joined the group',
+  groupInviteDeclined: 'Group invite declined',
+  noGroupsToInvite: 'No groups yet. Create one first!',
 }
 
 export type Messages = {

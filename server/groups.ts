@@ -238,3 +238,98 @@ export async function isGroupMember(groupId: number, userId: number, db: Client 
   })
   return result.rows.length > 0
 }
+
+export async function sendGroupInvite(groupId: number, inviterId: number, inviteeId: number, db: Client = defaultDb) {
+  if (inviterId === inviteeId) throw new Error('Cannot invite yourself')
+  const group = await getGroup(groupId, inviterId, db)
+  if (!group) throw new Error('Group not found')
+  const alreadyMember = await isGroupMember(groupId, inviteeId, db)
+  if (alreadyMember) throw new Error('Already a member')
+  await db.execute({
+    sql: "INSERT OR REPLACE INTO group_invites (group_id, inviter_id, invitee_id, status) VALUES (?, ?, ?, 'pending')",
+    args: [groupId, inviterId, inviteeId],
+  })
+  const result = await db.execute({
+    sql: 'SELECT id, group_id, inviter_id, invitee_id, status, created_at FROM group_invites WHERE group_id = ? AND invitee_id = ?',
+    args: [groupId, inviteeId],
+  })
+  const row = result.rows[0] as any
+  return {
+    id: Number(row.id),
+    groupId: Number(row.group_id),
+    inviterId: Number(row.inviter_id),
+    inviteeId: Number(row.invitee_id),
+    status: row.status,
+    createdAt: row.created_at,
+    groupName: group.name,
+  }
+}
+
+export async function respondGroupInvite(inviteId: number, userId: number, action: 'accept' | 'decline', db: Client = defaultDb) {
+  const result = await db.execute({
+    sql: 'SELECT * FROM group_invites WHERE id = ? AND invitee_id = ? AND status = \'pending\'',
+    args: [inviteId, userId],
+  })
+  if (!result.rows[0]) throw new Error('Invite not found')
+  const invite = result.rows[0] as any
+  if (action === 'accept') {
+    await db.execute({
+      sql: "INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')",
+      args: [Number(invite.group_id), userId],
+    })
+  }
+  await db.execute({
+    sql: "UPDATE group_invites SET status = ? WHERE id = ?",
+    args: [action === 'accept' ? 'accepted' : 'declined', inviteId],
+  })
+  return { ok: true, groupId: Number(invite.group_id), inviterId: Number(invite.inviter_id) }
+}
+
+export async function getGroupInvites(userId: number, db: Client = defaultDb) {
+  const result = await db.execute({
+    sql: `SELECT gi.id, gi.group_id, gi.inviter_id, gi.invitee_id, gi.status, gi.created_at,
+                 g.name AS group_name,
+                 u.id AS inviter_id_col, u.email AS inviter_email, u.birth_date AS inviter_birth_date,
+                 u.gender AS inviter_gender, u.country AS inviter_country,
+                 u.language AS inviter_language, u.interests AS inviter_interests,
+                 u.email_verified AS inviter_email_verified
+          FROM group_invites gi
+          JOIN groups g ON g.id = gi.group_id
+          JOIN users u ON u.id = gi.inviter_id
+          WHERE gi.invitee_id = ? AND gi.status = 'pending'
+          ORDER BY gi.created_at DESC`,
+    args: [userId],
+  })
+  return result.rows.map((row: any) => ({
+    id: Number(row.id),
+    groupId: Number(row.group_id),
+    inviterId: Number(row.inviter_id),
+    inviteeId: Number(row.invitee_id),
+    status: row.status,
+    createdAt: row.created_at,
+    groupName: row.group_name,
+    inviterUser: publicUserFromRow(row, 'inviter_'),
+  }))
+}
+
+export async function getGroupInvite(inviteId: number, db: Client = defaultDb) {
+  const result = await db.execute({
+    sql: `SELECT gi.id, gi.group_id, gi.inviter_id, gi.invitee_id, gi.status, gi.created_at,
+                 g.name AS group_name
+          FROM group_invites gi
+          JOIN groups g ON g.id = gi.group_id
+          WHERE gi.id = ?`,
+    args: [inviteId],
+  })
+  if (!result.rows[0]) return null
+  const row = result.rows[0] as any
+  return {
+    id: Number(row.id),
+    groupId: Number(row.group_id),
+    inviterId: Number(row.inviter_id),
+    inviteeId: Number(row.invitee_id),
+    status: row.status,
+    createdAt: row.created_at,
+    groupName: row.group_name,
+  }
+}

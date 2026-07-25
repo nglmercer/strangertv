@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences, Friend, Follow, Invitation, Message, Group, GroupMember, GroupMessage } from '../shared/types'
+import type { Gender, MatchPreferences, Friend, Follow, Invitation, Message, Group, GroupMember, GroupMessage, GroupInvite } from '../shared/types'
 import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
@@ -170,6 +170,19 @@ export const messagesApi = {
       method: 'POST',
       body: JSON.stringify({ friendId, text }),
     }),
+}
+
+export const groupInvitesApi = {
+  list: () => api<{ invites: GroupInvite[] }>(API_ROUTES.groupInvites),
+  send: (groupId: number, userId: number) =>
+    api<{ invite: GroupInvite }>(API_ROUTES.groupInvites, {
+      method: 'POST',
+      body: JSON.stringify({ groupId, userId }),
+    }),
+  accept: (inviteId: number) =>
+    api<{ ok: boolean }>(API_ROUTES.groupInviteById(inviteId, 'accept'), { method: 'PATCH' }),
+  decline: (inviteId: number) =>
+    api<{ ok: boolean }>(API_ROUTES.groupInviteById(inviteId, 'decline'), { method: 'PATCH' }),
 }
 
 export const groupsApi = {
