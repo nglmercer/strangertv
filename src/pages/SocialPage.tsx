@@ -21,25 +21,8 @@ export function SocialPage() {
             <Icon d={icons.arrowLeft} size={18} />
             <span>{t.back}</span>
           </button>
-
-          <div class="social-page-brand">
-            <span class="social-page-brand-icon" aria-hidden="true">
-              <Icon d={icons.users} size={18} />
-            </span>
-            <div class="social-page-brand-text">
-              <h1>{t.social}</h1>
-              <p>{signedIn ? t.groupsWithFriends : t.live}</p>
-            </div>
-          </div>
-
-          <div class="social-page-header-actions">
-            {!signedIn && (
-              <button type="button" class="social-page-signin" onClick={onSignIn}>
-                <Icon d={icons.user} size={16} />
-                <span>{t.signIn}</span>
-              </button>
-            )}
-          </div>
+          <h1 class="social-page-title">{t.social}</h1>
+          <div class="social-page-header-spacer" aria-hidden="true" />
         </div>
       </header>
 
