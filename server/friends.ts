@@ -218,18 +218,25 @@ export async function sendInvitation(inviterId: number, inviteeId: number, roomI
 
 export async function respondInvitation(invitationId: number, inviteeId: number, action: 'accept' | 'decline') {
   const result = await db.execute({
-    sql: "SELECT * FROM invitations WHERE id = ? AND invitee_id = ? AND status = 'pending'",
+    sql: "SELECT * FROM invitations WHERE id = ? AND invitee_id = ?",
     args: [invitationId, inviteeId],
   })
-  if (!result.rows[0]) {
+  const row = result.rows[0]
+  if (!row) {
     throw new Error('Invitation not found')
   }
-  const newStatus = action === 'accept' ? 'accepted' : 'declined'
+  const targetStatus = action === 'accept' ? 'accepted' : 'declined'
+  if (row.status === targetStatus) {
+    return { ok: true, status: targetStatus }
+  }
+  if (row.status !== 'pending') {
+    throw new Error(`Invitation already ${row.status}`)
+  }
   await db.execute({
     sql: 'UPDATE invitations SET status = ? WHERE id = ?',
-    args: [newStatus, invitationId],
+    args: [targetStatus, invitationId],
   })
-  return { ok: true, status: newStatus }
+  return { ok: true, status: targetStatus }
 }
 
 export async function cancelInvitation(invitationId: number, inviterId: number) {

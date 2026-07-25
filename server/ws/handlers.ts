@@ -5,9 +5,11 @@ import {
   getPartner,
   getPartnerUserId,
   getRoom,
+  getSocketUserId,
   heartbeat,
   leaveRoom,
   matchUsers,
+  registerUserSocket,
   removeFromQueue,
   send,
   blockPair,
@@ -65,6 +67,17 @@ export function createWsHandler(state: WsState) {
 
     if (message.type === WS_MESSAGE_TYPE.queueHeartbeat) {
       heartbeat(socket)
+      return
+    }
+
+    if (message.type === WS_MESSAGE_TYPE.wsAuth) {
+      if (message.token) {
+        const user = await userFromToken(message.token)
+        if (user) {
+          registerUserSocket(user.id, socket)
+          console.debug('[ws] auth', { userId: user.id })
+        }
+      }
       return
     }
 
@@ -343,8 +356,8 @@ export function createWsHandler(state: WsState) {
 
     // Friend system WS handlers
     if (message.type === WS_MESSAGE_TYPE.friendRequest) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) {
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to send friend requests.' })
         return
       }
@@ -353,21 +366,21 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'User is not online.' })
         return
       }
-      await sendFriendRequest(meta.userId, message.userId)
-      const fromRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+      await sendFriendRequest(userId, message.userId)
+      const fromRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [userId] })
       const fromProfile = fromRow.rows[0]
-      send(targetSocket, { type: WS_MESSAGE_TYPE.friendRequest, friendId: meta.userId, from: fromProfile ? publicUser(fromProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
+      send(targetSocket, { type: WS_MESSAGE_TYPE.friendRequest, friendId: userId, from: fromProfile ? publicUser(fromProfile as unknown as UserRow) : { id: userId, email: '' } })
       return
     }
 
     if (message.type === WS_MESSAGE_TYPE.friendAccept) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) return
-      await respondFriendRequest(message.friendId, meta.userId, 'accept')
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) return
+      await respondFriendRequest(message.friendId, userId, 'accept')
       const friend = await db.execute({ sql: 'SELECT user_a_id, user_b_id FROM friends WHERE id = ?', args: [message.friendId] })
       const row = friend.rows[0]
       if (row) {
-        const otherId = Number(row.user_a_id) === meta.userId ? Number(row.user_b_id) : Number(row.user_a_id)
+        const otherId = Number(row.user_a_id) === userId ? Number(row.user_b_id) : Number(row.user_a_id)
         const otherSocket = getSocketForUser(otherId)
         if (otherSocket) {
           const otherRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [otherId] })
@@ -379,89 +392,97 @@ export function createWsHandler(state: WsState) {
     }
 
     if (message.type === WS_MESSAGE_TYPE.friendDecline) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) return
-      await respondFriendRequest(message.friendId, meta.userId, 'decline')
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) return
+      await respondFriendRequest(message.friendId, userId, 'decline')
       return
     }
 
     if (message.type === WS_MESSAGE_TYPE.friendRemove) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) return
-      await removeFriend(message.friendId, meta.userId)
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) return
+      await removeFriend(message.friendId, userId)
       return
     }
 
     // Follow system WS handlers
     if (message.type === WS_MESSAGE_TYPE.follow) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) {
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to follow.' })
         return
       }
-      await followUser(meta.userId, message.userId)
+      await followUser(userId, message.userId)
       const targetSocket = getSocketForUser(message.userId)
       if (targetSocket) {
-        const followedRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+        const followedRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [userId] })
         const followedProfile = followedRow.rows[0]
-        send(targetSocket, { type: WS_MESSAGE_TYPE.followConfirm, followed: followedProfile ? publicUser(followedProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
+        send(targetSocket, { type: WS_MESSAGE_TYPE.followConfirm, followed: followedProfile ? publicUser(followedProfile as unknown as UserRow) : { id: userId, email: '' } })
       }
       return
     }
 
     if (message.type === WS_MESSAGE_TYPE.unfollow) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) return
-      await unfollowUser(meta.userId, message.userId)
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) return
+      await unfollowUser(userId, message.userId)
       return
     }
 
     // Invitation system WS handlers
     if (message.type === WS_MESSAGE_TYPE.invitationSend) {
-      const meta = getMeta(socket)
-      console.debug('[ws] invitation:send', { from: meta?.userId, to: message.userId, roomId: message.roomId })
-      if (!meta?.userId) {
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      console.debug('[ws] invitation:send', { from: userId, to: message.userId, roomId: message.roomId })
+      if (!userId) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to send invitations.' })
         return
       }
-      const { invitationId } = await sendInvitation(meta.userId, message.userId, message.roomId)
+      const { invitationId } = await sendInvitation(userId, message.userId, message.roomId)
       const targetSocket = getSocketForUser(message.userId)
       console.debug('[ws] invitation:send target', { targetOnline: !!targetSocket, targetUserId: message.userId, invitationId })
       if (targetSocket) {
-        const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+        const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [userId] })
         const inviterProfile = inviterRow.rows[0]
-        send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: meta.userId, email: '' } })
+        send(targetSocket, { type: WS_MESSAGE_TYPE.invitationSend, invitationId, roomId: message.roomId, inviter: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: userId, email: '' } })
       }
       return
     }
 
     if (message.type === WS_MESSAGE_TYPE.invitationAccept) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) return
-      const invitation = await db.execute({ sql: 'SELECT inviter_id, room_id FROM invitations WHERE id = ?', args: [message.invitationId] })
-      const row = invitation.rows[0] as unknown as { inviter_id: number; room_id: string } | undefined
-      await respondInvitation(message.invitationId, meta.userId, 'accept')
-      if (row) {
-        await matchUsers(row.inviter_id, meta.userId)
-        const inviterSocket = getSocketForUser(row.inviter_id)
-        if (inviterSocket) {
-          send(inviterSocket, { type: WS_MESSAGE_TYPE.invitationAccepted, invitationId: message.invitationId, roomId: row.room_id })
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) return
+      try {
+        const invitation = await db.execute({ sql: 'SELECT inviter_id, room_id FROM invitations WHERE id = ?', args: [message.invitationId] })
+        const row = invitation.rows[0] as unknown as { inviter_id: number; room_id: string } | undefined
+        await respondInvitation(message.invitationId, userId, 'accept')
+        if (row) {
+          await matchUsers(row.inviter_id, userId)
+          const inviterSocket = getSocketForUser(row.inviter_id)
+          if (inviterSocket) {
+            send(inviterSocket, { type: WS_MESSAGE_TYPE.invitationAccepted, invitationId: message.invitationId, roomId: row.room_id })
+          }
         }
+      } catch (err) {
+        logger.error('invitation.accept.error', { err, invitationId: message.invitationId, userId })
       }
       return
     }
 
     if (message.type === WS_MESSAGE_TYPE.invitationDecline) {
-      const meta = getMeta(socket)
-      if (!meta?.userId) return
-      const invitation = await db.execute({ sql: 'SELECT inviter_id FROM invitations WHERE id = ?', args: [message.invitationId] })
-      const row = invitation.rows[0] as unknown as { inviter_id: number } | undefined
-      await respondInvitation(message.invitationId, meta.userId, 'decline')
-      if (row) {
-        const inviterSocket = getSocketForUser(row.inviter_id)
-        if (inviterSocket) {
-          send(inviterSocket, { type: WS_MESSAGE_TYPE.invitationDeclined, invitationId: message.invitationId })
+      const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      if (!userId) return
+      try {
+        const invitation = await db.execute({ sql: 'SELECT inviter_id FROM invitations WHERE id = ?', args: [message.invitationId] })
+        const row = invitation.rows[0] as unknown as { inviter_id: number } | undefined
+        await respondInvitation(message.invitationId, userId, 'decline')
+        if (row) {
+          const inviterSocket = getSocketForUser(row.inviter_id)
+          if (inviterSocket) {
+            send(inviterSocket, { type: WS_MESSAGE_TYPE.invitationDeclined, invitationId: message.invitationId })
+          }
         }
+      } catch (err) {
+        logger.error('invitation.decline.error', { err, invitationId: message.invitationId, userId })
       }
       return
     }

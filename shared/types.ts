@@ -137,6 +137,7 @@ export type GroupInvite = {
 }
 
 export type ClientMessage =
+  | { type: 'ws:auth'; token?: string }
   | { type: 'queue:join'; preferences: MatchPreferences; token?: string }
   | { type: 'queue:leave' }
   | { type: 'queue:heartbeat' }

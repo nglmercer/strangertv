@@ -20,6 +20,7 @@ import { socialStore } from './store/socialStore'
 import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { detectLocale, t as translate } from './i18n'
 import { SocialContext } from './context/SocialContext'
+import { NotificationCenter } from './components/socialchat/NotificationCenter'
 import {
   applyUserToClient,
   canQuickStart,
@@ -340,6 +341,12 @@ export function App(_props: AppProps) {
       ) : (
         <main class="app">
           <OfflineBanner label={tr.offline} />
+          <NotificationCenter
+            t={tr}
+            fixed
+            onAccept={(invitationId, roomId) => session.match.invitationAccept(invitationId, roomId)}
+            onDecline={(invitationId) => session.match.invitationDecline(invitationId)}
+          />
 
           <div class="stage-wrap">
             <VideoStage

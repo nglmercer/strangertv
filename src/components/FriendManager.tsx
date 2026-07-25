@@ -21,7 +21,7 @@ export function FriendManager({
   roomId?: string | null
   match?: { invitationSend: (userId: number, roomId: string) => void }
 }) {
-  const canInvite = Boolean(inviteMode && roomId && match)
+  const canInvite = Boolean(inviteMode && match)
   console.debug('[friend] render', { inviteMode, roomId, hasMatch: !!match, hasUser: !!user, canInvite })
   const [tab, setTab] = useState<Tab>('friends')
   const [friends, setFriends] = useState<Friend[]>([])
@@ -67,9 +67,9 @@ export function FriendManager({
   const handleRequest = async (userId: number) => {
     console.debug('[friend] handleRequest', { userId, inviteMode, roomId, hasMatch: !!match })
     try {
-      if (inviteMode && roomId && match) {
-        console.debug('[friend] sending invitation', { userId, roomId })
-        match.invitationSend(userId, roomId)
+      if (inviteMode && match) {
+        console.debug('[friend] sending invitation', { userId, roomId: roomId || null })
+        match.invitationSend(userId, roomId || '')
         setSearchResult(null)
         setSearchEmail('')
         return
@@ -174,23 +174,15 @@ export function FriendManager({
                   )}
                 </div>
                 <div class="friend-actions">
-                  {canInvite ? (
-                    <button
-                      type="button"
-                      class="friend-btn invite"
-                      onClick={() => handleRequest(f.otherUser.id)}
-                    >
-                      {t.inviteToMatch}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      class="friend-btn"
-                      onClick={() => handleRequest(f.otherUser.id)}
-                    >
-                      {t.addFriend}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    class={`friend-btn invite`}
+                    onClick={() => canInvite && handleRequest(f.otherUser.id)}
+                    disabled={!canInvite}
+                    title={t.inviteToMatch}
+                  >
+                    {t.inviteToMatch}
+                  </button>
                   <button
                     type="button"
                     class="friend-btn danger"

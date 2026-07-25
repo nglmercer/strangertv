@@ -403,7 +403,7 @@ export function CallBar({
                 <span>{t.addFriend}</span>
               </button>
             )}
-            {user && matched && (
+            {user && (
               <button
                 type="button"
                 role="menuitem"

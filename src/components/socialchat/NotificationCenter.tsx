@@ -20,7 +20,7 @@ type InvitationActions = {
   onDecline?: (invitationId: number) => void
 }
 
-export function NotificationCenter({ t, onAccept, onDecline }: { t: Messages } & InvitationActions) {
+export function NotificationCenter({ t, onAccept, onDecline, fixed }: { t: Messages; fixed?: boolean } & InvitationActions) {
   const [open, setOpen] = useState(false)
   const notifications = useSocialStore().notifications
   const unread = useSocialStore().unreadNotifications
@@ -34,7 +34,7 @@ export function NotificationCenter({ t, onAccept, onDecline }: { t: Messages } &
   }
 
   return (
-    <div class="notification-center">
+    <div class={`notification-center${fixed ? ' notification-center-fixed' : ''}`}>
       <button
         type="button"
         class="notification-bell"
@@ -73,7 +73,7 @@ export function NotificationCenter({ t, onAccept, onDecline }: { t: Messages } &
                     <span class="notification-title">{n.title}</span>
                     <span class="notification-body">{n.body}</span>
                   </div>
-                  {n.type === 'invitation' && !n.read && n.data?.invitationId && n.data?.roomId && (
+                  {n.type === 'invitation' && !n.read && n.data?.invitationId && (
                     <div class="notification-actions">
                       <button
                         type="button"

@@ -111,6 +111,7 @@ export const ADMIN_HASH = '#admin'
 // ---------------------------------------------------------------------------
 export const WS_MESSAGE_TYPE = {
   // client -> server
+  wsAuth: 'ws:auth',
   queueJoin: 'queue:join',
   queueLeave: 'queue:leave',
   queueHeartbeat: 'queue:heartbeat',

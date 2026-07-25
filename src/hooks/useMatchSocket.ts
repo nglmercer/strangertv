@@ -44,11 +44,19 @@ export function useMatchSocket(handlers: Handlers) {
   handlersRef.current = handlers
   const [connected, setConnected] = useState(false)
   const heartbeatTimer = useRef<number | null>(null)
+  const reconnectTimer = useRef<number | null>(null)
 
   const stopHeartbeat = () => {
     if (heartbeatTimer.current != null) {
       window.clearInterval(heartbeatTimer.current)
       heartbeatTimer.current = null
+    }
+  }
+
+  const stopReconnect = () => {
+    if (reconnectTimer.current != null) {
+      window.clearTimeout(reconnectTimer.current)
+      reconnectTimer.current = null
     }
   }
 
@@ -76,11 +84,15 @@ export function useMatchSocket(handlers: Handlers) {
       heartbeatTimer.current = window.setInterval(() => {
         send({ type: WS_MESSAGE_TYPE.queueHeartbeat })
       }, TIMING_MS.wsHeartbeat)
+      const token = getToken()
+      if (token) ws.send(JSON.stringify({ type: WS_MESSAGE_TYPE.wsAuth, token }))
     }
 
     ws.onclose = () => {
       setConnected(false)
       stopHeartbeat()
+      stopReconnect()
+      reconnectTimer.current = window.setTimeout(() => ensureSocket(), 3000)
     }
 
     ws.onerror = () => {
@@ -323,6 +335,7 @@ export function useMatchSocket(handlers: Handlers) {
     ensureSocket()
     return () => {
       stopHeartbeat()
+      stopReconnect()
       socket.current?.close()
       socket.current = null
     }

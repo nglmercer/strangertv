@@ -67,6 +67,7 @@ const blockedPairs = new Set<string>()
 const recentPairs = new Map<string, number>()
 const RECENT_COOLDOWN_MS = Number(process.env.REMATCH_COOLDOWN_MS ?? 10 * 60_000)
 const userSockets = new Map<number, Set<SocketLike>>()
+const socketUsers = new Map<SocketLike, number>()
 
 function pairKey(prefix: string, a: string | number, b: string | number) {
   return a < b ? `${prefix}:${a}:${b}` : `${prefix}:${b}:${a}`
@@ -799,6 +800,7 @@ export function registerUserSocket(userId: number, socket: SocketLike) {
   if (!userId) return
   if (!userSockets.has(userId)) userSockets.set(userId, new Set())
   userSockets.get(userId)!.add(socket)
+  socketUsers.set(socket, userId)
 }
 
 export function unregisterUserSocket(userId: number, socket: SocketLike) {
@@ -807,6 +809,11 @@ export function unregisterUserSocket(userId: number, socket: SocketLike) {
     sockets.delete(socket)
     if (sockets.size === 0) userSockets.delete(userId)
   }
+  socketUsers.delete(socket)
+}
+
+export function getSocketUserId(socket: SocketLike): number | undefined {
+  return socketUsers.get(socket)
 }
 
 export function getRoom(socket: SocketLike) {
