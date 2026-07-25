@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'preact/hooks'
-import { Router, route } from 'preact-router'
+import { route } from 'preact-router'
 import type { Locale, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 //import { getFlag, setFlag } from './utils/storage'
@@ -19,7 +19,6 @@ import { socialStore } from './store/socialStore'
 import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { detectLocale, t as translate } from './i18n'
 import { SocialContext } from './context/SocialContext'
-import { SocialPage } from './pages/SocialPage'
 import {
   applyUserToClient,
   canQuickStart,
@@ -41,7 +40,13 @@ function exitFs(): Promise<void> | undefined {
   return (d.exitFullscreen ?? d.mozExitFullScreen ?? d.webkitExitFullscreen ?? d.msExitFullscreen)?.call(document)
 }
 
-export function App() {
+type AppProps = {
+  path?: string
+  url?: string
+  matches?: Record<string, string | undefined> | null
+}
+
+export function App(_props: AppProps) {
   const [locale, setLocale] = useState<Locale>(detectLocale)
   const tr = translate(locale)
   const [prefs, setPrefsState] = useState<MatchPreferences>(loadPrefs)
@@ -243,9 +248,7 @@ export function App() {
         onSignIn: () => setAuth(true),
       }}
     >
-    <Router>
-      <div path="/">
-      <main class="app">
+    <main class="app">
       <OfflineBanner label={tr.offline} />
 
       <div class="stage-wrap">
@@ -430,9 +433,6 @@ export function App() {
         onDeviceChange={onDeviceChange}
       />
     </main>
-    </div>
-    <SocialPage path="/social" />
-    </Router>
     </SocialContext.Provider>
   )
 }

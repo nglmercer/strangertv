@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Messages } from '../i18n'
 import type { PublicUser } from '../api'
 import type { Quality } from '../types/ui'
-import type { RelationshipStatus } from '../../shared/types'
+import type { MatchPreferences, RelationshipStatus } from '../../shared/types'
 import { QUALITY_TIER } from '../../shared/constants'
 import { Icon, icons } from './icons'
 
@@ -22,7 +22,7 @@ type Props = {
   audioId: string
   user: PublicUser | null
   fullscreen: boolean
-  sharedPrefs: string | null
+  sharedPrefs: Partial<MatchPreferences> | null
   showSharedPrefs: boolean
   onMute: () => void
   onCamera: () => void
