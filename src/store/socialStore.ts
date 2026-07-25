@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'preact/compat'
 import type { Friend, Message, PublicUser } from '../../shared/types'
 
 export type Notification = {
@@ -141,10 +142,10 @@ class SocialStore {
       this.incrementUnread(key)
       this.addNotification({
         type: 'message',
-          title: sender.email.split('@')[0] ?? 'New Message',
-          body: message.text.slice(0, 80),
-          from: sender,
-          data: { senderId: message.senderId },
+        title: sender.email.split('@')[0] ?? 'New Message',
+        body: message.text.slice(0, 80),
+        from: sender,
+        data: { senderId: message.senderId },
       })
     }
   }
@@ -153,5 +154,9 @@ class SocialStore {
 export const socialStore = new SocialStore()
 
 export function useSocialStore(): SocialStore {
+  useSyncExternalStore(
+    (cb) => socialStore.subscribe(cb),
+    () => socialStore,
+  )
   return socialStore
 }

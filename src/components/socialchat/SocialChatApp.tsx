@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks'
 import type { Group, GroupMember, GroupMessage, Friend, Message } from '../../../shared/types'
 import type { Messages } from '../../i18n'
 import { groupsApi, friendsApi, messagesApi, onGroupMessage } from '../../api'
+import { socialStore } from '../../store/socialStore'
 import { SocialSidebar } from './SocialSidebar'
 import { SocialChat } from './SocialChat'
 import { GroupCreateModal } from '../groups/GroupCreateModal'
@@ -11,7 +12,25 @@ type ActiveChat =
   | { type: 'group'; id: number }
   | { type: 'friend'; id: number }
 
-export function SocialChatApp({ t, currentUserId }: { t: Messages; currentUserId: number }) {
+interface SocialWsEvent {
+  type: string
+  friendId?: number
+  from?: { id: number; email: string }
+  message?: Message
+  invitationId?: number
+  roomId?: string
+  inviter?: { id: number; email: string }
+}
+
+export function SocialChatApp({
+  t,
+  currentUserId,
+  onSocialEvent,
+}: {
+  t: Messages
+  currentUserId: number
+  onSocialEvent: (msg: SocialWsEvent) => void
+}) {
   const [groups, setGroups] = useState<Group[]>([])
   const [friends, setFriends] = useState<Friend[]>([])
   const [activeChat, setActiveChat] = useState<ActiveChat | null>(null)
@@ -27,7 +46,7 @@ export function SocialChatApp({ t, currentUserId }: { t: Messages; currentUserId
   const activeFriend = activeChat?.type === 'friend' ? friends.find((f) => f.otherUser.id === activeChat.id) ?? null : null
   const isAdmin = activeGroup?.myRole === 'admin'
 
-  const messages = activeChat?.type === 'group' ? groupMessages : friendMessages
+  const messages: (GroupMessage | Message)[] = activeChat?.type === 'group' ? groupMessages : friendMessages
 
   const loadGroups = useCallback(async () => {
     try {
@@ -41,7 +60,8 @@ export function SocialChatApp({ t, currentUserId }: { t: Messages; currentUserId
   const loadFriends = useCallback(async () => {
     try {
       const { friends: list } = await friendsApi.list()
-      setFriends(list.filter((f) => f.status === 'accepted'))
+      const accepted = list.filter((f) => f.status === 'accepted')
+      setFriends(accepted)
     } catch {
       /* ignore */
     }
@@ -83,18 +103,87 @@ export function SocialChatApp({ t, currentUserId }: { t: Messages; currentUserId
     if (activeChat?.type === 'group') {
       void loadMembers(activeChat.id)
       void loadGroupMessages(activeChat.id)
+      socialStore.clearUnread(`group:${activeChat.id}`)
     } else if (activeChat?.type === 'friend') {
       void loadFriendMessages(activeChat.id)
+      socialStore.clearUnread(`friend:${activeChat.id}`)
     }
   }, [activeChat, loadMembers, loadGroupMessages, loadFriendMessages])
 
+  // WS: group messages
   useEffect(() => {
     return onGroupMessage((msg) => {
       if (activeChat?.type === 'group' && msg.groupId === activeChat.id) {
         setGroupMessages((prev) => [...prev, msg])
+      } else {
+        socialStore.incrementUnread(`group:${msg.groupId}`)
+        const sender = msg.sender
+        socialStore.addNotification({
+          type: 'group_message',
+          title: sender?.email.split('@')[0] ?? 'Group',
+          body: msg.text.slice(0, 80),
+          from: sender,
+          data: { groupId: msg.groupId },
+        })
       }
     })
   }, [activeChat])
+
+  // WS: friend messages, friend events, invitations
+  useEffect(() => {
+    const dispatch = (msg: SocialWsEvent) => {
+      if (msg.type === 'message:new' && msg.message) {
+        const isActive = activeChat?.type === 'friend' && activeChat.id === msg.message.senderId
+        if (isActive) {
+          setFriendMessages((prev) => [...prev, msg.message!])
+        } else {
+          const key = `friend:${msg.message!.senderId}`
+          socialStore.incrementUnread(key)
+          const senderFriend = friends.find((f) => f.otherUser.id === msg.message!.senderId)
+          socialStore.addNotification({
+            type: 'message',
+            title: senderFriend?.otherUser.email.split('@')[0] ?? 'New Message',
+            body: msg.message.text.slice(0, 80),
+            from: senderFriend?.otherUser,
+            data: { senderId: msg.message.senderId },
+          })
+        }
+      } else if (msg.type === 'friend:request' && msg.from) {
+        socialStore.addNotification({
+          type: 'friend_request',
+          title: 'Friend Request',
+          body: `${msg.from.email.split('@')[0]} wants to be your friend`,
+          from: msg.from,
+        })
+      } else if (msg.type === 'friend:accepted' && msg.from) {
+        socialStore.addNotification({
+          type: 'friend_accepted',
+          title: 'Request Accepted',
+          body: `${msg.from.email.split('@')[0]} accepted your request`,
+          from: msg.from,
+        })
+        void loadFriends()
+      } else if (msg.type === 'friend:declined' && msg.friendId) {
+        socialStore.addNotification({
+          type: 'friend_accepted',
+          title: 'Declined',
+          body: 'Friend request declined',
+        })
+      } else if (msg.type === 'friend:removed' && msg.friendId) {
+        setFriends((prev) => prev.filter((f) => f.id !== msg.friendId))
+      } else if (msg.type === 'invitation:send' && msg.inviter) {
+        socialStore.addNotification({
+          type: 'invitation',
+          title: 'Match Invitation',
+          body: `${msg.inviter.email.split('@')[0]} invited you to a match`,
+          from: msg.inviter,
+          data: { invitationId: msg.invitationId, roomId: msg.roomId },
+        })
+      }
+    }
+    onSocialEvent = dispatch as unknown as typeof onSocialEvent
+    return () => {}
+  }, [activeChat, friends, loadFriends, onSocialEvent])
 
   const handleSelectGroup = (id: number) => {
     setActiveChat({ type: 'group', id })

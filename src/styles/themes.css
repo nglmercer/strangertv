@@ -125,6 +125,15 @@
   --social-friend-avatar-bg: linear-gradient(135deg, #f16a42 0%, #c44a2a 100%);
   --social-online: #57c9a1;
   --social-offline: #666666;
+  --social-unread-bg: #f16a42;
+  --social-unread-text: #ffffff;
+  --social-notification-bg: #1e1e3a;
+  --social-notification-border: #2a2a4a;
+  --social-notification-hover: #25254a;
+  --social-notification-unread-bg: #25254a;
+  --social-toast-bg: #1e1e3a;
+  --social-toast-border: #2a2a4a;
+  --social-toast-shadow: #00000080;
 
   /* Admin section — dark, theme-aware palette */
   --admin-bg: #0f1115;
@@ -225,6 +234,15 @@
   --social-friend-avatar-bg: linear-gradient(135deg, #f16a42 0%, #c44a2a 100%);
   --social-online: #57c9a1;
   --social-offline: #777777;
+  --social-unread-bg: #f16a42;
+  --social-unread-text: #ffffff;
+  --social-notification-bg: #1a1a34;
+  --social-notification-border: #26264a;
+  --social-notification-hover: #222244;
+  --social-notification-unread-bg: #222244;
+  --social-toast-bg: #1a1a34;
+  --social-toast-border: #26264a;
+  --social-toast-shadow: #000000aa;
 
   --admin-bg: #0c0e12;
   --admin-card-bg: #15181f;
@@ -317,6 +335,15 @@
     --social-friend-avatar-bg: linear-gradient(135deg, #f16a42 0%, #c44a2a 100%);
     --social-online: #57c9a1;
     --social-offline: #777777;
+    --social-unread-bg: #f16a42;
+    --social-unread-text: #ffffff;
+    --social-notification-bg: #1a1a34;
+    --social-notification-border: #26264a;
+    --social-notification-hover: #222244;
+    --social-notification-unread-bg: #222244;
+    --social-toast-bg: #1a1a34;
+    --social-toast-border: #26264a;
+    --social-toast-shadow: #000000aa;
 
     --admin-bg: #0c0e12;
     --admin-card-bg: #15181f;

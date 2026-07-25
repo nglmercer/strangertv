@@ -386,6 +386,10 @@ Conversations are not private from your peer; treat strangers carefully.`,
   onlyAdminCanAdd: 'Only admin can add members',
   onlyAdminCanRename: 'Only admin can rename the group',
   chooseConversation: 'Choose a conversation to start messaging',
+  notifications: 'Notifications',
+  noNotifications: 'No notifications yet',
+  markAllRead: 'Mark all read',
+  online: 'Online',
 }
 
 export type Messages = {

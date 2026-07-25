@@ -1,5 +1,5 @@
 # Taste Profile
-- Verifies changes with `npx tsc --noEmit` after structural edits. Confidence: 0.8
+- Verifies changes after making structural edits and expects thorough end-to-end verification of all changes — explicitly asks to "verify all" (beyond just type-checking). Commonly uses `npx tsc --noEmit` plus grep for dangling imports, build, and tests. Confidence: 0.9
 - Evaluates and plans before implementing — explore codebase, understand patterns, then write a plan. Confidence: 0.85
 - Prioritizes accessibility: moves actions to bar control when they only exist on start page, so they're reachable during calls. Confidence: 0.9
 - Integrates into existing UI patterns (e.g., "more" dropdown) rather than creating new UI elements. Confidence: 0.85
