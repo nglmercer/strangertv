@@ -29,6 +29,7 @@ export function SocialChatApp({
   const [messageText, setMessageText] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [error, setError] = useState('')
 
   const activeGroup = activeChat?.type === 'group' ? groups.find((g) => g.id === activeChat.id) ?? null : null
@@ -143,11 +144,13 @@ export function SocialChatApp({
   const handleSelectGroup = (id: number) => {
     setActiveChat({ type: 'group', id })
     setMessageText('')
+    setSidebarOpen(false)
   }
 
   const handleSelectFriend = (id: number) => {
     setActiveChat({ type: 'friend', id })
     setMessageText('')
+    setSidebarOpen(false)
   }
 
   const handleBack = () => {
@@ -228,7 +231,8 @@ export function SocialChatApp({
   }
 
   return (
-    <div class={`social-app ${activeChat ? 'has-active' : ''}`}>
+    <div class={`social-app ${activeChat ? 'has-active' : ''} ${sidebarOpen ? 'sidebar-open' : ''}`}>
+      {sidebarOpen && <div class="social-sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
       <SocialSidebar
         t={t}
         groups={groups}
@@ -253,6 +257,7 @@ export function SocialChatApp({
             onBack={handleBack}
             onOpenMembers={() => setShowMembers(true)}
             onSend={handleSend}
+            onToggleMenu={() => setSidebarOpen((v) => !v)}
           />
         ) : (
           <div class="social-main-empty">

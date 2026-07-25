@@ -14,6 +14,7 @@ export function SocialChatHeader({
   members,
   onBack,
   onOpenMembers,
+  onToggleMenu,
 }: {
   t: Messages
   activeChat: ActiveChat
@@ -22,6 +23,7 @@ export function SocialChatHeader({
   members: GroupMember[]
   onBack: () => void
   onOpenMembers: () => void
+  onToggleMenu?: () => void
 }) {
   const isGroup = activeChat.type === 'group'
   const title = isGroup ? group?.name ?? '' : friend?.otherUser.email.split('@')[0] ?? ''
@@ -34,6 +36,11 @@ export function SocialChatHeader({
       <button type="button" class="social-back-btn" onClick={onBack} aria-label={t.close}>
         <Icon d={icons.arrowLeft} />
       </button>
+      {onToggleMenu && (
+        <button type="button" class="social-menu-toggle" onClick={onToggleMenu} aria-label={t.yourGroups}>
+          <Icon d={icons.menu} />
+        </button>
+      )}
 
       <div class="social-chat-header-avatar">
         {isGroup ? (
