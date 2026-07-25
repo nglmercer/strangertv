@@ -5,6 +5,7 @@ export const en = {
   waiting: 'waiting',
   preferences: 'Preferences',
   signIn: 'Sign in',
+  social: 'Social',
   signOut: 'Sign out',
   settings: 'Account',
   start: 'Start',

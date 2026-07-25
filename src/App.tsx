@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'preact/hooks'
+import { Router, route } from 'preact-router'
 import type { Locale, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
-import { getFlag, setFlag } from './utils/storage'
+//import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
 import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, type PublicUser } from './api'
 import { AppModals } from './components/AppModals'
@@ -9,8 +10,6 @@ import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
 import { FriendManager } from './components/FriendManager'
-import { SocialChatApp } from './components/socialchat/SocialChatApp'
-import { GroupsLanding } from './components/groups/GroupsLanding'
 import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
 import { VideoStage } from './components/VideoStage'
@@ -19,6 +18,8 @@ import { useMatchSession } from './hooks/useMatchSession'
 import { socialStore } from './store/socialStore'
 import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { detectLocale, t as translate } from './i18n'
+import { SocialContext } from './context/SocialContext'
+import { SocialPage } from './pages/SocialPage'
 import {
   applyUserToClient,
   canQuickStart,
@@ -233,25 +234,19 @@ export function App() {
   }
 
   return (
-    <main class="app">
+    <SocialContext.Provider
+      value={{
+        user,
+        currentUserId: user?.id ?? null,
+        match: session.match,
+        t: tr,
+        onSignIn: () => setAuth(true),
+      }}
+    >
+    <Router>
+      <div path="/">
+      <main class="app">
       <OfflineBanner label={tr.offline} />
-
-      {showSharedPrefs && sharedPrefs && (
-        <div class="shared-prefs-banner">
-          <div class="shared-prefs-info">
-            <span class="shared-prefs-label">{tr.sharedPrefsFrom}</span>
-            <span class="shared-prefs-title">{tr.sharedPrefsTitle}</span>
-          </div>
-          <div class="shared-prefs-actions">
-            <button type="button" class="shared-prefs-apply" onClick={handleApplySharedPrefs}>
-              {tr.sharedPrefsApply}
-            </button>
-            <button type="button" class="shared-prefs-dismiss" onClick={() => setShowSharedPrefs(false)}>
-              {tr.sharedPrefsDismiss}
-            </button>
-          </div>
-        </div>
-      )}
 
       <div class="stage-wrap">
         <VideoStage
@@ -300,12 +295,17 @@ export function App() {
           audioId={session.media.audioId}
           user={user}
           fullscreen={fullscreen}
+          sharedPrefs={sharedPrefs}
+          showSharedPrefs={showSharedPrefs}
           onStart={onStartClick}
           onMute={() => session.media.setMutedTrack(!session.media.muted)}
           onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
           onReport={() => setReportOpen(true)}
           onBlock={() => session.match.block()}
           onRetryIce={() => void session.webrtc.restartIce()}
+          onOpenSocial={() => route('/social', true)}
+          onApplySharedPrefs={handleApplySharedPrefs}
+          onDismissSharedPrefs={() => setShowSharedPrefs(false)}
           onDeviceChange={onDeviceChange}
           onOpenDeviceSettings={() => {
             setPrefsTab(PREFS_TAB.devices)
@@ -370,12 +370,6 @@ export function App() {
         />
       </section>
 
-      {user ? (
-        <SocialChatApp t={tr} currentUserId={user.id} match={session.match} />
-      ) : (
-        <GroupsLanding t={tr} onSignIn={() => setAuth(true)} />
-      )}
-
       <AppModals
         t={tr}
         locale={locale}
@@ -436,5 +430,9 @@ export function App() {
         onDeviceChange={onDeviceChange}
       />
     </main>
+    </div>
+    <SocialPage path="/social" />
+    </Router>
+    </SocialContext.Provider>
   )
 }

@@ -7,6 +7,7 @@ export const pt: Messages = {
   waiting: 'aguardando',
   preferences: 'Preferências',
   signIn: 'Entrar',
+  social: 'Social',
   signOut: 'Sair',
   settings: 'Conta',
   start: 'Iniciar',

@@ -11,7 +11,16 @@ const isAdmin =
   location.pathname.startsWith(`${ADMIN_PATH}/`) ||
   location.hash === ADMIN_HASH
 
-render(
-  <ErrorBoundary>{isAdmin ? <AdminApp /> : <App />}</ErrorBoundary>,
-  document.getElementById('root')!,
-)
+if (isAdmin) {
+  render(
+    <ErrorBoundary><AdminApp /></ErrorBoundary>,
+    document.getElementById('root')!,
+  )
+} else {
+  render(
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>,
+    document.getElementById('root')!,
+  )
+}

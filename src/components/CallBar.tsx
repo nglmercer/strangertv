@@ -22,6 +22,8 @@ type Props = {
   audioId: string
   user: PublicUser | null
   fullscreen: boolean
+  sharedPrefs: string | null
+  showSharedPrefs: boolean
   onMute: () => void
   onCamera: () => void
   onReport: () => void
@@ -31,6 +33,9 @@ type Props = {
   onStart: () => void
   onStop: () => void
   onNext: () => void
+  onOpenSocial: () => void
+  onApplySharedPrefs: () => void
+  onDismissSharedPrefs: () => void
   onDeviceChange: (kind: 'video' | 'audio', id: string) => void
   onOpenDeviceSettings: () => void
   onRefreshDevices: () => void
@@ -58,6 +63,8 @@ export function CallBar({
   audioId,
   user,
   fullscreen,
+  sharedPrefs,
+  showSharedPrefs,
   onMute,
   onCamera,
   onReport,
@@ -67,6 +74,9 @@ export function CallBar({
   onStart,
   onStop,
   onNext,
+  onOpenSocial,
+  onApplySharedPrefs,
+  onDismissSharedPrefs,
   onDeviceChange,
   onOpenDeviceSettings,
   onRefreshDevices,
@@ -295,6 +305,34 @@ export function CallBar({
         </button>
         {menu === 'more' && (
           <div class="call-more-menu" role="menu">
+            {showSharedPrefs && sharedPrefs && (
+              <div class="call-menu-shared-prefs">
+                <div class="shared-prefs-info">
+                  <span class="shared-prefs-label">{t.sharedPrefsFrom}</span>
+                  <span class="shared-prefs-title">{t.sharedPrefsTitle}</span>
+                </div>
+                <div class="shared-prefs-actions">
+                  <button type="button" class="shared-prefs-apply" onClick={() => { setMenu(null); onApplySharedPrefs() }}>
+                    {t.sharedPrefsApply}
+                  </button>
+                  <button type="button" class="shared-prefs-dismiss" onClick={() => { setMenu(null); onDismissSharedPrefs() }}>
+                    {t.sharedPrefsDismiss}
+                  </button>
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              role="menuitem"
+              class="call-menu-item"
+              onClick={() => {
+                setMenu(null)
+                onOpenSocial()
+              }}
+            >
+              <Icon d={icons.users} size={18} />
+              <span>{t.social}</span>
+            </button>
             <button
               type="button"
               role="menuitem"

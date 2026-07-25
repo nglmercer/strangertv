@@ -64,7 +64,7 @@ app.use('*', requestIdMiddleware)
 app.use('*', securityHeaders)
 app.use('*', compress())
 app.use(
-  '/api/*',
+  '/api/v1/*',
   cors({
     origin: (origin) => (origins.includes(origin) || !origin ? origin || origins[0]! : origins[0]!),
     credentials: true,
