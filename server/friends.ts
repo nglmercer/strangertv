@@ -60,9 +60,26 @@ export async function sendFriendRequest(userId: number, targetUserId: number) {
   if (userId === targetUserId) {
     throw new Error('Cannot send friend request to yourself')
   }
-  const result = await db.execute({
-    sql: "INSERT OR IGNORE INTO friends (user_a_id, user_b_id, status) VALUES (?, ?, 'pending')",
-    args: [Math.min(userId, targetUserId), Math.max(userId, targetUserId)],
+  // user_a = requester, user_b = recipient (accept/decline require user_b)
+  const existing = await db.execute({
+    sql: `SELECT id, status, user_a_id, user_b_id FROM friends
+          WHERE (user_a_id = ? AND user_b_id = ?) OR (user_a_id = ? AND user_b_id = ?)`,
+    args: [userId, targetUserId, targetUserId, userId],
+  })
+  const row = existing.rows[0]
+  if (row) {
+    if (row.status === 'accepted') return { ok: true }
+    if (row.status === 'pending') return { ok: true }
+    // re-request after decline: set requester as user_a
+    await db.execute({
+      sql: `UPDATE friends SET user_a_id = ?, user_b_id = ?, status = 'pending', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      args: [userId, targetUserId, row.id],
+    })
+    return { ok: true }
+  }
+  await db.execute({
+    sql: "INSERT INTO friends (user_a_id, user_b_id, status) VALUES (?, ?, 'pending')",
+    args: [userId, targetUserId],
   })
   return { ok: true }
 }

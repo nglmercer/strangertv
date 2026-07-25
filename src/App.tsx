@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'preact/hooks'
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import type { Locale, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
@@ -78,6 +78,14 @@ export function App(_props: AppProps) {
     return !isAgeGateComplete()
   })
   const [fullscreen, setFullscreen] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const toastTimer = useRef<number | null>(null)
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type })
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    toastTimer.current = window.setTimeout(() => setToast(null), 3000)
+  }, [])
 
   const applyUser = useCallback((u: PublicUser | null) => {
     setUser(u)
@@ -223,6 +231,51 @@ export function App(_props: AppProps) {
     [session],
   )
 
+  /** Direct friend request when both users are logged in (peerUserId known); otherwise open manual manager. */
+  const onAddFriend = useCallback(() => {
+    if (!user) {
+      setAuth(true)
+      setAuthActive(true)
+      return
+    }
+    const peerId = session.peerUserId
+    if (peerId) {
+      void friendsApi
+        .request(peerId)
+        .then(() => showToast(tr.friendRequestSent, 'success'))
+        .catch(() => showToast(tr.friendRequestFailed, 'error'))
+      return
+    }
+    if (session.peerEmail) {
+      showToast(tr.peerNotSignedIn, 'error')
+      return
+    }
+    setFriendManager(true)
+  }, [user, session.peerUserId, session.peerEmail, showToast, tr])
+
+  /** Direct follow when both users are logged in; updates local relationship badge immediately. */
+  const onFollow = useCallback(() => {
+    if (!user) {
+      setAuth(true)
+      setAuthActive(true)
+      return
+    }
+    const peerId = session.peerUserId
+    if (!peerId) {
+      if (session.peerEmail) showToast(tr.peerNotSignedIn, 'error')
+      return
+    }
+    void followsApi
+      .follow(peerId)
+      .then(() => {
+        if (session.relationship !== 'friend') {
+          session.setRelationship('following')
+        }
+        showToast(tr.nowFollowing, 'success')
+      })
+      .catch(() => showToast(tr.followFailed, 'error'))
+  }, [user, session.peerUserId, session.peerEmail, session.relationship, session.setRelationship, showToast, tr])
+
   const lookingLabel =
     prefs.lookingFor === GENDER.male
       ? tr.male
@@ -257,6 +310,11 @@ export function App(_props: AppProps) {
         },
       }}
     >
+      {toast && (
+        <div class={`app-toast ${toast.type}`} role="alert" onClick={() => setToast(null)}>
+          <span>{toast.message}</span>
+        </div>
+      )}
       {isSocialPage ? (
         <SocialPage />
       ) : (
@@ -290,12 +348,8 @@ export function App(_props: AppProps) {
               }}
               onSettings={() => setSettings(true)}
               onAuthClick={onAuthClick}
-              onAddFriend={() => setFriendManager(true)}
-              onFollow={() => {
-                if (session.peerUserId) {
-                  void followsApi.follow(session.peerUserId)
-                }
-              }}
+              onAddFriend={onAddFriend}
+              onFollow={onFollow}
             />
             <CallBar
               t={tr}
@@ -338,7 +392,7 @@ export function App(_props: AppProps) {
               }}
               onSettings={() => setSettings(true)}
               onAuthClick={onAuthClick}
-              onAddFriend={() => setFriendManager(true)}
+              onAddFriend={onAddFriend}
               relationship={session.relationship}
             />
           </div>

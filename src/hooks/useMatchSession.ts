@@ -373,6 +373,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     peerEmail,
     peerUserId,
     relationship,
+    setRelationship,
     chat,
     chatText,
     setChatText,

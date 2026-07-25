@@ -80,7 +80,9 @@ export function VideoStage({
     .filter(Boolean)
     .join(' · ')
 
-  const showPeerActions = matched && peerEmail && user
+  // Show actions when local user is logged in and peer is a known account (id and/or email from match).
+  const showPeerActions = matched && user && Boolean(peerUserId || peerEmail)
+  //const canDirectSocial = Boolean(peerUserId)
 
   const relationshipLabel =
     relationship === 'friend' ? t.alreadyFriends : relationship === 'following' ? t.following : relationship === 'follower' ? t.follower : null
@@ -116,13 +118,25 @@ export function VideoStage({
           {showPeerActions && (
             <div class="peer-actions">
               {relationship !== 'friend' && (
-                <button type="button" class="peer-action" onClick={onAddFriend} title={t.addFriend}>
+                <button
+                  type="button"
+                  class="peer-action"
+                  onClick={onAddFriend}
+                  title={peerUserId ? t.addFriend : peerEmail ? t.peerNotSignedIn : t.addFriend}
+                  disabled={!peerUserId && !peerEmail}
+                >
                   <Icon d={icons.userPlus} size={14} />
                   <span>{t.addFriend}</span>
                 </button>
               )}
               {relationship !== 'friend' && relationship !== 'following' && (
-                <button type="button" class="peer-action" onClick={onFollow} title={t.follow}>
+                <button
+                  type="button"
+                  class="peer-action"
+                  onClick={onFollow}
+                  title={peerUserId ? t.follow : t.peerNotSignedIn}
+                  disabled={!peerUserId}
+                >
                   <Icon d={icons.follow} size={14} />
                   <span>{t.follow}</span>
                 </button>
