@@ -139,22 +139,6 @@ export function App(_props: AppProps) {
   })
   const [showSharedPrefs, setShowSharedPrefs] = useState(Boolean(sharedPrefs))
 
-  if (_props.path === '/social') {
-    return (
-      <SocialContext.Provider
-        value={{
-          user,
-          currentUserId: user?.id ?? null,
-          match: session.match,
-          t: tr,
-          onSignIn: () => setAuth(true),
-        }}
-      >
-        <SocialPage />
-      </SocialContext.Provider>
-    )
-  }
-
   useEffect(() => {
     const onFullscreenChange = () => {
       setFullscreen(Boolean(getFsElement()))
@@ -255,6 +239,8 @@ export function App(_props: AppProps) {
     setShowSharedPrefs(false)
   }
 
+  const isSocialPage = _props.url === '/social'
+
   return (
     <SocialContext.Provider
       value={{
@@ -265,6 +251,9 @@ export function App(_props: AppProps) {
         onSignIn: () => setAuth(true),
       }}
     >
+      {isSocialPage ? (
+        <SocialPage />
+      ) : (
     <main class="app">
       <OfflineBanner label={tr.offline} />
 
@@ -323,7 +312,10 @@ export function App(_props: AppProps) {
           onReport={() => setReportOpen(true)}
           onBlock={() => session.match.block()}
           onRetryIce={() => void session.webrtc.restartIce()}
-          onOpenSocial={() => route('/social', true)}
+          onOpenSocial={() => {
+            window.history.pushState({}, '', '/social')
+            window.dispatchEvent(new PopStateEvent('popstate'))
+          }}
           onApplySharedPrefs={handleApplySharedPrefs}
           onDismissSharedPrefs={() => setShowSharedPrefs(false)}
           onDeviceChange={onDeviceChange}
@@ -450,6 +442,7 @@ export function App(_props: AppProps) {
         onDeviceChange={onDeviceChange}
       />
     </main>
+      )}
     </SocialContext.Provider>
   )
 }

@@ -1,29 +1,11 @@
-import { Router, route } from 'preact-router'
-import type { ComponentChildren } from 'preact'
+import { route } from 'preact-router'
 import { SocialChatApp } from '../components/socialchat/SocialChatApp'
 import { GroupsLanding } from '../components/groups/GroupsLanding'
 import { useSocialContext } from '../context/SocialContext'
 import { Icon, icons } from '../components/icons'
 
-type RouterChildProps = {
-  path?: string
-  url?: string
-  matches?: Record<string, string | undefined> | null
-}
-
-function SocialChatRoute(_props: RouterChildProps) {
-  const { t, currentUserId, match } = useSocialContext()
-  if (!currentUserId || !match) return null
-  return <SocialChatApp t={t} currentUserId={currentUserId} match={match} />
-}
-
-function GroupsLandingRoute(_props: RouterChildProps) {
-  const { t, onSignIn } = useSocialContext()
-  return <GroupsLanding t={t} onSignIn={onSignIn} />
-}
-
 export function SocialPage() {
-  const { user, t } = useSocialContext()
+  const { user, t, currentUserId, match, onSignIn } = useSocialContext()
 
   return (
     <div class="social-page">
@@ -34,13 +16,11 @@ export function SocialPage() {
         </button>
         <h2>{t.social}</h2>
       </div>
-      <Router>
-        {user ? (
-          <SocialChatRoute path="/social" />
-        ) : (
-          <GroupsLandingRoute path="/social" />
-        )}
-      </Router>
+      {user && currentUserId ? (
+        <SocialChatApp t={t} currentUserId={currentUserId} match={match} />
+      ) : (
+        <GroupsLanding t={t} onSignIn={onSignIn} />
+      )}
     </div>
   )
 }

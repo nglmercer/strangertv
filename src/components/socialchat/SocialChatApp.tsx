@@ -24,7 +24,7 @@ export function SocialChatApp({
 }: {
   t: Messages
   currentUserId: number
-  match: MatchSocket
+  match: MatchSocket | null
 }) {
   const [groups, setGroups] = useState<Group[]>([])
   const [friends, setFriends] = useState<Friend[]>([])
@@ -244,7 +244,7 @@ export function SocialChatApp({
   }
 
   const handleSelectInviteGroup = (groupId: number) => {
-    if (inviteFriendId != null) {
+    if (inviteFriendId != null && match) {
       match.groupInvite(groupId, inviteFriendId)
     }
     setShowInvite(false)
