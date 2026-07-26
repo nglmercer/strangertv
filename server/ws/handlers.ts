@@ -468,13 +468,16 @@ export function createWsHandler(state: WsState) {
 
     if (message.type === WS_MESSAGE_TYPE.invitationAccept) {
       const userId = getSocketUserId(socket) || getMeta(socket)?.userId
+      console.debug('[ws] invitation:accept recv', { userId, invitationId: message.invitationId })
       if (!userId) return
       try {
         const invitation = await db.execute({ sql: 'SELECT inviter_id, room_id FROM invitations WHERE id = ?', args: [message.invitationId] })
         const row = invitation.rows[0] as unknown as { inviter_id: number; room_id: string } | undefined
+        console.debug('[ws] invitation:accept row', { row })
         await respondInvitation(message.invitationId, userId, 'accept')
         if (row) {
-          await matchUsers(row.inviter_id, userId)
+          const matched = await matchUsers(row.inviter_id, userId)
+          console.debug('[ws] invitation:accept matched', { matched, inviterId: row.inviter_id, userId })
           const inviterSocket = getSocketForUser(row.inviter_id)
           if (inviterSocket) {
             send(inviterSocket, { type: WS_MESSAGE_TYPE.invitationAccepted, invitationId: message.invitationId, roomId: row.room_id })

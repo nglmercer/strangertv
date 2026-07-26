@@ -26,6 +26,10 @@ async function createUser(email: string, password: string) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, password, birthDate: '1990-01-15' }),
   })
+  if (reg.status === 429) {
+    await sleep(1000)
+    return createUser(email, password)
+  }
   expect(reg.status).toBe(201)
   const body = (await reg.json()) as { token: string; user: { id: number } }
   return body
@@ -285,4 +289,6 @@ describe('invitation flow', () => {
     clientA.close()
     clientB.close()
   })
+
+
 })

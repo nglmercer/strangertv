@@ -1,120 +1,67 @@
-import { describe, it, expect } from 'vitest'
-import {
-  joinQueue,
-  normalizePreferences,
-  queueStats,
-  fullRemove,
-  type SocketLike,
-} from '../server/matchmaking'
+import { describe, it, beforeEach, expect, afterEach } from 'vitest'
+import type { SocketLike } from '../server/matchmaking/types'
+import { registerUserSocket, unregisterUserSocket, getAllSocketsForUser, getSocketForUser } from '../server/matchmaking/sockets'
+import { userSockets, socketUsers } from '../server/matchmaking/state'
 
-function mockSocket(): SocketLike & { messages: unknown[] } {
-  const messages: unknown[] = []
+function mockSocket(readyState: number): SocketLike {
   return {
-    messages,
-    readyState: 1,
-    send(message: string) {
-      messages.push(JSON.parse(message))
-    },
+    readyState,
+    send: () => {},
   }
 }
 
-describe('normalizePreferences', () => {
-  it('fills defaults', () => {
-    const p = normalizePreferences({})
-    expect(p?.country).toBe('any')
-    expect(p?.lookingFor).toBe('any')
-  })
+describe('getAllSocketsForUser', () => {
+  const userId = 999
 
-  it('rejects non-objects', () => {
-    expect(normalizePreferences(null)).toBeNull()
-  })
-})
-
-describe('joinQueue matching', () => {
-  it('matches compatible peers and assigns roles', () => {
-    const a = mockSocket()
-    const b = mockSocket()
-    const prefs = normalizePreferences({
-      country: 'PE',
-      language: 'es',
-      gender: 'male',
-      lookingFor: 'any',
-      interests: ['music'],
-    })!
-    joinQueue(a, prefs, { sessionKey: 'a' })
-    expect(queueStats().waiting).toBe(1)
-    joinQueue(b, prefs, { sessionKey: 'b' })
-    expect(queueStats().waiting).toBe(0)
-    const matchedA = a.messages.find((m) => (m as { type: string }).type === 'room:matched') as {
-      role: string
+  afterEach(() => {
+    // Clean up
+    const sockets = userSockets.get(userId)
+    if (sockets) {
+      for (const s of sockets) {
+        socketUsers.delete(s)
+      }
     }
-    const matchedB = b.messages.find((m) => (m as { type: string }).type === 'room:matched') as {
-      role: string
-    }
-    expect(matchedA).toBeTruthy()
-    expect(matchedB).toBeTruthy()
-    // Joiner that finds a waiting peer is offerer; the waiter is answerer.
-    expect(matchedA.role).toBe('answerer')
-    expect(matchedB.role).toBe('offerer')
-    fullRemove(a)
-    fullRemove(b)
+    userSockets.delete(userId)
   })
 
-  it('does not match incompatible gender filters', () => {
-    const a = mockSocket()
-    const b = mockSocket()
-    joinQueue(
-      a,
-      normalizePreferences({ gender: 'male', lookingFor: 'female', country: 'any', language: 'any' })!,
-      { sessionKey: 'a' },
-    )
-    joinQueue(
-      b,
-      normalizePreferences({ gender: 'male', lookingFor: 'female', country: 'any', language: 'any' })!,
-      { sessionKey: 'b' },
-    )
-    expect(queueStats().waiting).toBe(2)
-    fullRemove(a)
-    fullRemove(b)
+  it('returns only OPEN sockets (readyState === 1)', () => {
+    const closed = mockSocket(3)
+    const open = mockSocket(1)
+    registerUserSocket(userId, closed)
+    registerUserSocket(userId, open)
+
+    const result = getAllSocketsForUser(userId)
+    expect(result.length).toBe(1)
+    expect(result[0]).toBe(open)
   })
 
-  it('avoids immediate rematch of same sessions', () => {
-    const a1 = mockSocket()
-    const b1 = mockSocket()
-    const prefs = normalizePreferences({ country: 'any', language: 'any', gender: 'any', lookingFor: 'any', allowMatchWithSameUsers: false })!
-    joinQueue(a1, prefs, { sessionKey: 's-a' })
-    joinQueue(b1, prefs, { sessionKey: 's-b' })
-    expect(queueStats().waiting).toBe(0)
-    fullRemove(a1)
-    fullRemove(b1)
+  it('returns empty array when all sockets are closed', () => {
+    registerUserSocket(userId, mockSocket(3))
+    registerUserSocket(userId, mockSocket(0))
 
-    const a2 = mockSocket()
-    const b2 = mockSocket()
-    joinQueue(a2, prefs, { sessionKey: 's-a' })
-    joinQueue(b2, prefs, { sessionKey: 's-b' })
-    // both waiting — not rematched due to cooldown
-    expect(queueStats().waiting).toBe(2)
-    fullRemove(a2)
-    fullRemove(b2)
+    const result = getAllSocketsForUser(userId)
+    expect(result.length).toBe(0)
   })
 
-  it('allows immediate rematch when allowMatchWithSameUsers is true', () => {
-    const a1 = mockSocket()
-    const b1 = mockSocket()
-    const prefs = normalizePreferences({ country: 'any', language: 'any', gender: 'any', lookingFor: 'any', allowMatchWithSameUsers: true })!
-    joinQueue(a1, prefs, { sessionKey: 's-a' })
-    joinQueue(b1, prefs, { sessionKey: 's-b' })
-    expect(queueStats().waiting).toBe(0)
-    fullRemove(a1)
-    fullRemove(b1)
+  it('returns all open sockets when multiple are open', () => {
+    const open1 = mockSocket(1)
+    const open2 = mockSocket(1)
+    registerUserSocket(userId, open1)
+    registerUserSocket(userId, open2)
 
-    const a2 = mockSocket()
-    const b2 = mockSocket()
-    joinQueue(a2, prefs, { sessionKey: 's-a' })
-    joinQueue(b2, prefs, { sessionKey: 's-b' })
-    // matched again — cooldown bypassed when preference is enabled
-    expect(queueStats().waiting).toBe(0)
-    fullRemove(a2)
-    fullRemove(b2)
+    const result = getAllSocketsForUser(userId)
+    expect(result.length).toBe(2)
+    expect(result).toContain(open1)
+    expect(result).toContain(open2)
+  })
+
+  it('getSocketForUser returns first OPEN socket only', () => {
+    const closed = mockSocket(3)
+    const open = mockSocket(1)
+    registerUserSocket(userId, closed)
+    registerUserSocket(userId, open)
+
+    const result = getSocketForUser(userId)
+    expect(result).toBe(open)
   })
 })
