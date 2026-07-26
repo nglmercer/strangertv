@@ -62,7 +62,7 @@ export function useMatchSocket(handlers: Handlers) {
 
   const send = useCallback((message: ClientMessage) => {
     if (socket.current?.readyState === WebSocket.OPEN) {
-      console.debug('[ws] send', { type: message.type, payload: message })
+      // console.debug('[ws] send', { type: message.type, payload: message })
       socket.current.send(JSON.stringify(message))
     } else {
       console.debug('[ws] send dropped, socket not open', { type: message.type, readyState: socket.current?.readyState })
