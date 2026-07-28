@@ -568,11 +568,24 @@ function tryMatchGroup(group: GroupRoom) {
     return
   }
 
-  if (group.scope === MATCH_SCOPE.group) return
+  if (group.scope !== MATCH_SCOPE.group) {
+    const peer = findBestSoloForGroup(group)
+    if (peer) {
+      mergeSoloWithGroup(peer, group)
+      return
+    }
+  }
 
-  const peer = findBestSoloForGroup(group)
-  if (peer) {
-    mergeSoloWithGroup(peer, group)
+  if (group.participants.size >= 2) {
+    const idx = waitingGroups.indexOf(group)
+    if (idx >= 0) waitingGroups.splice(idx, 1)
+    group.inQueue = false
+    const allParticipants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>()
+    for (const [sock, p] of group.participants) {
+      allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
+    }
+    const sharedInterests = computeSharedInterests(allParticipants)
+    notifyGroupMatch(allParticipants, sharedInterests)
   }
 }
 
