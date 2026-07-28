@@ -19,6 +19,8 @@ export type GroupMatchPeer = {
   email?: string
   country?: string
   role: Role
+  /** Same pre-match group as the receiver ('local') or the opposing party ('remote'). */
+  side?: 'local' | 'remote'
 }
 
 /** Minimal public user profile shared between client and server. */

@@ -368,13 +368,16 @@ export async function joinQueue(
 
   let bestIdx = -1
   let bestScore = -1
-  for (let i = 0; i < waitingPeers.length; i++) {
-    const candidate = waitingPeers[i]!
-    if (!compatible(self, candidate)) continue
-    const s = score(self, candidate)
-    if (s > bestScore) {
-      bestScore = s
-      bestIdx = i
+  if (preferences.matchScope !== MATCH_SCOPE.group) {
+    for (let i = 0; i < waitingPeers.length; i++) {
+      const candidate = waitingPeers[i]!
+      if (candidate.preferences.matchScope === MATCH_SCOPE.group) continue
+      if (!compatible(self, candidate)) continue
+      const s = score(self, candidate)
+      if (s > bestScore) {
+        bestScore = s
+        bestIdx = i
+      }
     }
   }
 
@@ -429,6 +432,17 @@ export async function joinQueue(
     inc(METRIC_NAMES.matchesTotal)
     broadcastStats()
     return
+  }
+
+  if (preferences.matchScope !== MATCH_SCOPE.solo) {
+    const group = findBestGroupForSolo(self)
+    if (group) {
+      const waitMs = Date.now() - (group.createdAt ?? Date.now())
+      mergeSoloWithGroup(self, group)
+      observeMs(METRIC_NAMES.matchWait, waitMs)
+      broadcastStats()
+      return
+    }
   }
 
   waitingPeers.push(self)
@@ -580,12 +594,9 @@ function tryMatchGroup(group: GroupRoom) {
     const idx = waitingGroups.indexOf(group)
     if (idx >= 0) waitingGroups.splice(idx, 1)
     group.inQueue = false
-    const allParticipants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>()
-    for (const [sock, p] of group.participants) {
-      allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
-    }
-    const sharedInterests = computeSharedInterests(allParticipants)
-    notifyGroupMatch(allParticipants, sharedInterests)
+    const sharedInterests = computeSharedInterests(toSide(group))
+    notifyGroupMatch([toSide(group)], sharedInterests)
+    inc(METRIC_NAMES.matchesTotal)
   }
 }
 
@@ -603,6 +614,7 @@ function findBestSoloForGroup(group: GroupRoom): QueuePeer | null {
   let best: QueuePeer | null = null
   let bestScore = -1
   for (const candidate of waitingPeers) {
+    if (candidate.preferences.matchScope === MATCH_SCOPE.solo) continue
     if (!groupPeerCompatible(candidate, group)) continue
     const groupPrefs = aggregateGroupPreferences(group)
     const candidatePeer: QueuePeer = { ...candidate, preferences: candidate.preferences }
@@ -618,6 +630,30 @@ function findBestSoloForGroup(group: GroupRoom): QueuePeer | null {
     if (s > bestScore) {
       bestScore = s
       best = candidate
+    }
+  }
+  return best
+}
+
+function findBestGroupForSolo(peer: QueuePeer): GroupRoom | null {
+  let best: GroupRoom | null = null
+  let bestScore = -1
+  for (const group of waitingGroups) {
+    if (group.scope === MATCH_SCOPE.group) continue
+    if (!groupPeerCompatible(peer, group)) continue
+    const groupPrefs = aggregateGroupPreferences(group)
+    const groupPeer: QueuePeer = {
+      socket: null as unknown as SocketLike,
+      preferences: groupPrefs,
+      joinedAt: 0,
+      lastBeat: 0,
+      sessionKey: '',
+    }
+    if (!compatible(peer, groupPeer)) continue
+    const s = score(peer, groupPeer)
+    if (s > bestScore) {
+      bestScore = s
+      best = group
     }
   }
   return best
@@ -644,6 +680,34 @@ function aggregateGroupPreferences(group: GroupRoom): MatchPreferences {
   }
 }
 
+type SideParticipant = {
+  socket: SocketLike
+  userId?: number
+  email?: string
+  preferences: MatchPreferences
+}
+
+function toSide(group: GroupRoom): SideParticipant[] {
+  const side: SideParticipant[] = []
+  for (const [sock, p] of group.participants) {
+    side.push({ socket: sock, userId: p.userId, email: p.email, preferences: p.preferences })
+  }
+  return side
+}
+
+function rememberGroupPair(peer: QueuePeer, group: GroupRoom) {
+  const host: QueuePeer = {
+    socket: group.hostSocket,
+    userId: group.hostUserId,
+    email: group.hostEmail,
+    preferences: group.preferences,
+    sessionKey: '',
+    joinedAt: 0,
+    lastBeat: 0,
+  }
+  rememberPair(peer, host)
+}
+
 function mergeSoloWithGroup(peer: QueuePeer, group: GroupRoom) {
   const idx = waitingPeers.indexOf(peer)
   if (idx >= 0) waitingPeers.splice(idx, 1)
@@ -651,16 +715,11 @@ function mergeSoloWithGroup(peer: QueuePeer, group: GroupRoom) {
   if (gIdx >= 0) waitingGroups.splice(gIdx, 1)
   group.inQueue = false
 
-  const allParticipants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>()
-  for (const [sock, p] of group.participants) {
-    allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
-  }
-  allParticipants.set(peer.socket, { userId: peer.userId, email: peer.email, preferences: peer.preferences })
+  const sharedInterests = computeSharedInterests([...toSide(group), { socket: peer.socket, userId: peer.userId, email: peer.email, preferences: peer.preferences }])
+  notifyGroupMatch([toSide(group), [{ socket: peer.socket, userId: peer.userId, email: peer.email, preferences: peer.preferences }]], sharedInterests)
 
-  const sharedInterests = computeSharedInterests(allParticipants)
-  notifyGroupMatch(allParticipants, sharedInterests)
-
-  if (peer.userId) rememberPair(peer, { ...group.hostSocket as unknown as QueuePeer, preferences: group.preferences, sessionKey: '' })
+  inc(METRIC_NAMES.matchesTotal)
+  if (peer.userId) rememberGroupPair(peer, group)
 }
 
 function mergeGroupsAndMatch(a: GroupRoom, b: GroupRoom) {
@@ -671,22 +730,16 @@ function mergeGroupsAndMatch(a: GroupRoom, b: GroupRoom) {
   a.inQueue = false
   b.inQueue = false
 
-  const allParticipants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>()
-  for (const [sock, p] of a.participants) {
-    allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
-  }
-  for (const [sock, p] of b.participants) {
-    allParticipants.set(sock, { userId: p.userId, email: p.email, preferences: p.preferences })
-  }
+  const sharedInterests = computeSharedInterests([...toSide(a), ...toSide(b)])
+  notifyGroupMatch([toSide(a), toSide(b)], sharedInterests)
 
-  const sharedInterests = computeSharedInterests(allParticipants)
-  notifyGroupMatch(allParticipants, sharedInterests)
+  inc(METRIC_NAMES.matchesTotal)
 }
 
-function computeSharedInterests(participants: Map<SocketLike, { preferences: MatchPreferences }>): string[] {
+function computeSharedInterests(participants: SideParticipant[]): string[] {
   const counts = new Map<string, number>()
   let total = 0
-  for (const [, p] of participants) {
+  for (const p of participants) {
     total++
     for (const interest of p.preferences.interests) {
       counts.set(interest, (counts.get(interest) ?? 0) + 1)
@@ -699,28 +752,24 @@ function computeSharedInterests(participants: Map<SocketLike, { preferences: Mat
   return result
 }
 
-function notifyGroupMatch(
-  participants: Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences }>,
-  sharedInterests: string[],
-) {
-  const participantList = Array.from(participants.entries()).map(([sock, p]) => ({
-    socket: sock,
-    userId: p.userId ?? 0,
-    email: p.email,
-    preferences: p.preferences,
-  }))
+function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[]) {
+  const openSides = sides
+    .map((side) => side.filter((p) => p.socket.readyState === 1))
+    .filter((side) => side.length > 0)
+  const participantList = openSides.flat().map((p, index) => ({ ...p, index }))
+  if (participantList.length < 2) return
 
   const matchedRoomId = newRoomId()
 
-  for (const [sock] of participants) {
-    const oldGroup = groupRoomsBySocket.get(sock)
+  for (const { socket } of participantList) {
+    const oldGroup = groupRoomsBySocket.get(socket)
     if (oldGroup) {
-      oldGroup.participants.delete(sock)
+      oldGroup.participants.delete(socket)
       if (oldGroup.participants.size === 0) {
         groupRoomsById.delete(oldGroup.id)
       }
     }
-    groupRoomsBySocket.delete(sock)
+    groupRoomsBySocket.delete(socket)
   }
 
   const unifiedGroup: GroupRoom = {
@@ -747,20 +796,27 @@ function notifyGroupMatch(
   }
   groupRoomsById.set(matchedRoomId, unifiedGroup)
 
+  const socketToSide = new Map<SocketLike, number>()
+  openSides.forEach((side, sideIdx) => {
+    for (const p of side) socketToSide.set(p.socket, sideIdx)
+  })
+
   for (const self of participantList) {
+    const selfSide = socketToSide.get(self.socket) ?? 0
     const peers = participantList
       .filter((p) => p.socket !== self.socket)
       .map((p) => ({
         userId: p.userId,
         email: p.email,
         country: p.preferences.country !== DEFAULT_COUNTRY ? p.preferences.country : undefined,
-        role: (self.userId < p.userId ? ROLE.offerer : ROLE.answerer) as Role,
+        role: (self.index < p.index ? ROLE.offerer : ROLE.answerer) as Role,
+        side: (socketToSide.get(p.socket) === selfSide ? 'local' : 'remote') as 'local' | 'remote',
       }))
 
     send(self.socket, {
       type: WS_MESSAGE_TYPE.groupMatchMatched,
       roomId: matchedRoomId,
-      role: self.userId === Math.min(...participantList.map((p) => p.userId)) ? ROLE.offerer : ROLE.answerer,
+      role: self.index === 0 ? ROLE.offerer : ROLE.answerer,
       peers,
       sharedInterests,
     })
@@ -771,7 +827,19 @@ export function heartbeat(socket: SocketLike) {
   const meta = peerMeta.get(socket)
   if (meta) meta.lastBeat = Date.now()
   const inQueue = waitingPeers.find((p) => p.socket === socket)
-  if (inQueue) inQueue.lastBeat = Date.now()
+  if (inQueue) {
+    inQueue.lastBeat = Date.now()
+    if (inQueue.preferences.matchScope !== MATCH_SCOPE.solo) {
+      const group = findBestGroupForSolo(inQueue)
+      if (group) {
+        mergeSoloWithGroup(inQueue, group)
+        broadcastStats()
+      }
+    }
+    return
+  }
+  const group = groupRoomsBySocket.get(socket)
+  if (group?.inQueue) tryMatchGroup(group)
 }
 
 export function purgeStale(maxAgeMs = 45_000) {

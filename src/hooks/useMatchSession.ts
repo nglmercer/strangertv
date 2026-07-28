@@ -138,6 +138,10 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       if (remoteVideo.current) remoteVideo.current.srcObject = null
     },
     onMatched: async (id, role, meta) => {
+      if (!findingRef.current) {
+        matchRef.current?.leave()
+        return
+      }
       console.debug('[match] onMatched', { roomId: id, role, peerUserId: meta?.peerUserId, relationship: meta?.relationship })
       setRoomId(id)
       setMatched(true)
@@ -213,6 +217,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       }, TIMING_MS.requeueDelay)
     },
     onSignal: (payload, fromUserId) => {
+      if (!matchedRef.current) return
       void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current, fromUserId)
     },
     onChat: (text, time) => setChat((m) => [...m, { text, time, mine: false }]),
@@ -310,12 +315,18 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       onStatus(trRef.current.ready)
     },
     onGroupMatchMatched: async (id, role, peers, interests) => {
+      if (!findingRef.current) {
+        matchRef.current?.leave()
+        return
+      }
       console.debug('[match] group-match:matched', { roomId: id, role, peerCount: peers.length })
       setRoomId(id)
       setMatched(true)
       setFinding(false)
       setGroupPeers(peers)
       setSharedInterests(interests)
+      setGroupRoomId(id)
+      groupRoomIdRef.current = id
       waitingSince.current = null
       setLongWait(false)
       matchedAt.current = Date.now()

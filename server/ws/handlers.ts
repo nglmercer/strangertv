@@ -301,6 +301,10 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Group not found.' })
         return
       }
+      if (!group.participants.has(socket)) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Not a group participant.' })
+        return
+      }
       startGroupMatch(group)
       return
     }
