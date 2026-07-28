@@ -1,3 +1,7 @@
+import type { MatchMode, GroupVisibility, MatchScope } from './constants'
+
+export type { MatchMode, GroupVisibility, MatchScope }
+
 export type Gender = 'any' | 'male' | 'female' | 'other'
 export type Locale = 'en' | 'es' | 'pt'
 
@@ -8,15 +12,6 @@ export type FriendStatus = 'pending' | 'accepted' | 'declined'
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
 export type RelationshipStatus = 'none' | 'friend' | 'following' | 'follower'
 export type GroupRole = 'admin' | 'member'
-
-/** Match mode: solo (1-on-1 random) or group (multi-party with friends). */
-export type MatchMode = 'solo' | 'group'
-
-/** Group visibility: public (can be randomly matched) or private (invite-only). */
-export type GroupVisibility = 'public' | 'private'
-
-/** Who to match a group with. */
-export type MatchScope = 'all' | 'solo' | 'group'
 
 /** Participant info in a group match room. */
 export type GroupMatchPeer = {

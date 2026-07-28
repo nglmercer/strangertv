@@ -296,7 +296,7 @@ export function useMatchSocket(handlers: Handlers) {
   const groupMatchCreateAndInvite = useCallback(
     (visibility: GroupVisibility, preferences: MatchPreferences, userId?: number) => {
       ensureSocket()
-      send({ type: 'group-match:create-and-invite', visibility, preferences, userId, token: getToken() ?? undefined })
+      send({ type: WS_MESSAGE_TYPE.groupMatchCreateAndInvite, visibility, preferences, userId, token: getToken() ?? undefined })
     },
     [ensureSocket, send],
   )

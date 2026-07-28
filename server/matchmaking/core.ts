@@ -1,5 +1,5 @@
 import type { Gender, GroupVisibility, MatchMode, MatchPreferences, MatchScope, Role, ServerMessage, RelationshipStatus } from '../../shared/types'
-import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, GENDERS, METRIC_NAMES, PEER_LEFT_REASON, ROLE, SERVER_ERROR_CODE, WS_MESSAGE_TYPE } from '../../shared/constants'
+import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, GENDERS, GROUP_VISIBILITY, MATCH_MODE, MATCH_SCOPE, METRIC_NAMES, PEER_LEFT_REASON, ROLE, SERVER_ERROR_CODE, WS_MESSAGE_TYPE } from '../../shared/constants'
 import { inc, observeMs } from '../metrics'
 import { getRelationship } from '../messages'
 import type { SocketLike, QueuePeer, Room, GroupRoom } from './types'
@@ -153,8 +153,8 @@ export function normalizePreferences(raw: unknown): MatchPreferences | null {
     ? p.interests.filter((x): x is string => typeof x === 'string').slice(0, 10)
     : []
   const allowMatchWithSameUsers = typeof p.allowMatchWithSameUsers === 'boolean' ? p.allowMatchWithSameUsers : true
-  const mode = p.mode === 'group' ? 'group' : 'solo'
-  const matchScope = p.matchScope === 'solo' || p.matchScope === 'group' ? p.matchScope : 'all'
+  const mode = p.mode === MATCH_MODE.group ? MATCH_MODE.group : MATCH_MODE.solo
+  const matchScope = p.matchScope === MATCH_SCOPE.solo || p.matchScope === MATCH_SCOPE.group ? p.matchScope : MATCH_SCOPE.all
   return { country, language, gender, lookingFor, interests, allowMatchWithSameUsers, mode, matchScope }
 }
 
@@ -184,7 +184,7 @@ export function leaveGroup(socket: SocketLike, reason?: string): GroupRoom | und
   if (group.hostSocket === socket) {
     const participantSockets = Array.from(group.participants.keys())
     for (const sock of participantSockets) {
-      send(sock, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason: reason || 'host-left' })
+      send(sock, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason: reason || PEER_LEFT_REASON.hostLeft })
       groupRoomsBySocket.delete(sock)
     }
     group.participants.clear()
@@ -270,8 +270,8 @@ async function buildPeer(userId: number, socket: SocketLike): Promise<QueuePeer 
       language: row.language,
       interests: row.interests ? JSON.parse(row.interests) : [],
       lookingFor: 'any',
-      mode: 'solo',
-      matchScope: 'all',
+      mode: MATCH_MODE.solo,
+      matchScope: MATCH_SCOPE.all,
     })!,
     userId,
     email: row.email,
@@ -303,7 +303,7 @@ export async function matchUsers(aUserId: number, bUserId: number): Promise<bool
     aUserId,
     bUserId,
     createdAt: Date.now(),
-    mode: 'solo',
+    mode: MATCH_MODE.solo,
   }
   partners.set(aSocket, bSocket)
   partners.set(bSocket, aSocket)
@@ -388,7 +388,7 @@ export async function joinQueue(
       aUserId: self.userId,
       bUserId: partner.userId,
       createdAt: Date.now(),
-      mode: 'solo',
+      mode: MATCH_MODE.solo,
     }
     partners.set(socket, partner.socket)
     partners.set(partner.socket, socket)
@@ -566,7 +566,7 @@ function tryMatchGroup(group: GroupRoom) {
     return
   }
 
-  if (group.scope === 'group') return
+  if (group.scope === MATCH_SCOPE.group) return
 
   const peer = findBestSoloForGroup(group)
   if (peer) {
@@ -624,7 +624,7 @@ function aggregateGroupPreferences(group: GroupRoom): MatchPreferences {
     lookingFor: group.preferences.lookingFor,
     interests: Array.from(allInterests).slice(0, 10),
     allowMatchWithSameUsers: true,
-    mode: 'group',
+    mode: MATCH_MODE.group,
     matchScope: group.scope,
   }
 }
@@ -713,8 +713,8 @@ function notifyGroupMatch(
     hostSocket: participantList[0]!.socket,
     hostUserId: participantList[0]!.userId,
     hostEmail: participantList[0]!.email,
-    visibility: 'public',
-    scope: 'all',
+    visibility: GROUP_VISIBILITY.public,
+    scope: MATCH_SCOPE.all,
     preferences: participantList[0]!.preferences,
     participants: new Map(),
     createdAt: Date.now(),

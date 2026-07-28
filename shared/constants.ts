@@ -163,6 +163,7 @@ export const WS_MESSAGE_TYPE = {
   groupInviteDecline: 'group:invite:decline',
   // Group match
   groupMatchCreate: 'group-match:create',
+  groupMatchCreateAndInvite: 'group-match:create-and-invite',
   groupMatchInvite: 'group-match:invite',
   groupMatchJoin: 'group-match:join',
   groupMatchLeave: 'group-match:leave',
@@ -199,6 +200,8 @@ export const PEER_LEFT_REASON = {
   disconnect: 'disconnect',
   requeue: 'requeue',
   groupInvite: 'group-invite',
+  userLeft: 'user-left',
+  hostLeft: 'host-left',
 } as const
 
 export type PeerLeftReason = (typeof PEER_LEFT_REASON)[keyof typeof PEER_LEFT_REASON]
@@ -364,9 +367,32 @@ export const DEFAULT_COUNTRY = 'any'
 export const DEFAULT_LANGUAGE = 'any'
 export const DEFAULT_GENDER = 'any'
 export const DEFAULT_LOCALE = 'en'
-export const DEFAULT_MATCH_MODE = 'solo'
-export const DEFAULT_GROUP_VISIBILITY = 'public'
-export const DEFAULT_MATCH_SCOPE = 'all'
+
+export const MATCH_MODE = {
+  solo: 'solo',
+  group: 'group',
+} as const
+
+export type MatchMode = (typeof MATCH_MODE)[keyof typeof MATCH_MODE]
+
+export const GROUP_VISIBILITY = {
+  public: 'public',
+  private: 'private',
+} as const
+
+export type GroupVisibility = (typeof GROUP_VISIBILITY)[keyof typeof GROUP_VISIBILITY]
+
+export const MATCH_SCOPE = {
+  all: 'all',
+  solo: 'solo',
+  group: 'group',
+} as const
+
+export type MatchScope = (typeof MATCH_SCOPE)[keyof typeof MATCH_SCOPE]
+
+export const DEFAULT_MATCH_MODE = MATCH_MODE.solo
+export const DEFAULT_GROUP_VISIBILITY = GROUP_VISIBILITY.public
+export const DEFAULT_MATCH_SCOPE = MATCH_SCOPE.all
 
 // ---------------------------------------------------------------------------
 // Matchmaking room roles

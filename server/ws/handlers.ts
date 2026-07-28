@@ -43,6 +43,9 @@ import { config } from '../config'
 import { logger } from '../logger'
 import type { ClientMessage } from '../../shared/types'
 import {
+  GROUP_VISIBILITY,
+  MATCH_MODE,
+  MATCH_SCOPE,
   METRIC_NAMES,
   PEER_LEFT_REASON,
   SERVER_ERROR_CODE,
@@ -148,7 +151,7 @@ export function createWsHandler(state: WsState) {
     }
 
     // Group match: create a group room
-    if (message.type === 'group-match:create') {
+    if (message.type === WS_MESSAGE_TYPE.groupMatchCreate) {
       if (!message.token) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to create group matches.' })
         return
@@ -158,13 +161,13 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Invalid token.' })
         return
       }
-      const visibility = message.visibility === 'private' ? 'private' : 'public'
+      const visibility = message.visibility === GROUP_VISIBILITY.private ? GROUP_VISIBILITY.private : GROUP_VISIBILITY.public
       const prefs = normalizePreferences(message.preferences)
       if (!prefs) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Invalid preferences.' })
         return
       }
-      const mode = prefs.mode === 'group' ? 'group' : 'solo'
+      const mode = prefs.mode === MATCH_MODE.group ? MATCH_MODE.group : MATCH_MODE.solo
       const roomId = createGroupMatchRoom(socket, visibility, { ...prefs, mode, matchScope: prefs.matchScope }, {
         userId: user.id,
         email: user.email,
@@ -174,7 +177,7 @@ export function createWsHandler(state: WsState) {
     }
 
     // Group match: create group AND invite target user atomically (no race condition)
-    if (message.type === 'group-match:create-and-invite') {
+    if (message.type === WS_MESSAGE_TYPE.groupMatchCreateAndInvite) {
       if (!message.token) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to create group matches.' })
         return
@@ -185,12 +188,12 @@ export function createWsHandler(state: WsState) {
         return
       }
       const partnerSocket = getPartner(socket)
-      const visibility = 'private'
+      const visibility = GROUP_VISIBILITY.private
       const prefs = normalizePreferences(message.preferences) || {
         country: 'any', language: 'any', gender: 'any', lookingFor: 'any',
-        interests: [], allowMatchWithSameUsers: true, mode: 'group', matchScope: 'all',
+        interests: [], allowMatchWithSameUsers: true, mode: MATCH_MODE.group, matchScope: MATCH_SCOPE.all,
       }
-      const roomId = createGroupMatchRoom(socket, visibility, { ...prefs, mode: 'group', matchScope: prefs.matchScope }, {
+      const roomId = createGroupMatchRoom(socket, visibility, { ...prefs, mode: MATCH_MODE.group, matchScope: prefs.matchScope }, {
         userId: user.id,
         email: user.email,
         sessionKey,
@@ -200,7 +203,7 @@ export function createWsHandler(state: WsState) {
         const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [user.id] })
         const inviterProfile = inviterRow.rows[0]
         send(targetSocket, {
-          type: 'group-match:invite-received',
+          type: WS_MESSAGE_TYPE.groupMatchInviteReceived,
           roomId,
           host: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: user.id, email: '' },
         })
@@ -209,7 +212,7 @@ export function createWsHandler(state: WsState) {
     }
 
     // Group match: invite a friend to join the group
-    if (message.type === 'group-match:invite') {
+    if (message.type === WS_MESSAGE_TYPE.groupMatchInvite) {
       const meta = getMeta(socket)
       let inviterId = meta?.userId
       if (!inviterId && message.token) {
@@ -233,7 +236,7 @@ export function createWsHandler(state: WsState) {
       const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [inviterId] })
       const inviterProfile = inviterRow.rows[0]
       send(targetSocket, {
-        type: 'group-match:invite-received',
+        type: WS_MESSAGE_TYPE.groupMatchInviteReceived,
         roomId: group.id,
         host: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: inviterId, email: '' },
       })
@@ -242,7 +245,7 @@ export function createWsHandler(state: WsState) {
     }
 
     // Group match: join a group room (accepting invite)
-    if (message.type === 'group-match:join') {
+    if (message.type === WS_MESSAGE_TYPE.groupMatchJoin) {
       let userId: number | undefined
       let email: string | undefined
       if (message.token) {
@@ -269,7 +272,7 @@ export function createWsHandler(state: WsState) {
     }
 
     // Group match: start matching (enter queue)
-    if (message.type === 'group-match:start') {
+    if (message.type === WS_MESSAGE_TYPE.groupMatchStart) {
       const group = getGroupRoomById(message.roomId)
       if (!group) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Group not found.' })
@@ -280,9 +283,9 @@ export function createWsHandler(state: WsState) {
     }
 
     // Group match: leave group
-    if (message.type === 'group-match:leave') {
+    if (message.type === WS_MESSAGE_TYPE.groupMatchLeave) {
       removeFromQueue(socket)
-      leaveGroup(socket, 'user-left')
+      leaveGroup(socket, PEER_LEFT_REASON.userLeft)
       return
     }
 
