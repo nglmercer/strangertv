@@ -5,7 +5,7 @@ import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
 import { GROUP_VISIBILITY, MATCH_MODE, PEER_LEFT_REASON, QUALITY_TIER, SignalKind, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
-import { isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
+import { getStoredUser, isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
 import { messagesApi } from '../api'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
@@ -339,7 +339,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       await webrtcRef.current.createMeshPeers(
         stream,
         peers.map((p) => ({ userId: p.userId, role: p.role })),
-        0,
+        getStoredUser()?.id ?? 0,
       )
     },
   })
