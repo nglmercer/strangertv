@@ -90,6 +90,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const groupRoomIdRef = useRef(groupRoomId)
   groupRoomIdRef.current = groupRoomId
   const isInvitingToGroupRef = useRef(false)
+  const groupInviteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const media = useMedia()
   const mediaRef = useRef(media)
@@ -271,22 +272,34 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     },
     onGroupMatchCreated: (id, visibility) => {
       console.debug('[match] group-match:created', { roomId: id, visibility })
-      isInvitingToGroupRef.current = false
       setGroupRoomId(id)
       setGroupVisibility(visibility)
       groupRoomIdRef.current = id
       setFinding(true)
-      matchRef.current?.groupMatchStart(id)
+      onStatus(trRef.current.finding)
     },
     onGroupMatchParticipantJoined: (id, userId, email) => {
+      console.debug('[match] group-match:participant-joined', { roomId: id, userId })
+      isInvitingToGroupRef.current = false
       setGroupParticipants((prev) => [...prev.filter((p) => p.userId !== userId), { userId, email }])
+      if (id === groupRoomIdRef.current) {
+        matchRef.current?.groupMatchStart(id)
+      }
     },
     onGroupMatchParticipantLeft: (id, userId) => {
       setGroupParticipants((prev) => prev.filter((p) => p.userId !== userId))
     },
     onGroupMatchInviteReceived: (id, host) => {
+      console.debug('[match] group-match:invite-received', { roomId: id, host })
       onSocialEvent?.({ type: 'group-match:invite-received', roomId: id, host })
       setPendingGroupInvite({ roomId: id, host })
+      if (groupInviteTimeoutRef.current) clearTimeout(groupInviteTimeoutRef.current)
+      groupInviteTimeoutRef.current = setTimeout(() => {
+        console.debug('[match] group invite timeout, auto-declining', { roomId: id })
+        matchRef.current?.groupMatchInviteDecline(id)
+        setPendingGroupInvite(null)
+        groupInviteTimeoutRef.current = null
+      }, 30_000)
     },
     onGroupMatchInviteSent: () => {
       /* no-op for now */
@@ -447,6 +460,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   const acceptGroupInvite = useCallback(() => {
     if (!pendingGroupInvite) return
+    if (groupInviteTimeoutRef.current) { clearTimeout(groupInviteTimeoutRef.current); groupInviteTimeoutRef.current = null }
     const { roomId: inviteRoomId } = pendingGroupInvite
     setPendingGroupInvite(null)
     webrtc.clear()
@@ -461,6 +475,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   const declineGroupInvite = useCallback(() => {
     if (!pendingGroupInvite) return
+    if (groupInviteTimeoutRef.current) { clearTimeout(groupInviteTimeoutRef.current); groupInviteTimeoutRef.current = null }
     match.groupMatchInviteDecline(pendingGroupInvite.roomId)
     setPendingGroupInvite(null)
   }, [pendingGroupInvite, match])

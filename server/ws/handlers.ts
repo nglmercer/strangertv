@@ -15,6 +15,7 @@ import {
   send,
   blockPair,
   getSocketForUser,
+  getAllSocketsForUser,
   createGroupMatchRoom,
   getGroupRoom,
   getGroupRoomById,
@@ -71,7 +72,7 @@ export function createWsHandler(state: WsState) {
     }
 
     if (message.type !== WS_MESSAGE_TYPE.queueHeartbeat && message.type !== WS_MESSAGE_TYPE.wsAuth) {
-      if (message.type !== "telemetry:quality") {
+      if (message.type !== "telemetry:quality" && message.type !== "signal") {
       console.debug('[ws] recv', { type: message.type, raw: raw.slice(0, 200) })
       }
     }
@@ -199,15 +200,24 @@ export function createWsHandler(state: WsState) {
         sessionKey,
         skipLeaveRoom: true,
       })
-      const targetSocket = (message.userId && getSocketForUser(message.userId)) || partnerSocket
-      if (targetSocket) {
+      const targetSockets = message.userId ? getAllSocketsForUser(message.userId) : []
+      if (targetSockets.length === 0 && partnerSocket) targetSockets.push(partnerSocket)
+      if (targetSockets.length > 0) {
         const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [user.id] })
         const inviterProfile = inviterRow.rows[0]
-        send(targetSocket, {
+        const inviteMsg = {
           type: WS_MESSAGE_TYPE.groupMatchInviteReceived,
           roomId,
           host: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: user.id, email: '' },
-        })
+        }
+        for (const s of targetSockets) send(s, inviteMsg)
+        setTimeout(() => {
+          const group = getGroupRoomById(roomId)
+          if (group && group.participants.size < 2) {
+            send(socket, { type: WS_MESSAGE_TYPE.groupMatchInviteDeclined, roomId })
+            leaveGroup(socket, PEER_LEFT_REASON.userLeft)
+          }
+        }, 30_000)
       }
       return
     }

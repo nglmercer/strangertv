@@ -24,10 +24,11 @@ export function getSocketUserId(socket: SocketLike): number | undefined {
 export function getSocketForUser(userId: number): SocketLike | undefined {
   const sockets = userSockets.get(userId)
   if (!sockets) return undefined
+  let last: SocketLike | undefined
   for (const socket of sockets) {
-    if (socket.readyState === 1) return socket
+    if (socket.readyState === 1) last = socket
   }
-  return undefined
+  return last
 }
 
 export function getAllSocketsForUser(userId: number): SocketLike[] {

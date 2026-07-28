@@ -684,3 +684,76 @@
   margin: 8px 0 0;
   text-align: center;
 }
+
+/* Group match invite modal */
+.group-match-invite-modal {
+  text-align: center;
+  width: min(380px, 100%);
+  padding: 40px 32px 32px;
+}
+
+.group-invite-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: var(--bg-accent-subtle);
+  color: var(--accent);
+  display: grid;
+  place-items: center;
+}
+
+.group-match-invite-modal h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.group-invite-text {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
+.group-invite-text strong {
+  color: var(--text-secondary);
+}
+
+.group-invite-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.group-invite-actions .btn {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.group-invite-actions .btn:active {
+  transform: scale(0.97);
+}
+
+.group-invite-actions .btn.primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.group-invite-actions .btn.primary:hover {
+  opacity: 0.9;
+}
+
+.group-invite-actions .btn.ghost {
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.group-invite-actions .btn.ghost:hover {
+  opacity: 0.8;
+}
