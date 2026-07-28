@@ -15,7 +15,7 @@ function GroupPreview({ layout }: { layout: GroupLayout }) {
   if (layout === 'grid') {
     return (
       <span class="layout-mini group-grid" aria-hidden="true">
-        <i /><i /><i /><i />
+        <i /><i /><i />
       </span>
     )
   }

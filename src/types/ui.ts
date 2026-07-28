@@ -17,6 +17,6 @@ export const SOLO_LAYOUTS: readonly SoloLayout[] = ['vertical', 'horizontal']
 export const GROUP_LAYOUTS: readonly GroupLayout[] = ['grid', 'spotlight']
 
 export const DEFAULT_UI_SETTINGS: UiSettings = {
-  soloLayout: 'vertical',
+  soloLayout: 'horizontal',
   groupLayout: 'grid',
 }

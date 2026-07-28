@@ -617,12 +617,15 @@
   gap: 8px;
   width: 100%;
   height: 100%;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  grid-auto-rows: 1fr;
+  grid-template-columns: 1fr;
+  grid-auto-rows: minmax(130px, 1fr);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
 }
 
 .group-participants-grid .video {
-  min-height: 140px;
+  min-height: 0;
 }
 
 /* ---------------------------------------------------------------------------
