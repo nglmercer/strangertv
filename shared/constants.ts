@@ -198,6 +198,7 @@ export const PEER_LEFT_REASON = {
   leave: 'leave',
   disconnect: 'disconnect',
   requeue: 'requeue',
+  groupInvite: 'group-invite',
 } as const
 
 export type PeerLeftReason = (typeof PEER_LEFT_REASON)[keyof typeof PEER_LEFT_REASON]

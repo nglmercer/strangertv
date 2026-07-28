@@ -425,6 +425,11 @@ export function App(_props: AppProps) {
                 console.debug('[app] invite clicked, opening friend manager')
                 setFriendManager({ open: true, inviteMode: true })
               }}
+              onInviteGroup={() => {
+                if (session.peerUserId) {
+                  void session.invitePeerToGroup(session.peerUserId)
+                }
+              }}
               relationship={session.relationship}
             />
           </div>
@@ -536,12 +541,6 @@ export function App(_props: AppProps) {
         onBeginGroupMatch={onBeginGroupMatch}
         onReport={onReport}
         onDeviceChange={onDeviceChange}
-        groupMatchState={{
-          groupRoomId: session.groupRoomId,
-          groupVisibility: session.groupVisibility,
-          matchMode: session.matchMode,
-          participants: session.groupParticipants,
-        }}
       />
     </SocialContext.Provider>
   )

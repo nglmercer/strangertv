@@ -288,9 +288,17 @@ export function useMatchSocket(handlers: Handlers) {
 
   const groupMatchInvite = useCallback(
     (roomId: string, userId: number) => {
-      send({ type: 'group-match:invite', roomId, userId })
+      send({ type: 'group-match:invite', roomId, userId, token: getToken() ?? undefined })
     },
     [send],
+  )
+
+  const groupMatchCreateAndInvite = useCallback(
+    (visibility: GroupVisibility, preferences: MatchPreferences, userId: number) => {
+      ensureSocket()
+      send({ type: 'group-match:create-and-invite', visibility, preferences, userId, token: getToken() ?? undefined })
+    },
+    [ensureSocket, send],
   )
 
   const groupMatchJoin = useCallback(
@@ -368,6 +376,7 @@ export function useMatchSocket(handlers: Handlers) {
     groupInviteDecline,
     groupMatchCreate,
     groupMatchInvite,
+    groupMatchCreateAndInvite,
     groupMatchJoin,
     groupMatchStart,
     groupMatchLeave,

@@ -428,6 +428,7 @@ Las conversaciones no son privadas frente a tu pareja; trata a los desconocidos 
   inviteFriends: 'Invitar Amigos',
   startMatching: 'Iniciar Búsqueda',
   groupNeedMoreParticipants: 'Invita al menos 1 amigo para empezar',
+  inviteToGroupMatch: 'Invitar a grupo',
   participants: 'Participantes',
   public: 'Público',
   private: 'Privado',

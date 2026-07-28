@@ -20,6 +20,7 @@ import {
   getGroupRoomById,
   addParticipantToGroup,
   startGroupMatch,
+  leaveGroup,
   type SocketLike,
   type GroupRoom,
 } from '../matchmaking'
@@ -67,7 +68,9 @@ export function createWsHandler(state: WsState) {
     }
 
     if (message.type !== WS_MESSAGE_TYPE.queueHeartbeat && message.type !== WS_MESSAGE_TYPE.wsAuth) {
+      if (message.type !== "telemetry:quality") {
       console.debug('[ws] recv', { type: message.type, raw: raw.slice(0, 200) })
+      }
     }
 
     if (message.type === WS_MESSAGE_TYPE.queueHeartbeat) {
@@ -170,10 +173,54 @@ export function createWsHandler(state: WsState) {
       return
     }
 
+    // Group match: create group AND invite target user atomically (no race condition)
+    if (message.type === 'group-match:create-and-invite') {
+      if (!message.token) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to create group matches.' })
+        return
+      }
+      if (!message.userId) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'No target user.' })
+        return
+      }
+      const user = await userFromToken(message.token)
+      if (!user) {
+        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Invalid token.' })
+        return
+      }
+      const visibility = 'private'
+      const prefs = normalizePreferences(message.preferences) || {
+        country: 'any', language: 'any', gender: 'any', lookingFor: 'any',
+        interests: [], allowMatchWithSameUsers: true, mode: 'group', matchScope: 'all',
+      }
+      const roomId = createGroupMatchRoom(socket, visibility, { ...prefs, mode: 'group', matchScope: prefs.matchScope }, {
+        userId: user.id,
+        email: user.email,
+        sessionKey,
+      })
+      // Immediately invite the target user (same atomic operation)
+      const targetSocket = getSocketForUser(message.userId)
+      if (targetSocket) {
+        const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [user.id] })
+        const inviterProfile = inviterRow.rows[0]
+        send(targetSocket, {
+          type: 'group-match:invite-received',
+          roomId,
+          host: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: user.id, email: '' },
+        })
+      }
+      return
+    }
+
     // Group match: invite a friend to join the group
     if (message.type === 'group-match:invite') {
       const meta = getMeta(socket)
-      if (!meta?.userId) {
+      let inviterId = meta?.userId
+      if (!inviterId && message.token) {
+        const user = await userFromToken(message.token)
+        if (user) inviterId = user.id
+      }
+      if (!inviterId) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to invite.' })
         return
       }
@@ -187,12 +234,12 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'User is not online.' })
         return
       }
-      const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [meta.userId] })
+      const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [inviterId] })
       const inviterProfile = inviterRow.rows[0]
       send(targetSocket, {
         type: 'group-match:invite-received',
         roomId: group.id,
-        host: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: meta.userId, email: '' },
+        host: inviterProfile ? publicUser(inviterProfile as unknown as UserRow) : { id: inviterId, email: '' },
       })
       send(socket, { type: WS_MESSAGE_TYPE.groupMatchInviteSent, userId: message.userId })
       return

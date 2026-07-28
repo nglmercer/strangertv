@@ -427,6 +427,7 @@ Conversations are not private from your peer; treat strangers carefully.`,
   inviteFriends: 'Invite Friends',
   startMatching: 'Start Matching',
   groupNeedMoreParticipants: 'Invite at least 1 friend to start matching',
+  inviteToGroupMatch: 'Invite to group match',
   participants: 'Participants',
   // SharedPrefs
   public: 'Public',

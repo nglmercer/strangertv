@@ -13,3 +13,4 @@ blob-report/
 *.tsbuildinfo
 .DS_Store
 invitation_**.db
+group_**.db

@@ -428,6 +428,7 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   inviteFriends: 'Convidar Amigos',
   startMatching: 'Iniciar Busca',
   groupNeedMoreParticipants: 'Convide pelo menos 1 amigo para começar',
+  inviteToGroupMatch: 'Convidar para grupo',
   participants: 'Participantes',
   public: 'Público',
   private: 'Privado',

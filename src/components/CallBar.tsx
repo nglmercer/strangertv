@@ -44,6 +44,7 @@ type Props = {
   onAuthClick: () => void
   onAddFriend: () => void
   onInvite: () => void
+  onInviteGroup: () => void
   relationship: RelationshipStatus
 }
 
@@ -86,6 +87,7 @@ export function CallBar({
   onAuthClick,
   onAddFriend,
   onInvite,
+  onInviteGroup,
   relationship,
 }: Props) {
   const [menu, setMenu] = useState<MenuKind>(null)
@@ -416,6 +418,21 @@ export function CallBar({
               >
                 <Icon d={icons.userPlus} size={18} />
                 <span>{t.inviteToMatch}</span>
+              </button>
+            )}
+            {/* TODO: Restrict to friends/followed users in the future */}
+            {user && matched && (
+              <button
+                type="button"
+                role="menuitem"
+                class="call-menu-item"
+                onClick={() => {
+                  setMenu(null)
+                  onInviteGroup()
+                }}
+              >
+                <Icon d={icons.users} size={18} />
+                <span>{t.inviteToGroupMatch}</span>
               </button>
             )}
             <button

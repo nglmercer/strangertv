@@ -451,7 +451,7 @@ export function createGroupMatchRoom(
   opts: { userId?: number; email?: string; sessionKey: string },
 ): string {
   leaveGroup(socket)
-  leaveRoom(socket, true, PEER_LEFT_REASON.requeue)
+  leaveRoom(socket, true, PEER_LEFT_REASON.groupInvite)
 
   const roomId = newGroupRoomId()
   const participants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string }>()
@@ -489,6 +489,22 @@ export function addParticipantToGroup(
   socket: SocketLike,
   opts: { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string },
 ) {
+  // Clean up any prior match/queue state for the joining socket
+  removeFromQueue(socket)
+  const existingRoom = roomsBySocket.get(socket)
+  if (existingRoom) {
+    const partnerSocket = partners.get(socket)
+    if (partnerSocket) {
+      partners.delete(socket)
+      partners.delete(partnerSocket)
+      roomsBySocket.delete(socket)
+      roomsBySocket.delete(partnerSocket)
+      send(partnerSocket, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason: PEER_LEFT_REASON.requeue })
+    } else {
+      roomsBySocket.delete(socket)
+    }
+  }
+
   group.participants.set(socket, opts)
   groupRoomsBySocket.set(socket, group)
   if (opts.userId) registerUserSocket(opts.userId, socket)
@@ -498,11 +514,25 @@ export function addParticipantToGroup(
     }
   }
   send(socket, { type: WS_MESSAGE_TYPE.groupMatchCreated, roomId: group.id, visibility: group.visibility })
+
+  // Auto-enter matchmaking queue when group reaches 2+ participants
+  if (group.participants.size >= 2) {
+    if (!group.inQueue) {
+      group.inQueue = true
+      waitingGroups.push(group)
+      for (const [sock] of group.participants) {
+        send(sock, {
+          type: WS_MESSAGE_TYPE.queueWaiting,
+          position: waitingGroups.length,
+          online: queueStats().online,
+        })
+      }
+    }
+    tryMatchGroup(group)
+  }
 }
 
 export function startGroupMatch(group: GroupRoom) {
-  if (group.visibility === 'private') return
-  if (group.participants.size < 2) return
   if (group.inQueue) return
   group.inQueue = true
   waitingGroups.push(group)
