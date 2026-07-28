@@ -13,7 +13,7 @@ import { BrandMark3D } from './brandmark/BrandMark3D'
 import { Icon, icons } from './icons'
 import { SPEECH_ON, useSpeakerFocus } from '../hooks/useSpeakerFocus'
 
-type GroupPeer = { userId: number; email?: string; country?: string }
+type GroupPeer = { userId: number; email?: string; country?: string; side?: 'local' | 'remote' }
 
 type Tile = {
   id: string
@@ -21,6 +21,7 @@ type Tile = {
   country?: string
   stream: MediaStream | null
   local: boolean
+  side: 'local' | 'remote'
 }
 
 function StreamVideo({
@@ -151,6 +152,7 @@ export function VideoStage({
   onFollow,
   groupPeers,
   peerStreams,
+  localGroupIds,
   soloLayout,
   groupLayout,
 }: {
@@ -181,6 +183,7 @@ export function VideoStage({
   onFollow: () => void
   groupPeers?: GroupPeer[]
   peerStreams: Record<number, MediaStream>
+  localGroupIds: number[]
   soloLayout: SoloLayout
   groupLayout: GroupLayout
 }) {
@@ -207,7 +210,7 @@ export function VideoStage({
   const relationshipLabel =
     relationship === 'friend' ? t.alreadyFriends : relationship === 'following' ? t.following : relationship === 'follower' ? t.follower : null
 
-  const isGroupMatch = matched && Boolean(groupPeers && groupPeers.length > 1)
+  const isGroupMatch = matched && Boolean(groupPeers && groupPeers.length > 0)
 
   const tiles: Tile[] = isGroupMatch
     ? [
@@ -217,8 +220,9 @@ export function VideoStage({
           country: peer.country,
           stream: peerStreams[peer.userId] ?? null,
           local: false,
+          side: peer.side ?? (localGroupIds.includes(peer.userId) ? 'local' : 'remote'),
         })),
-        { id: 'local', name: t.labelYou, stream: localStream, local: true },
+        { id: 'local', name: t.labelYou, stream: localStream, local: true, side: 'local' },
       ]
     : []
 
@@ -273,22 +277,77 @@ export function VideoStage({
                   ))}
                 </div>
               </div>
-            ) : (
-              <div class="group-participants-grid" style={{ '--peer-count': groupPeers!.length + 1 }}>
-                {tiles.map((tile) => (
-                  <GroupTile
-                    key={tile.id}
-                    tile={tile}
-                    t={t}
-                    level={levels[tile.id] ?? 0}
-                    speaking={(levels[tile.id] ?? 0) >= SPEECH_ON}
-                    compact={false}
-                    pinned={false}
-                    localVideo={localVideo}
-                  />
-                ))}
-              </div>
-            )}
+            ) : (() => {
+              const remoteTiles = tiles.filter((tile) => tile.side === 'remote')
+              const localTiles = tiles.filter((tile) => tile.side === 'local')
+              const youTile = localTiles.find((tile) => tile.local) ?? localTiles[0]
+              const companionTiles = localTiles.filter((tile) => tile.id !== youTile?.id)
+              if (remoteTiles.length > 0 && youTile) {
+                return (
+                  <div class="group-sides">
+                    <div class="sides-remote">
+                      {remoteTiles.map((tile) => (
+                        <GroupTile
+                          key={tile.id}
+                          tile={tile}
+                          t={t}
+                          level={levels[tile.id] ?? 0}
+                          speaking={(levels[tile.id] ?? 0) >= SPEECH_ON}
+                          compact={remoteTiles.length > 2}
+                          pinned={false}
+                          localVideo={localVideo}
+                        />
+                      ))}
+                    </div>
+                    <div class={`sides-local ${companionTiles.length === 0 ? 'no-companions' : ''}`}>
+                      <div class="sides-you">
+                        <GroupTile
+                          tile={youTile}
+                          t={t}
+                          level={levels[youTile.id] ?? 0}
+                          speaking={(levels[youTile.id] ?? 0) >= SPEECH_ON}
+                          compact={false}
+                          pinned={false}
+                          localVideo={localVideo}
+                        />
+                      </div>
+                      {companionTiles.length > 0 && (
+                        <div class="sides-companions">
+                          {companionTiles.map((tile) => (
+                            <GroupTile
+                              key={tile.id}
+                              tile={tile}
+                              t={t}
+                              level={levels[tile.id] ?? 0}
+                              speaking={(levels[tile.id] ?? 0) >= SPEECH_ON}
+                              compact
+                              pinned={false}
+                              localVideo={localVideo}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+              return (
+                <div class="group-participants-grid">
+                  {tiles.map((tile) => (
+                    <GroupTile
+                      key={tile.id}
+                      tile={tile}
+                      t={t}
+                      level={levels[tile.id] ?? 0}
+                      speaking={(levels[tile.id] ?? 0) >= SPEECH_ON}
+                      compact={false}
+                      pinned={false}
+                      localVideo={localVideo}
+                    />
+                  ))}
+                </div>
+              )
+            })()}
             {sharedInterests.length > 0 && (
               <div class="interest-badge" aria-label={t.sharedInterests}>
                 <div class="chips tight">

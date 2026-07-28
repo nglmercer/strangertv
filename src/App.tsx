@@ -388,6 +388,7 @@ export function App(_props: AppProps) {
               onFollow={onFollow}
               groupPeers={session.groupPeers.length > 0 ? session.groupPeers : undefined}
               peerStreams={session.webrtc.peerStreams}
+              localGroupIds={[...(user ? [user.id] : []), ...session.groupParticipants.map((p) => p.userId)]}
               soloLayout={uiSettings.soloLayout}
               groupLayout={uiSettings.groupLayout}
             />

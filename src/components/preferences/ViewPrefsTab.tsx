@@ -14,8 +14,12 @@ function SoloPreview({ layout }: { layout: SoloLayout }) {
 function GroupPreview({ layout }: { layout: GroupLayout }) {
   if (layout === 'grid') {
     return (
-      <span class="layout-mini group-grid" aria-hidden="true">
-        <i /><i /><i />
+      <span class="layout-mini group-sides" aria-hidden="true">
+        <i class="mini-remote" />
+        <span class="mini-local-col">
+          <i class="mini-you" />
+          <span class="mini-local-row"><i /><i /></span>
+        </span>
       </span>
     )
   }
@@ -43,11 +47,11 @@ export function ViewPrefsTab({
     horizontal: t.layoutHorizontal,
   }
   const groupLabel: Record<GroupLayout, string> = {
-    grid: t.groupLayoutGrid,
+    grid: t.groupLayoutSides,
     spotlight: t.groupLayoutSpotlight,
   }
   const groupHint: Record<GroupLayout, string> = {
-    grid: t.groupLayoutGridHint,
+    grid: t.groupLayoutSidesHint,
     spotlight: t.groupLayoutSpotlightHint,
   }
 

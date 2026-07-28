@@ -464,7 +464,7 @@
 }
 
 .layout-mini .mini-a,
-.layout-mini.group-grid i:first-child,
+.layout-mini.group-sides .mini-remote,
 .layout-mini.group-spotlight .mini-main {
   background: linear-gradient(135deg, #35443e, #22332c);
 }
@@ -473,8 +473,24 @@
   background: linear-gradient(135deg, #3a3a3a, #262626);
 }
 
-.layout-mini.group-grid {
-  grid-template-rows: repeat(3, 1fr);
+.layout-mini.group-sides {
+  grid-template-columns: 1fr 42%;
+}
+
+.layout-mini.group-sides .mini-you {
+  background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
+}
+
+.layout-mini .mini-local-col {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+}
+
+.layout-mini .mini-local-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
 }
 
 .layout-mini.group-spotlight {

@@ -63,6 +63,31 @@
     height: 88px;
   }
 
+  .group-sides {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 3fr) minmax(0, 2fr);
+  }
+
+  .sides-remote {
+    grid-column: 1;
+    grid-row: 1;
+    grid-auto-rows: minmax(0, 1fr);
+  }
+
+  .sides-local {
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-rows: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    flex-wrap: nowrap;
+  }
+
+  .sides-you,
+  .sides-companions {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+  }
+
   .video {
     min-height: 0;
   }

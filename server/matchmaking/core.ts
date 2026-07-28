@@ -806,7 +806,7 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
     const peers = participantList
       .filter((p) => p.socket !== self.socket)
       .map((p) => ({
-        userId: p.userId,
+        userId: p.userId ?? 0,
         email: p.email,
         country: p.preferences.country !== DEFAULT_COUNTRY ? p.preferences.country : undefined,
         role: (self.index < p.index ? ROLE.offerer : ROLE.answerer) as Role,
