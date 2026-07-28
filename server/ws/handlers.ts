@@ -320,13 +320,14 @@ export function createWsHandler(state: WsState) {
       } else {
         const group = getGroupRoom(socket)
         if (group && message.payload) {
+          const senderUserId = group.participants.get(socket)?.userId ?? getSocketUserId(socket)
           const msgAsAny = message as unknown as { targetUserId?: number }
           const targetId = msgAsAny.targetUserId
           let relayed = false
           if (targetId) {
             for (const [sock, p] of group.participants) {
               if (p.userId === targetId && sock !== socket) {
-                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: getMeta(socket)?.userId })
+                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
                 relayed = true
                 break
               }
@@ -334,7 +335,7 @@ export function createWsHandler(state: WsState) {
           } else {
             for (const [sock] of group.participants) {
               if (sock !== socket) {
-                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: getMeta(socket)?.userId })
+                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
                 relayed = true
               }
             }

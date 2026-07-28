@@ -181,6 +181,66 @@ describe('group invite from match', () => {
     clientB.close()
   })
 
+  it('signal relay works after group match (targetUserId is set)', async () => {
+    const password = 'password12'
+    const userA = await createUser(`gsig_a_${Date.now()}@example.com`, password)
+    const userB = await createUser(`gsig_b_${Date.now()}@example.com`, password)
+
+    const clientA = await connectWs(userA.token)
+    const clientB = await connectWs(userB.token)
+
+    clientA.send({
+      type: 'queue:join',
+      token: userA.token,
+      preferences: { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all' },
+    })
+    clientB.send({
+      type: 'queue:join',
+      token: userB.token,
+      preferences: { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all' },
+    })
+
+    await clientA.waitFor('room:matched', 5000)
+    await clientB.waitFor('room:matched', 5000)
+
+    clientA.send({ type: 'group-match:create-and-invite', token: userA.token, visibility: 'private', userId: userB.user.id, preferences: { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'group', matchScope: 'all' } })
+    const groupCreated = await clientA.waitFor('group-match:created', 5000)
+
+    await clientB.waitFor('group-match:invite-received', 5000)
+
+    clientB.send({ type: 'room:leave' })
+    clientB.send({ type: 'queue:leave' })
+    clientB.send({ type: 'group-match:join', token: userB.token, roomId: groupCreated.roomId })
+
+    await clientA.waitFor('group-match:participant-joined', 5000)
+
+    const matchedA = await clientA.waitFor('group-match:matched', 5000)
+    const matchedB = await clientB.waitFor('group-match:matched', 5000)
+    expect(matchedA.roomId).toBe(matchedB.roomId)
+    expect(matchedA.peers.length).toBe(1)
+    expect(matchedB.peers.length).toBe(1)
+
+    const offererClient = matchedA.role === 'offerer' ? clientA : clientB
+    const answererClient = matchedA.role === 'offerer' ? clientB : clientA
+    const offererId = matchedA.role === 'offerer' ? userA.user.id : userB.user.id
+    const answererId = matchedA.role === 'offerer' ? userB.user.id : userA.user.id
+
+    offererClient.send({ type: 'signal', payload: { kind: 'offer', data: { type: 'offer', sdp: 'fake-sdp' } }, targetUserId: answererId })
+
+    const signal = await answererClient.waitFor('signal', 5000)
+    expect(signal.targetUserId).toBe(offererId)
+    expect(signal.payload.kind).toBe('offer')
+
+    answererClient.send({ type: 'signal', payload: { kind: 'answer', data: { type: 'answer', sdp: 'fake-answer' } }, targetUserId: offererId })
+
+    const answer = await offererClient.waitFor('signal', 5000)
+    expect(answer.targetUserId).toBe(answererId)
+    expect(answer.payload.kind).toBe('answer')
+
+    clientA.close()
+    clientB.close()
+  })
+
   it('invitee leaving solo match to join group notifies their prior partner', async () => {
     const password = 'password12'
     const userA = await createUser(`gif2a_${Date.now()}@example.com`, password)
