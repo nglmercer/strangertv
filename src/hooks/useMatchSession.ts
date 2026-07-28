@@ -291,6 +291,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       console.debug('[match] group-match:matched', { roomId: id, role, peerCount: peers.length })
       setRoomId(id)
       setMatched(true)
+      setFinding(false)
       setGroupPeers(peers)
       setSharedInterests(interests)
       waitingSince.current = null
@@ -303,12 +304,20 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       if (isMatchNotifyEnabled()) {
         notifyMatch(trRef.current.brand, trRef.current.connecting)
       }
-      const stream = mediaRef.current.streamRef.current
-      if (!stream) return
+      let stream = mediaRef.current.streamRef.current
+      if (!stream) {
+        try {
+          stream = await mediaRef.current.ensureStream()
+          setStreamTick((n) => n + 1)
+          if (localVideo.current) localVideo.current.srcObject = stream
+        } catch {
+          return
+        }
+      }
       await webrtcRef.current.createMeshPeers(
         stream,
         peers.map((p) => ({ userId: p.userId, role: p.role })),
-        peers[0]?.userId ?? 0,
+        0,
       )
     },
   })
@@ -400,6 +409,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = stream
       setMatchMode('group')
+      setFinding(true)
+      onStatus(trRef.current.finding)
       match.groupMatchCreate(visibility, groupPrefs)
       return true
     } catch {
@@ -420,6 +431,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const invitePeerToGroup = useCallback(async (peerUserId: number) => {
     console.debug('[match] invitePeerToGroup()', { peerUserId })
     isInvitingToGroupRef.current = true
+    window.setTimeout(() => { isInvitingToGroupRef.current = false }, 10_000)
     webrtc.clear()
     if (remoteVideo.current) remoteVideo.current.srcObject = null
     clearPeerUi()
@@ -444,6 +456,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     console.debug('[match] stop()', { roomId: roomIdRef.current, duration: callSecondsRef.current })
     const endedRoom = roomIdRef.current
     const duration = callSecondsRef.current
+    isInvitingToGroupRef.current = false
     match.leave()
     match.groupMatchLeave()
     webrtc.clear()

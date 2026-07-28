@@ -182,9 +182,6 @@ export function leaveGroup(socket: SocketLike, reason?: string): GroupRoom | und
   if (participant?.userId) unregisterUserSocket(participant.userId, socket)
 
   if (group.hostSocket === socket) {
-    for (const [, p] of group.participants) {
-      groupRoomsBySocket.delete(p['socket' as keyof typeof p] as unknown as SocketLike)
-    }
     const participantSockets = Array.from(group.participants.keys())
     for (const sock of participantSockets) {
       send(sock, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason: reason || 'host-left' })
@@ -698,6 +695,43 @@ function notifyGroupMatch(
     preferences: p.preferences,
   }))
 
+  const matchedRoomId = newRoomId()
+
+  for (const [sock] of participants) {
+    const oldGroup = groupRoomsBySocket.get(sock)
+    if (oldGroup) {
+      oldGroup.participants.delete(sock)
+      if (oldGroup.participants.size === 0) {
+        groupRoomsById.delete(oldGroup.id)
+      }
+    }
+    groupRoomsBySocket.delete(sock)
+  }
+
+  const unifiedGroup: GroupRoom = {
+    id: matchedRoomId,
+    hostSocket: participantList[0]!.socket,
+    hostUserId: participantList[0]!.userId,
+    hostEmail: participantList[0]!.email,
+    visibility: 'public',
+    scope: 'all',
+    preferences: participantList[0]!.preferences,
+    participants: new Map(),
+    createdAt: Date.now(),
+    inQueue: false,
+  }
+
+  for (const p of participantList) {
+    unifiedGroup.participants.set(p.socket, {
+      userId: p.userId,
+      email: p.email,
+      preferences: p.preferences,
+      sessionKey: '',
+    })
+    groupRoomsBySocket.set(p.socket, unifiedGroup)
+  }
+  groupRoomsById.set(matchedRoomId, unifiedGroup)
+
   for (const self of participantList) {
     const peers = participantList
       .filter((p) => p.socket !== self.socket)
@@ -710,7 +744,7 @@ function notifyGroupMatch(
 
     send(self.socket, {
       type: WS_MESSAGE_TYPE.groupMatchMatched,
-      roomId: newRoomId(),
+      roomId: matchedRoomId,
       role: self.userId === Math.min(...participantList.map((p) => p.userId)) ? ROLE.offerer : ROLE.answerer,
       peers,
       sharedInterests,

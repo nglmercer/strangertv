@@ -286,6 +286,7 @@ export function createWsHandler(state: WsState) {
     // Group match: leave group
     if (message.type === 'group-match:leave') {
       removeFromQueue(socket)
+      leaveGroup(socket, 'user-left')
       return
     }
 
