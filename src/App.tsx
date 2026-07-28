@@ -426,9 +426,7 @@ export function App(_props: AppProps) {
                 setFriendManager({ open: true, inviteMode: true })
               }}
               onInviteGroup={() => {
-                if (session.peerUserId) {
-                  void session.invitePeerToGroup(session.peerUserId)
-                }
+                void session.invitePeerToGroup(session.peerUserId ?? undefined)
               }}
               relationship={session.relationship}
             />

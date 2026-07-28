@@ -163,7 +163,7 @@ export type ClientMessage =
   | { type: 'group:invite:accept'; inviteId: number }
   | { type: 'group:invite:decline'; inviteId: number }
   | { type: 'group-match:create'; visibility: GroupVisibility; preferences: MatchPreferences; token?: string }
-  | { type: 'group-match:create-and-invite'; visibility: GroupVisibility; preferences: MatchPreferences; userId: number; token?: string }
+  | { type: 'group-match:create-and-invite'; visibility: GroupVisibility; preferences: MatchPreferences; userId?: number; token?: string }
   | { type: 'group-match:invite'; roomId: string; userId: number; token?: string }
   | { type: 'group-match:join'; roomId: string; token?: string }
   | { type: 'group-match:leave' }

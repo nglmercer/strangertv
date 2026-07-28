@@ -179,15 +179,12 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to create group matches.' })
         return
       }
-      if (!message.userId) {
-        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'No target user.' })
-        return
-      }
       const user = await userFromToken(message.token)
       if (!user) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Invalid token.' })
         return
       }
+      const partnerSocket = getPartner(socket)
       const visibility = 'private'
       const prefs = normalizePreferences(message.preferences) || {
         country: 'any', language: 'any', gender: 'any', lookingFor: 'any',
@@ -198,8 +195,7 @@ export function createWsHandler(state: WsState) {
         email: user.email,
         sessionKey,
       })
-      // Immediately invite the target user (same atomic operation)
-      const targetSocket = getSocketForUser(message.userId)
+      const targetSocket = (message.userId && getSocketForUser(message.userId)) || partnerSocket
       if (targetSocket) {
         const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [user.id] })
         const inviterProfile = inviterRow.rows[0]
@@ -247,14 +243,14 @@ export function createWsHandler(state: WsState) {
 
     // Group match: join a group room (accepting invite)
     if (message.type === 'group-match:join') {
-      if (!message.token) {
-        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Sign in to join.' })
-        return
-      }
-      const user = await userFromToken(message.token)
-      if (!user) {
-        send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Invalid token.' })
-        return
+      let userId: number | undefined
+      let email: string | undefined
+      if (message.token) {
+        const user = await userFromToken(message.token)
+        if (user) {
+          userId = user.id
+          email = user.email
+        }
       }
       const group = getGroupRoomById(message.roomId)
       if (!group) {
@@ -264,8 +260,8 @@ export function createWsHandler(state: WsState) {
       const prefs = normalizePreferences(group.preferences)
       if (!prefs) return
       addParticipantToGroup(group, socket, {
-        userId: user.id,
-        email: user.email,
+        userId,
+        email,
         preferences: prefs,
         sessionKey,
       })

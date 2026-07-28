@@ -195,6 +195,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
         return
       }
       if (reason === PEER_LEFT_REASON.groupInvite) {
+        setFinding(true)
+        onStatus(trRef.current.finding)
         return
       }
       setFinding(true)
@@ -283,6 +285,10 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     },
     onGroupMatchInviteReceived: (id, host) => {
       onSocialEvent?.({ type: 'group-match:invite-received', roomId: id, host })
+      setMatchMode('group')
+      setFinding(true)
+      onStatus(trRef.current.connecting)
+      matchRef.current?.groupMatchJoin(id)
     },
     onGroupMatchInviteSent: () => {
       /* no-op for now */
@@ -428,7 +434,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     }
   }, [groupRoomId, match])
 
-  const invitePeerToGroup = useCallback(async (peerUserId: number) => {
+  const invitePeerToGroup = useCallback(async (peerUserId?: number) => {
     console.debug('[match] invitePeerToGroup()', { peerUserId })
     isInvitingToGroupRef.current = true
     window.setTimeout(() => { isInvitingToGroupRef.current = false }, 10_000)
