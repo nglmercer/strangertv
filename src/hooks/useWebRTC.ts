@@ -33,6 +33,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
   const [quality, setQuality] = useState<Quality>('idle')
   const [linkStats, setLinkStats] = useState<LinkStats>(emptyLinkStats)
   const [hasRemote, setHasRemote] = useState(false)
+  const [peerStreams, setPeerStreams] = useState<Record<number, MediaStream>>({})
 
   const stopStatsLoop = useCallback((peer: PeerConnection) => {
     if (peer.statsTimer != null) {
@@ -138,8 +139,12 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
       }
 
       peer.pc.ontrack = (event) => {
+        const stream = event.streams[0] ?? null
         if (remoteVideo) {
-          remoteVideo.srcObject = event.streams[0] ?? null
+          remoteVideo.srcObject = stream
+        }
+        if (stream) {
+          setPeerStreams((prev) => (prev[peer.userId] === stream ? prev : { ...prev, [peer.userId]: stream }))
         }
         setHasRemote(true)
         if (peer.pc.connectionState === RTC_STATE.connected) {
@@ -210,6 +215,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     soloPending.current = []
     soloRemoteReady.current = false
     setHasRemote(false)
+    setPeerStreams({})
     setQuality(QUALITY_TIER.idle)
     setLinkStats(emptyLinkStats)
   }, [stopStatsLoop, stopSoloStatsLoop])
@@ -470,6 +476,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     quality,
     linkStats,
     hasRemote,
+    peerStreams,
     replaceTracks,
     restartIce,
   }

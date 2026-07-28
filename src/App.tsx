@@ -6,6 +6,8 @@ import { SocialPage } from './pages/SocialPage'
 //import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
 import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, type PublicUser } from './api'
+import type { UiSettings } from './types/ui'
+import { loadUiSettings, saveUiSettings } from './utils/uiSettings'
 import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
@@ -56,6 +58,11 @@ export function App(_props: AppProps) {
   const setPrefs = (p: MatchPreferences) => {
     setPrefsState(p)
     savePrefs(p)
+  }
+  const [uiSettings, setUiSettingsState] = useState<UiSettings>(loadUiSettings)
+  const setUiSettings = (s: UiSettings) => {
+    setUiSettingsState(s)
+    saveUiSettings(s)
   }
 
   const [status, setStatus] = useState(() => translate(detectLocale()).ready)
@@ -369,6 +376,7 @@ export function App(_props: AppProps) {
               localVideo={session.localVideo}
               remoteVideo={session.remoteVideo}
               hasLocalStream={Boolean(session.media.streamRef.current)}
+              localStream={session.media.streamRef.current}
               user={user}
               onPreferences={() => {
                 setPrefsTab(PREFS_TAB.match)
@@ -379,6 +387,9 @@ export function App(_props: AppProps) {
               onAddFriend={onAddFriend}
               onFollow={onFollow}
               groupPeers={session.groupPeers.length > 0 ? session.groupPeers : undefined}
+              peerStreams={session.webrtc.peerStreams}
+              soloLayout={uiSettings.soloLayout}
+              groupLayout={uiSettings.groupLayout}
             />
             <CallBar
               t={tr}
@@ -495,6 +506,8 @@ export function App(_props: AppProps) {
         prefs={prefs}
         setPrefs={setPrefs}
         setLocale={setLocale}
+        uiSettings={uiSettings}
+        setUiSettings={setUiSettings}
         user={user}
         setUser={applyUser}
         profileNeeded={profileNeeded}

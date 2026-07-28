@@ -139,6 +139,18 @@ export function setMatchNotifyEnabled(on: boolean) {
 }
 
 // ---------------------------------------------------------------------------
+// View / layout settings (client-only, never sent to the server)
+// ---------------------------------------------------------------------------
+
+export function getUiSettingsRaw(): unknown {
+  return getJSON<unknown>(STORAGE_KEYS.uiSettings, null)
+}
+
+export function setUiSettingsRaw(value: unknown) {
+  setJSON(STORAGE_KEYS.uiSettings, value)
+}
+
+// ---------------------------------------------------------------------------
 // Locale
 // ---------------------------------------------------------------------------
 

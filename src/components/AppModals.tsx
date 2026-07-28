@@ -1,5 +1,6 @@
 import type { GroupVisibility, Locale, MatchPreferences, ReportReason } from '../../shared/types'
 import { authApi, socialApi, type PublicUser } from '../api'
+import type { UiSettings } from '../types/ui'
 import type { Messages } from '../i18n'
 import type { MediaErrorCode } from '../utils/mediaErrors'
 import { AuthModal } from './AuthModal'
@@ -29,6 +30,8 @@ export function AppModals({
   prefs,
   setPrefs,
   setLocale,
+  uiSettings,
+  setUiSettings,
   user,
   setUser,
   profileNeeded,
@@ -62,6 +65,8 @@ export function AppModals({
   prefs: MatchPreferences
   setPrefs: (p: MatchPreferences) => void
   setLocale: (l: Locale) => void
+  uiSettings: UiSettings
+  setUiSettings: (s: UiSettings) => void
   user: PublicUser | null
   setUser: (u: PublicUser | null) => void
   profileNeeded: boolean
@@ -127,6 +132,8 @@ export function AppModals({
           locale={locale}
           setPrefs={setPrefs}
           setLocale={setLocale}
+          uiSettings={uiSettings}
+          setUiSettings={setUiSettings}
           devices={media.devices}
           videoId={media.videoId}
           audioId={media.audioId}

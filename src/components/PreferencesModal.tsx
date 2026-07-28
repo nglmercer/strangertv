@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks'
 import type { Locale, MatchPreferences } from '../../shared/types'
+import type { UiSettings } from '../types/ui'
 import type { Messages } from '../i18n'
 import { PREFS_TAB, PrefsTab } from '../../shared/constants'
 import type { MediaErrorCode } from '../utils/mediaErrors'
@@ -7,6 +8,7 @@ import { Modal } from './Modal'
 import { DevicesPrefsTab } from './preferences/DevicesPrefsTab'
 import { LocalePrefsTab } from './preferences/LocalePrefsTab'
 import { MatchPrefsTab } from './preferences/MatchPrefsTab'
+import { ViewPrefsTab } from './preferences/ViewPrefsTab'
 
 export type PrefsTabId = PrefsTab
 
@@ -16,6 +18,8 @@ export function PreferencesModal({
   locale,
   setPrefs,
   setLocale,
+  uiSettings,
+  setUiSettings,
   devices,
   videoId,
   audioId,
@@ -35,6 +39,8 @@ export function PreferencesModal({
   locale: Locale
   setPrefs: (p: MatchPreferences) => void
   setLocale: (l: Locale) => void
+  uiSettings: UiSettings
+  setUiSettings: (s: UiSettings) => void
   devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
   videoId: string
   audioId: string
@@ -53,6 +59,7 @@ export function PreferencesModal({
 
   const tabs: { id: PrefsTabId; label: string }[] = [
     { id: PREFS_TAB.match, label: t.prefsTabMatch },
+    { id: PREFS_TAB.view, label: t.prefsTabView },
     { id: PREFS_TAB.devices, label: t.prefsTabDevices },
     { id: PREFS_TAB.language, label: t.prefsTabLanguage },
   ]
@@ -79,6 +86,7 @@ export function PreferencesModal({
       </div>
 
       {tab === PREFS_TAB.match && <MatchPrefsTab t={t} prefs={prefs} setPrefs={setPrefs} />}
+      {tab === PREFS_TAB.view && <ViewPrefsTab t={t} uiSettings={uiSettings} setUiSettings={setUiSettings} />}
       {tab === PREFS_TAB.devices && (
         <DevicesPrefsTab
           t={t}

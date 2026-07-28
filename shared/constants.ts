@@ -25,6 +25,7 @@ export const STORAGE_KEYS = {
   devicesReady: 'stranger-devices-ready',
   videoDevice: 'stranger-video-device-id',
   audioDevice: 'stranger-audio-device-id',
+  uiSettings: 'stranger-ui-settings',
 } as const
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]
@@ -481,6 +482,7 @@ export type PageId = (typeof PAGE_ID)[keyof typeof PAGE_ID]
 // ---------------------------------------------------------------------------
 export const PREFS_TAB = {
   match: 'match',
+  view: 'view',
   devices: 'devices',
   language: 'language',
 } as const

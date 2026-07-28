@@ -37,6 +37,32 @@
     gap: 4px;
   }
 
+  .video-grid.solo-horizontal {
+    grid-template-columns: 1fr;
+    grid-template-rows: min(42dvh, 360px) min(42dvh, 360px);
+  }
+
+  .video-grid.group-mode {
+    grid-template-rows: none;
+  }
+
+  .group-spotlight {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .spotlight-rail {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 0 2px;
+  }
+
+  .spotlight-rail .video {
+    width: 118px;
+    height: 88px;
+  }
+
   .video {
     min-height: 0;
   }

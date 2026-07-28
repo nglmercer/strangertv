@@ -45,6 +45,7 @@ export const en = {
   mediaChangeDevices: 'Camera & microphone',
   mediaNeedStream: 'Allow camera access before continuing.',
   prefsTabMatch: 'Match',
+  prefsTabView: 'View',
   prefsTabDevices: 'Devices',
   prefsTabLanguage: 'Language',
   findStranger: 'Find a stranger',
@@ -436,6 +437,18 @@ Conversations are not private from your peer; treat strangers carefully.`,
   // SharedPrefs
   public: 'Public',
   private: 'Private',
+  // View / layout preferences
+  viewSoloLayout: '1-on-1 layout',
+  viewSoloLayoutHint: 'How the two videos are arranged during a solo match.',
+  layoutVertical: 'Vertical',
+  layoutHorizontal: 'Horizontal',
+  viewGroupLayout: 'Group layout',
+  viewGroupLayoutHint: 'How participants are arranged during a group match.',
+  groupLayoutGrid: 'Grid',
+  groupLayoutGridHint: 'Everyone gets the same size tile.',
+  groupLayoutSpotlight: 'Speaker focus',
+  groupLayoutSpotlightHint: 'Whoever is talking appears big while the rest stay in a small strip.',
+  speaking: 'Speaking',
 }
 
 export type Messages = {
