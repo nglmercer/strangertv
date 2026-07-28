@@ -430,6 +430,10 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   groupNeedMoreParticipants: 'Convide pelo menos 1 amigo para começar',
   inviteToGroupMatch: 'Convidar para grupo',
   participants: 'Participantes',
+  groupMatchInviteTitle: 'Convite para grupo',
+  groupMatchInviteBody: 'convida você para entrar em um grupo',
+  groupMatchInviteAccept: 'Aceitar',
+  groupMatchInviteDeny: 'Recusar',
   public: 'Público',
   private: 'Privado',
 }

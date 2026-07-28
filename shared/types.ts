@@ -161,6 +161,7 @@ export type ClientMessage =
   | { type: 'group-match:create-and-invite'; visibility: GroupVisibility; preferences: MatchPreferences; userId?: number; token?: string }
   | { type: 'group-match:invite'; roomId: string; userId: number; token?: string }
   | { type: 'group-match:join'; roomId: string; token?: string }
+  | { type: 'group-match:invite-decline'; roomId: string }
   | { type: 'group-match:leave' }
   | { type: 'group-match:start'; roomId: string }
   | {
@@ -220,6 +221,7 @@ export type ServerMessage =
   | { type: 'group-match:participant-left'; roomId: string; userId: number }
   | { type: 'group-match:invite-received'; roomId: string; host: PublicUser }
   | { type: 'group-match:invite-sent'; userId: number }
+  | { type: 'group-match:invite-declined'; roomId: string }
   | {
       type: 'group-match:matched'
       roomId: string

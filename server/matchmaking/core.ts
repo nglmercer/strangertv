@@ -445,10 +445,12 @@ export function createGroupMatchRoom(
   socket: SocketLike,
   visibility: GroupVisibility,
   preferences: MatchPreferences,
-  opts: { userId?: number; email?: string; sessionKey: string },
+  opts: { userId?: number; email?: string; sessionKey: string; skipLeaveRoom?: boolean },
 ): string {
   leaveGroup(socket)
-  leaveRoom(socket, true, PEER_LEFT_REASON.groupInvite)
+  if (!opts.skipLeaveRoom) {
+    leaveRoom(socket, true, PEER_LEFT_REASON.groupInvite)
+  }
 
   const roomId = newGroupRoomId()
   const participants = new Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string }>()

@@ -35,6 +35,7 @@ type Handlers = {
   onGroupMatchParticipantLeft?: (roomId: string, userId: number) => void
   onGroupMatchInviteReceived?: (roomId: string, host: PublicUser) => void
   onGroupMatchInviteSent?: (userId: number) => void
+  onGroupMatchInviteDeclined?: (roomId: string) => void
   onGroupMatchMatched?: (roomId: string, role: Role, peers: GroupMatchPeer[], sharedInterests: string[]) => void
 }
 
@@ -201,6 +202,9 @@ export function useMatchSocket(handlers: Handlers) {
         case WS_MESSAGE_TYPE.groupMatchInviteSent:
           h.onGroupMatchInviteSent?.(msg.userId)
           break
+        case WS_MESSAGE_TYPE.groupMatchInviteDeclined:
+          h.onGroupMatchInviteDeclined?.(msg.roomId)
+          break
         case WS_MESSAGE_TYPE.groupMatchMatched:
           h.onGroupMatchMatched?.(msg.roomId, msg.role, msg.peers, msg.sharedInterests)
           break
@@ -317,7 +321,14 @@ export function useMatchSocket(handlers: Handlers) {
 
   const groupMatchLeave = useCallback(
     () => {
-      send({ type: 'group-match:leave' })
+      send({ type: WS_MESSAGE_TYPE.groupMatchLeave })
+    },
+    [send],
+  )
+
+  const groupMatchInviteDecline = useCallback(
+    (roomId: string) => {
+      send({ type: WS_MESSAGE_TYPE.groupMatchInviteDecline, roomId })
     },
     [send],
   )
@@ -379,6 +390,7 @@ export function useMatchSocket(handlers: Handlers) {
     groupMatchJoin,
     groupMatchStart,
     groupMatchLeave,
+    groupMatchInviteDecline,
     invitationSend,
     invitationAccept,
     invitationDecline,

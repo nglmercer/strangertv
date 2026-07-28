@@ -173,6 +173,8 @@ export const WS_MESSAGE_TYPE = {
   groupMatchParticipantLeft: 'group-match:participant-left',
   groupMatchInviteReceived: 'group-match:invite-received',
   groupMatchInviteSent: 'group-match:invite-sent',
+  groupMatchInviteDecline: 'group-match:invite-decline',
+  groupMatchInviteDeclined: 'group-match:invite-declined',
   groupMatchMatched: 'group-match:matched',
 } as const
 

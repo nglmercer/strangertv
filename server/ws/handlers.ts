@@ -197,6 +197,7 @@ export function createWsHandler(state: WsState) {
         userId: user.id,
         email: user.email,
         sessionKey,
+        skipLeaveRoom: true,
       })
       const targetSocket = (message.userId && getSocketForUser(message.userId)) || partnerSocket
       if (targetSocket) {
@@ -260,6 +261,8 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.badPrefs, message: 'Group not found.' })
         return
       }
+      leaveRoom(group.hostSocket, true, PEER_LEFT_REASON.groupInvite)
+      leaveRoom(socket, false, PEER_LEFT_REASON.groupInvite)
       const prefs = normalizePreferences(group.preferences)
       if (!prefs) return
       addParticipantToGroup(group, socket, {
@@ -268,6 +271,16 @@ export function createWsHandler(state: WsState) {
         preferences: prefs,
         sessionKey,
       })
+      return
+    }
+
+    // Group match: decline invite
+    if (message.type === WS_MESSAGE_TYPE.groupMatchInviteDecline) {
+      const group = getGroupRoomById(message.roomId)
+      if (group) {
+        send(group.hostSocket, { type: WS_MESSAGE_TYPE.groupMatchInviteDeclined, roomId: message.roomId })
+        leaveGroup(group.hostSocket, PEER_LEFT_REASON.userLeft)
+      }
       return
     }
 

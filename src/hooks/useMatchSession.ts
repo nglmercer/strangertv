@@ -69,6 +69,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const [groupVisibility, setGroupVisibility] = useState<GroupVisibility>(GROUP_VISIBILITY.public)
   const [groupParticipants, setGroupParticipants] = useState<GroupMatchParticipant[]>([])
   const [groupPeers, setGroupPeers] = useState<GroupMatchPeer[]>([])
+  const [pendingGroupInvite, setPendingGroupInvite] = useState<{ roomId: string; host: PublicUser } | null>(null)
 
   const localVideo = useRef<HTMLVideoElement>(null)
   const remoteVideo = useRef<HTMLVideoElement>(null)
@@ -285,13 +286,15 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     },
     onGroupMatchInviteReceived: (id, host) => {
       onSocialEvent?.({ type: 'group-match:invite-received', roomId: id, host })
-      setMatchMode(MATCH_MODE.group)
-      setFinding(true)
-      onStatus(trRef.current.connecting)
-      matchRef.current?.groupMatchJoin(id)
+      setPendingGroupInvite({ roomId: id, host })
     },
     onGroupMatchInviteSent: () => {
       /* no-op for now */
+    },
+    onGroupMatchInviteDeclined: () => {
+      isInvitingToGroupRef.current = false
+      setMatchMode(MATCH_MODE.solo)
+      onStatus(trRef.current.ready)
     },
     onGroupMatchMatched: async (id, role, peers, interests) => {
       console.debug('[match] group-match:matched', { roomId: id, role, peerCount: peers.length })
@@ -437,26 +440,30 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const invitePeerToGroup = useCallback(async (peerUserId?: number) => {
     console.debug('[match] invitePeerToGroup()', { peerUserId })
     isInvitingToGroupRef.current = true
-    window.setTimeout(() => { isInvitingToGroupRef.current = false }, 10_000)
+    window.setTimeout(() => { isInvitingToGroupRef.current = false }, 30_000)
+    console.debug('[match] sending group-match:create-and-invite', { peerUserId })
+    match.groupMatchCreateAndInvite(GROUP_VISIBILITY.private, prefsRef.current, peerUserId)
+  }, [match])
+
+  const acceptGroupInvite = useCallback(() => {
+    if (!pendingGroupInvite) return
+    const { roomId: inviteRoomId } = pendingGroupInvite
+    setPendingGroupInvite(null)
     webrtc.clear()
     if (remoteVideo.current) remoteVideo.current.srcObject = null
     clearPeerUi()
-    setFinding(false)
-    onStatus(trRef.current.finding)
-    try {
-      const stream = await media.ensureStream()
-      setStreamTick((n) => n + 1)
-      if (localVideo.current) localVideo.current.srcObject = stream
-      setMatchMode(MATCH_MODE.group)
-      console.debug('[match] sending group-match:create-and-invite', { peerUserId })
-      match.groupMatchCreateAndInvite(GROUP_VISIBILITY.private, prefsRef.current, peerUserId)
-    } catch {
-      const code = media.errorCode
-      onStatus(mediaErrorMessage(trRef.current, code))
-      setMatchMode(MATCH_MODE.solo)
-      isInvitingToGroupRef.current = false
-    }
-  }, [match, webrtc, media, onStatus])
+    match.leave()
+    setMatchMode(MATCH_MODE.group)
+    setFinding(true)
+    onStatus(trRef.current.connecting)
+    match.groupMatchJoin(inviteRoomId)
+  }, [pendingGroupInvite, match, webrtc, onStatus])
+
+  const declineGroupInvite = useCallback(() => {
+    if (!pendingGroupInvite) return
+    match.groupMatchInviteDecline(pendingGroupInvite.roomId)
+    setPendingGroupInvite(null)
+  }, [pendingGroupInvite, match])
 
   const stop = useCallback(() => {
     console.debug('[match] stop()', { roomId: roomIdRef.current, duration: callSecondsRef.current })
@@ -570,5 +577,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     groupPeers,
     setMatchMode,
     invitePeerToGroup,
+    pendingGroupInvite,
+    acceptGroupInvite,
+    declineGroupInvite,
   }
 }

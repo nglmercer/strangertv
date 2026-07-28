@@ -21,6 +21,7 @@ import { useSessionBootstrap } from './hooks/useSessionBootstrap'
 import { detectLocale, t as translate } from './i18n'
 import { SocialContext } from './context/SocialContext'
 import { NotificationCenter } from './components/socialchat/NotificationCenter'
+import { GroupMatchInviteModal } from './components/socialchat/GroupMatchInviteModal'
 import {
   applyUserToClient,
   canQuickStart,
@@ -439,6 +440,14 @@ export function App(_props: AppProps) {
               inviteMode={friendManager.inviteMode}
               roomId={session.roomId}
               match={session.match}
+            />
+          )}
+          {session.pendingGroupInvite && (
+            <GroupMatchInviteModal
+              t={tr}
+              host={session.pendingGroupInvite.host}
+              onAccept={session.acceptGroupInvite}
+              onDecline={session.declineGroupInvite}
             />
           )}
 
