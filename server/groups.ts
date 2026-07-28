@@ -1,16 +1,19 @@
 import { db as defaultDb } from './db'
 import type { Client } from '@libsql/client'
-import type { PublicUser, Group, GroupMember, GroupMessage, GroupRole } from '../shared/types'
+import type { Gender, PublicUser, Group, GroupMember, GroupMessage, GroupRole } from '../shared/types'
 
-function publicUserFromRow(row: any, prefix: string): PublicUser {
+type DbRow = Record<string, unknown>
+
+function publicUserFromRow(row: DbRow, prefix: string): PublicUser {
+  const interests = row[`${prefix}interests`]
   return {
     id: Number(row[`${prefix}id`]),
-    email: row[`${prefix}email`] ?? '',
-    birthDate: row[`${prefix}birth_date`] ?? undefined,
-    gender: row[`${prefix}gender`] ?? undefined,
-    country: row[`${prefix}country`] ?? undefined,
-    language: row[`${prefix}language`] ?? undefined,
-    interests: row[`${prefix}interests`] ? JSON.parse(row[`${prefix}interests`]) : undefined,
+    email: (row[`${prefix}email`] as string) ?? '',
+    birthDate: (row[`${prefix}birth_date`] as string) ?? undefined,
+    gender: (row[`${prefix}gender`] as Gender) ?? undefined,
+    country: (row[`${prefix}country`] as string) ?? undefined,
+    language: (row[`${prefix}language`] as string) ?? undefined,
+    interests: interests ? JSON.parse(interests as string) : undefined,
     emailVerified: row[`${prefix}email_verified`] != null ? Boolean(row[`${prefix}email_verified`]) : undefined,
   }
 }
@@ -25,12 +28,12 @@ export async function getGroups(userId: number, db: Client = defaultDb) {
           ORDER BY g.created_at DESC`,
     args: [userId],
   })
-  return result.rows.map((row: any) => ({
+  return result.rows.map((row) => ({
     id: Number(row.id),
-    name: row.name,
+    name: row.name as string,
     createdBy: Number(row.created_by),
-    createdAt: row.created_at,
-    myRole: row.my_role,
+    createdAt: row.created_at as string,
+    myRole: row.my_role as string,
     memberCount: Number(row.member_count),
   } as Group))
 }
@@ -46,13 +49,13 @@ export async function getGroup(groupId: number, userId: number, db: Client = def
     args: [userId, groupId],
   })
   if (result.rows.length === 0) return null
-  const row = result.rows[0] as any
+  const row = result.rows[0]
   return {
     id: Number(row.id),
-    name: row.name,
+    name: row.name as string,
     createdBy: Number(row.created_by),
-    createdAt: row.created_at,
-    myRole: row.my_role,
+    createdAt: row.created_at as string,
+    myRole: row.my_role as string,
     memberCount: Number(row.member_count),
   } as Group
 }
@@ -70,13 +73,13 @@ export async function getGroupMembers(groupId: number, db: Client = defaultDb) {
           ORDER BY gm.joined_at ASC`,
     args: [groupId],
   })
-  return result.rows.map((row: any) => ({
+  return result.rows.map((row) => ({
     id: Number(row.id),
     groupId: Number(row.group_id),
     userId: Number(row.user_id),
-    role: row.role,
-    joinedAt: row.joined_at,
-    user: publicUserFromRow(row, 'user_'),
+    role: row.role as string,
+    joinedAt: row.joined_at as string,
+    user: publicUserFromRow(row as DbRow, 'user_'),
   })) as GroupMember[]
 }
 
@@ -185,13 +188,13 @@ export async function sendGroupMessage(groupId: number, senderId: number, text: 
     sql: 'SELECT id, group_id, sender_id, text, created_at FROM group_messages WHERE id = ?',
     args: [id],
   })
-  const r = row.rows[0] as any
+  const r = row.rows[0]
   return {
     id: Number(r.id),
     groupId: Number(r.group_id),
     senderId: Number(r.sender_id),
-    text: r.text,
-    createdAt: r.created_at,
+    text: r.text as string,
+    createdAt: r.created_at as string,
   }
 }
 
@@ -221,13 +224,13 @@ export async function getGroupMessages(groupId: number, userId: number, limit = 
           LIMIT ?`,
     args,
   })
-  return result.rows.map((r: any) => ({
+  return result.rows.map((r) => ({
     id: Number(r.id),
     groupId: Number(r.group_id),
     senderId: Number(r.sender_id),
-    text: r.text,
-    createdAt: r.created_at,
-    sender: publicUserFromRow(r, 'sender_'),
+    text: r.text as string,
+    createdAt: r.created_at as string,
+    sender: publicUserFromRow(r as DbRow, 'sender_'),
   })).reverse() as GroupMessage[]
 }
 
@@ -253,14 +256,14 @@ export async function sendGroupInvite(groupId: number, inviterId: number, invite
     sql: 'SELECT id, group_id, inviter_id, invitee_id, status, created_at FROM group_invites WHERE group_id = ? AND invitee_id = ?',
     args: [groupId, inviteeId],
   })
-  const row = result.rows[0] as any
+  const row = result.rows[0]
   return {
     id: Number(row.id),
     groupId: Number(row.group_id),
     inviterId: Number(row.inviter_id),
     inviteeId: Number(row.invitee_id),
-    status: row.status,
-    createdAt: row.created_at,
+    status: row.status as string,
+    createdAt: row.created_at as string,
     groupName: group.name,
   }
 }
@@ -271,7 +274,7 @@ export async function respondGroupInvite(inviteId: number, userId: number, actio
     args: [inviteId, userId],
   })
   if (!result.rows[0]) throw new Error('Invite not found')
-  const invite = result.rows[0] as any
+  const invite = result.rows[0]
   if (action === 'accept') {
     await db.execute({
       sql: "INSERT OR IGNORE INTO group_members (group_id, user_id, role) VALUES (?, ?, 'member')",
@@ -300,15 +303,15 @@ export async function getGroupInvites(userId: number, db: Client = defaultDb) {
           ORDER BY gi.created_at DESC`,
     args: [userId],
   })
-  return result.rows.map((row: any) => ({
+  return result.rows.map((row) => ({
     id: Number(row.id),
     groupId: Number(row.group_id),
     inviterId: Number(row.inviter_id),
     inviteeId: Number(row.invitee_id),
-    status: row.status,
-    createdAt: row.created_at,
-    groupName: row.group_name,
-    inviterUser: publicUserFromRow(row, 'inviter_'),
+    status: row.status as string,
+    createdAt: row.created_at as string,
+    groupName: row.group_name as string,
+    inviterUser: publicUserFromRow(row as DbRow, 'inviter_'),
   }))
 }
 
@@ -322,14 +325,14 @@ export async function getGroupInvite(inviteId: number, db: Client = defaultDb) {
     args: [inviteId],
   })
   if (!result.rows[0]) return null
-  const row = result.rows[0] as any
+  const row = result.rows[0]
   return {
     id: Number(row.id),
     groupId: Number(row.group_id),
     inviterId: Number(row.inviter_id),
     inviteeId: Number(row.invitee_id),
-    status: row.status,
-    createdAt: row.created_at,
-    groupName: row.group_name,
+    status: row.status as string,
+    createdAt: row.created_at as string,
+    groupName: row.group_name as string,
   }
 }

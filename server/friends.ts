@@ -1,6 +1,8 @@
 import { db } from './db'
-import type { PublicUser } from '../shared/types'
+import type { Gender, PublicUser } from '../shared/types'
 import { API_ROUTES } from '../shared/constants'
+
+type DbRow = Record<string, unknown>
 
 // ---------------------------------------------------------------------------
 // Friends
@@ -23,14 +25,14 @@ export async function getFriends(userId: number) {
           ORDER BY f.updated_at DESC`,
     args: [userId, userId, userId, userId],
   })
-  return result.rows.map((row: any) => ({
+  return result.rows.map((row) => ({
     id: Number(row.id),
     userAId: Number(row.userAId),
     userBId: Number(row.userBId),
-    status: row.status,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    otherUser: publicUserFromRow(row, 'other_'),
+    status: row.status as string,
+    createdAt: row.createdAt as string,
+    updatedAt: row.updatedAt as string,
+    otherUser: publicUserFromRow(row as DbRow, 'other_'),
   }))
 }
 
@@ -47,12 +49,12 @@ export async function getPendingFriendRequests(userId: number) {
            ORDER BY f.created_at DESC`,
     args: [userId],
   })
-  return result.rows.map((row: any) => ({
+  return result.rows.map((row) => ({
     id: Number(row.id),
     requesterId: Number(row.requesterId),
-    status: row.status,
-    createdAt: row.createdAt,
-    requester: publicUserFromRow(row, 'requester_'),
+    status: row.status as string,
+    createdAt: row.createdAt as string,
+    requester: publicUserFromRow(row as DbRow, 'requester_'),
   }))
 }
 
@@ -157,15 +159,15 @@ export async function getFollows(userId: number) {
     }),
   ])
 
-  const followers = followersResult.rows.map((row: any) => ({
+  const followers = followersResult.rows.map((row) => ({
     id: Number(row.id),
     followedId: Number(row.follower_id),
-    followedUser: publicUserFromRow(row, 'follower_'),
+    followedUser: publicUserFromRow(row as DbRow, 'follower_'),
   }))
-  const following = followingResult.rows.map((row: any) => ({
+  const following = followingResult.rows.map((row) => ({
     id: Number(row.id),
     followedId: Number(row.followed_id),
-    followedUser: publicUserFromRow(row, 'followed_'),
+    followedUser: publicUserFromRow(row as DbRow, 'followed_'),
   }))
 
   return { followers, following }
@@ -188,14 +190,14 @@ export async function getInvitations(userId: number) {
           ORDER BY i.created_at DESC`,
     args: [userId],
   })
-  return result.rows.map((row: any) => ({
+  return result.rows.map((row) => ({
     id: Number(row.id),
     inviterId: Number(row.inviter_id),
-    roomId: row.room_id,
-    status: row.status,
-    createdAt: row.created_at,
-    expiresAt: row.expires_at,
-    inviterUser: publicUserFromRow(row, 'inviter_'),
+    roomId: row.room_id as string,
+    status: row.status as string,
+    createdAt: row.created_at as string,
+    expiresAt: row.expires_at as string,
+    inviterUser: publicUserFromRow(row as DbRow, 'inviter_'),
   }))
 }
 
@@ -251,15 +253,16 @@ export async function cancelInvitation(invitationId: number, inviterId: number) 
 // Helpers
 // ---------------------------------------------------------------------------
 
-function publicUserFromRow(row: any, prefix: string): PublicUser {
+function publicUserFromRow(row: DbRow, prefix: string): PublicUser {
+  const interests = row[`${prefix}interests`]
   return {
     id: Number(row[`${prefix}id`]),
-    email: row[`${prefix}email`] ?? '',
-    birthDate: row[`${prefix}birth_date`] ?? undefined,
-    gender: row[`${prefix}gender`] ?? undefined,
-    country: row[`${prefix}country`] ?? undefined,
-    language: row[`${prefix}language`] ?? undefined,
-    interests: row[`${prefix}interests`] ? JSON.parse(row[`${prefix}interests`]) : undefined,
+    email: (row[`${prefix}email`] as string) ?? '',
+    birthDate: (row[`${prefix}birth_date`] as string) ?? undefined,
+    gender: (row[`${prefix}gender`] as Gender) ?? undefined,
+    country: (row[`${prefix}country`] as string) ?? undefined,
+    language: (row[`${prefix}language`] as string) ?? undefined,
+    interests: interests ? JSON.parse(interests as string) : undefined,
     emailVerified: row[`${prefix}email_verified`] != null ? Boolean(row[`${prefix}email_verified`]) : undefined,
   }
 }

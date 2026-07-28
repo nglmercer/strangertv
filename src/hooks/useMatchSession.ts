@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
-import type { GroupMatchPeer, GroupVisibility, MatchMode, MatchPreferences, PublicUser, RelationshipStatus } from '../../shared/types'
+import type { GroupMatchPeer, GroupMessage, GroupVisibility, MatchMode, MatchPreferences, PublicUser, RelationshipStatus } from '../../shared/types'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
@@ -15,7 +15,7 @@ type Options = {
   tr: Messages
   prefs: MatchPreferences
   onStatus: (s: string) => void
-  onGroupMessage?: (message: any) => void
+  onGroupMessage?: (message: GroupMessage) => void
   onSocialEvent?: (msg: SocialWsEvent) => void
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
@@ -64,9 +64,9 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const [callSeconds, setCallSeconds] = useState(0)
   const [rateRoomId, setRateRoomId] = useState<string | null>(null)
   const [longWait, setLongWait] = useState(false)
-  const [matchMode, setMatchMode] = useState<MatchMode>('solo')
+  const [matchMode, setMatchMode] = useState<MatchMode>(MATCH_MODE.solo)
   const [groupRoomId, setGroupRoomId] = useState<string | null>(null)
-  const [groupVisibility, setGroupVisibility] = useState<GroupVisibility>('public')
+  const [groupVisibility, setGroupVisibility] = useState<GroupVisibility>(GROUP_VISIBILITY.public)
   const [groupParticipants, setGroupParticipants] = useState<GroupMatchParticipant[]>([])
   const [groupPeers, setGroupPeers] = useState<GroupMatchPeer[]>([])
 
@@ -120,7 +120,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   const clearGroupState = () => {
     setGroupRoomId(null)
-    setGroupVisibility('public')
+    setGroupVisibility(GROUP_VISIBILITY.public)
     setGroupParticipants([])
     groupRoomIdRef.current = null
   }
@@ -285,7 +285,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     },
     onGroupMatchInviteReceived: (id, host) => {
       onSocialEvent?.({ type: 'group-match:invite-received', roomId: id, host })
-      setMatchMode('group')
+      setMatchMode(MATCH_MODE.group)
       setFinding(true)
       onStatus(trRef.current.connecting)
       matchRef.current?.groupMatchJoin(id)
@@ -414,7 +414,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       const stream = await media.ensureStream()
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = stream
-      setMatchMode('group')
+      setMatchMode(MATCH_MODE.group)
       setFinding(true)
       onStatus(trRef.current.finding)
       match.groupMatchCreate(visibility, groupPrefs)
@@ -447,13 +447,13 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       const stream = await media.ensureStream()
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = stream
-      setMatchMode('group')
+      setMatchMode(MATCH_MODE.group)
       console.debug('[match] sending group-match:create-and-invite', { peerUserId })
-      match.groupMatchCreateAndInvite('private', prefsRef.current, peerUserId)
+      match.groupMatchCreateAndInvite(GROUP_VISIBILITY.private, prefsRef.current, peerUserId)
     } catch {
       const code = media.errorCode
       onStatus(mediaErrorMessage(trRef.current, code))
-      setMatchMode('solo')
+      setMatchMode(MATCH_MODE.solo)
       isInvitingToGroupRef.current = false
     }
   }, [match, webrtc, media, onStatus])
@@ -470,7 +470,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     clearGroupState()
     setFinding(false)
     setQueuePos(undefined)
-    setMatchMode('solo')
+    setMatchMode(MATCH_MODE.solo)
     onStatus(trRef.current.ready)
     if (endedRoom && duration >= 5) setRateRoomId(endedRoom)
   }, [match, webrtc, onStatus])

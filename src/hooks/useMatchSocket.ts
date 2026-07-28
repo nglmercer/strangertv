@@ -70,8 +70,7 @@ export function useMatchSocket(handlers: Handlers) {
   }, [])
 
   const sendSignal = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, targetUserId?: number) => {
-    const msg: any = { type: WS_MESSAGE_TYPE.signal, payload }
-    if (targetUserId != null) msg.targetUserId = targetUserId
+    const msg: Extract<ClientMessage, { type: 'signal' }> = { type: WS_MESSAGE_TYPE.signal, payload, targetUserId }
     send(msg)
   }, [send])
 
@@ -127,7 +126,7 @@ export function useMatchSocket(handlers: Handlers) {
           h.onPeerLeft?.(msg.reason)
           break
         case WS_MESSAGE_TYPE.signal:
-          h.onSignal?.(msg.payload, (msg as any).targetUserId)
+          h.onSignal?.(msg.payload, msg.targetUserId)
           break
         case WS_MESSAGE_TYPE.chat:
           h.onChat?.(msg.payload.text, msg.payload.time)

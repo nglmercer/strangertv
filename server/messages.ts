@@ -4,6 +4,8 @@ import type { RelationshipStatus } from '../shared/types'
 
 export const MAX_MESSAGE_LENGTH = 500
 
+type DbRow = Record<string, unknown>
+
 export async function areFriends(userId: number, otherId: number, db: Client = defaultDb): Promise<boolean> {
   const result = await db.execute({
     sql: `SELECT 1 FROM friends
@@ -56,13 +58,13 @@ export async function sendMessage(senderId: number, recipientId: number, text: s
     sql: 'SELECT id, sender_id, recipient_id, text, created_at FROM messages WHERE id = ?',
     args: [id],
   })
-  const r = row.rows[0] as any
+  const r = row.rows[0]
   return {
     id: Number(r.id),
     senderId: Number(r.sender_id),
     recipientId: Number(r.recipient_id),
-    text: r.text,
-    createdAt: r.created_at,
+    text: r.text as string,
+    createdAt: r.created_at as string,
   }
 }
 
@@ -89,11 +91,11 @@ export async function getConversation(
           LIMIT ?`,
     args,
   })
-  return result.rows.map((r: any) => ({
+  return result.rows.map((r) => ({
     id: Number(r.id),
     senderId: Number(r.sender_id),
     recipientId: Number(r.recipient_id),
-    text: r.text,
-    createdAt: r.created_at,
+    text: r.text as string,
+    createdAt: r.created_at as string,
   })).reverse()
 }
