@@ -87,6 +87,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   findingRef.current = finding
   const matchedRef = useRef(matched)
   matchedRef.current = matched
+  const acceptingSignalsRef = useRef(false)
   const groupRoomIdRef = useRef(groupRoomId)
   groupRoomIdRef.current = groupRoomId
   const isInvitingToGroupRef = useRef(false)
@@ -116,6 +117,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     setPeerUserId(null)
     setRelationship('none')
     setGroupPeers([])
+    acceptingSignalsRef.current = false
     matchedAt.current = null
     if (remoteVideo.current) remoteVideo.current.srcObject = null
   }
@@ -129,6 +131,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   const match = useMatchSocket({
     onWaiting: (position, onl) => {
+      if (matchedRef.current) return
       onStatus(trRef.current.finding)
       setQueuePos(position)
       if (onl != null) setOnline(onl)
@@ -142,6 +145,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
         matchRef.current?.leave()
         return
       }
+      acceptingSignalsRef.current = true
       console.debug('[match] onMatched', { roomId: id, role, peerUserId: meta?.peerUserId, relationship: meta?.relationship })
       setRoomId(id)
       setMatched(true)
@@ -217,7 +221,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       }, TIMING_MS.requeueDelay)
     },
     onSignal: (payload, fromUserId) => {
-      if (!matchedRef.current) return
+      if (!acceptingSignalsRef.current) return
       void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current, fromUserId)
     },
     onChat: (text, time) => setChat((m) => [...m, { text, time, mine: false }]),
@@ -319,6 +323,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
         matchRef.current?.leave()
         return
       }
+      acceptingSignalsRef.current = true
       console.debug('[match] group-match:matched', { roomId: id, role, peerCount: peers.length })
       setRoomId(id)
       setMatched(true)

@@ -770,6 +770,12 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
       }
     }
     groupRoomsBySocket.delete(socket)
+    const staleRoom = roomsBySocket.get(socket)
+    if (staleRoom) {
+      roomsBySocket.delete(staleRoom.a)
+      roomsBySocket.delete(staleRoom.b)
+      partners.delete(socket)
+    }
   }
 
   const unifiedGroup: GroupRoom = {
@@ -787,7 +793,7 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
 
   for (const p of participantList) {
     unifiedGroup.participants.set(p.socket, {
-      userId: p.userId,
+      userId: p.userId ?? 0,
       email: p.email,
       preferences: p.preferences,
       sessionKey: '',

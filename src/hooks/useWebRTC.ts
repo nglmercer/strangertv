@@ -30,6 +30,8 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
   const soloStatsTimer = useRef<number | null>(null)
   const soloStatsSeed = useRef<{ packetsReceived: number; packetsLost: number; bytesReceived: number; at: number } | null>(null)
   const peersRef = useRef<Map<number, PeerConnection>>(new Map())
+  const pendingSignalsRef = useRef<Array<{ payload: SignalPayload; fromUserId: number }>>([])
+  const handleSignalRef = useRef<(payload: SignalPayload, stream: MediaStream | null, remoteVideo: HTMLVideoElement | null, fromUserId?: number) => Promise<void>>(null)
   const [quality, setQuality] = useState<Quality>('idle')
   const [linkStats, setLinkStats] = useState<LinkStats>(emptyLinkStats)
   const [hasRemote, setHasRemote] = useState(false)
@@ -216,6 +218,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     soloRemoteReady.current = false
     setHasRemote(false)
     setPeerStreams({})
+    pendingSignalsRef.current = []
     setQuality(QUALITY_TIER.idle)
     setLinkStats(emptyLinkStats)
   }, [stopStatsLoop, stopSoloStatsLoop])
@@ -300,6 +303,17 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     [clear, onSignal],
   )
 
+  const drainPendingSignals = useCallback(() => {
+    if (pendingSignalsRef.current.length === 0 || !handleSignalRef.current) return
+    const pending = pendingSignalsRef.current
+    pendingSignalsRef.current = []
+    for (const { payload, fromUserId } of pending) {
+      handleSignalRef.current(payload, null, null, fromUserId).catch((err) => {
+        console.error('[webrtc] drainPendingSignals failed', { fromUserId, kind: payload.kind, err })
+      })
+    }
+  }, [])
+
   const createMeshPeers = useCallback(
     async (
       stream: MediaStream,
@@ -322,9 +336,9 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
           statsSeed: null,
         }
         peersRef.current.set(participant.userId, peer)
-
         stream.getTracks().forEach((track) => pc.addTrack(track, stream))
         wirePcEvents(peer, participant.role === 'offerer', null)
+        drainPendingSignals()
 
         if (participant.role === 'offerer') {
           const offer = await pc.createOffer()
@@ -332,8 +346,9 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
           onSignal({ kind: SIGNAL_KIND.offer, data: offer }, participant.userId)
         }
       }
+      drainPendingSignals()
     },
-    [clear, onSignal, wirePcEvents],
+    [clear, onSignal, wirePcEvents, drainPendingSignals],
   )
 
   const handleSignal = useCallback(
@@ -345,35 +360,42 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     ) => {
       if (fromUserId != null) {
         const peer = peersRef.current.get(fromUserId)
-        if (!peer) return
-
-        if (payload.kind === SIGNAL_KIND.offer) {
-          await peer.pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
-          peer.ready = true
-          await flushCandidates(peer)
-          const answer = await peer.pc.createAnswer()
-          await peer.pc.setLocalDescription(answer)
-          onSignal({ kind: SIGNAL_KIND.answer, data: answer }, fromUserId)
+        if (!peer) {
+          pendingSignalsRef.current.push({ payload, fromUserId })
           return
         }
 
-        if (payload.kind === SIGNAL_KIND.answer) {
-          await peer.pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
-          peer.ready = true
-          await flushCandidates(peer)
-          return
-        }
-
-        if (payload.kind === SIGNAL_KIND.candidate) {
-          if (!peer.ready) {
-            peer.pendingCandidates.push(payload.data as RTCIceCandidateInit)
+        try {
+          if (payload.kind === SIGNAL_KIND.offer) {
+            await peer.pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
+            peer.ready = true
+            await flushCandidates(peer)
+            const answer = await peer.pc.createAnswer()
+            await peer.pc.setLocalDescription(answer)
+            onSignal({ kind: SIGNAL_KIND.answer, data: answer }, fromUserId)
             return
           }
-          try {
-            await peer.pc.addIceCandidate(payload.data as RTCIceCandidateInit)
-          } catch {
-            /* ignore */
+
+          if (payload.kind === SIGNAL_KIND.answer) {
+            await peer.pc.setRemoteDescription(payload.data as RTCSessionDescriptionInit)
+            peer.ready = true
+            await flushCandidates(peer)
+            return
           }
+
+          if (payload.kind === SIGNAL_KIND.candidate) {
+            if (!peer.ready) {
+              peer.pendingCandidates.push(payload.data as RTCIceCandidateInit)
+              return
+            }
+            try {
+              await peer.pc.addIceCandidate(payload.data as RTCIceCandidateInit)
+            } catch {
+              /* ignore */
+            }
+          }
+        } catch (err) {
+          console.error('[webrtc] mesh handleSignal failed', { fromUserId, kind: payload.kind, err })
         }
         return
       }
@@ -432,6 +454,8 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetUserId?: numb
     },
     [createPeer, onSignal],
   )
+
+  handleSignalRef.current = handleSignal
 
   const replaceTracks = useCallback((stream: MediaStream) => {
     const peers = peersRef.current

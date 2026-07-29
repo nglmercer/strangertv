@@ -317,34 +317,34 @@ export function createWsHandler(state: WsState) {
     }
 
     if (message.type === WS_MESSAGE_TYPE.signal) {
-      const partner = getPartner(socket)
-      if (partner && message.payload) {
-        send(partner, { type: WS_MESSAGE_TYPE.signal, payload: message.payload })
-        inc(METRIC_NAMES.signalsRelayed)
-      } else {
-        const group = getGroupRoom(socket)
-        if (group && message.payload) {
-          const senderUserId = group.participants.get(socket)?.userId ?? getSocketUserId(socket)
-          const msgAsAny = message as unknown as { targetUserId?: number }
-          const targetId = msgAsAny.targetUserId
-          let relayed = false
-          if (targetId) {
-            for (const [sock, p] of group.participants) {
-              if (p.userId === targetId && sock !== socket) {
-                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
-                relayed = true
-                break
-              }
-            }
-          } else {
-            for (const [sock] of group.participants) {
-              if (sock !== socket) {
-                send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
-                relayed = true
-              }
+      const msgAsAny = message as unknown as { targetUserId?: number }
+      const targetId = msgAsAny.targetUserId
+      const group = getGroupRoom(socket)
+      if (group && message.payload) {
+        const senderUserId = group.participants.get(socket)?.userId ?? getSocketUserId(socket) ?? 0
+        let relayed = false
+        if (targetId != null) {
+          for (const [sock, p] of group.participants) {
+            if (p.userId === targetId && sock !== socket) {
+              send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
+              relayed = true
+              break
             }
           }
-          if (relayed) inc(METRIC_NAMES.signalsRelayed)
+        } else {
+          for (const [sock] of group.participants) {
+            if (sock !== socket) {
+              send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
+              relayed = true
+            }
+          }
+        }
+        if (relayed) inc(METRIC_NAMES.signalsRelayed)
+      } else {
+        const partner = getPartner(socket)
+        if (partner && message.payload) {
+          send(partner, { type: WS_MESSAGE_TYPE.signal, payload: message.payload })
+          inc(METRIC_NAMES.signalsRelayed)
         }
       }
       return
