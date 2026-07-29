@@ -90,6 +90,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const acceptingSignalsRef = useRef(false)
   const groupRoomIdRef = useRef(groupRoomId)
   groupRoomIdRef.current = groupRoomId
+  const groupPeersRef = useRef(groupPeers)
+  groupPeersRef.current = groupPeers
   const isInvitingToGroupRef = useRef(false)
   const groupInviteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -107,6 +109,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   webrtcRef.current = webrtc
 
   const beginMatchRef = useRef<() => Promise<boolean>>(async () => false)
+  const stopRef = useRef<() => void>(() => undefined)
 
   const clearPeerUi = () => {
     setMatched(false)
@@ -307,8 +310,18 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
         matchRef.current?.groupMatchStart(id)
       }
     },
-    onGroupMatchParticipantLeft: (id, userId) => {
+    onGroupMatchParticipantLeft: (id, userId, peerId) => {
       setGroupParticipants((prev) => prev.filter((p) => p.userId !== userId))
+      // During an active group match, gracefully tear down the departed peer's
+      // mesh connection and tile instead of leaving a dead/failed tile behind.
+      if (!matchedRef.current || peerId == null) return
+      webrtcRef.current.removePeer(peerId)
+      const remaining = groupPeersRef.current.filter((p) => p.peerId !== peerId)
+      setGroupPeers(remaining)
+      if (remaining.length === 0) {
+        // No remote peers left: end the group match gracefully.
+        stopRef.current()
+      }
     },
     onGroupMatchInviteReceived: (id, host) => {
       console.debug('[match] group-match:invite-received', { roomId: id, host })
@@ -528,6 +541,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     onStatus(trRef.current.ready)
     if (endedRoom && duration >= 5) setRateRoomId(endedRoom)
   }, [match, webrtc, onStatus])
+
+  stopRef.current = stop
 
   const next = useCallback(() => {
     console.debug('[match] next()', { roomId: roomIdRef.current, duration: callSecondsRef.current })

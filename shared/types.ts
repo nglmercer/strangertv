@@ -226,7 +226,7 @@ export type ServerMessage =
   | { type: 'group:invite:declined'; inviteId: number; groupId: number; userId: number }
   | { type: 'group-match:created'; roomId: string; visibility: GroupVisibility }
   | { type: 'group-match:participant-joined'; roomId: string; userId: number; email?: string }
-  | { type: 'group-match:participant-left'; roomId: string; userId: number }
+  | { type: 'group-match:participant-left'; roomId: string; userId: number; peerId?: number }
   | { type: 'group-match:invite-received'; roomId: string; host: PublicUser }
   | { type: 'group-match:invite-sent'; userId: number }
   | { type: 'group-match:invite-declined'; roomId: string }

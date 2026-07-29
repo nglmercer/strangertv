@@ -198,7 +198,7 @@ export function leaveGroup(socket: SocketLike, reason?: string): GroupRoom | und
   }
 
   for (const [sock] of group.participants) {
-    send(sock, { type: WS_MESSAGE_TYPE.groupMatchParticipantLeft, roomId: group.id, userId: participant?.userId ?? 0 })
+    send(sock, { type: WS_MESSAGE_TYPE.groupMatchParticipantLeft, roomId: group.id, userId: participant?.userId ?? 0, peerId: participant?.peerId })
   }
 
   if (group.participants.size === 0) {

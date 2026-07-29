@@ -32,7 +32,7 @@ type Handlers = {
   onGroupInviteDeclined?: (inviteId: number, groupId: number, userId: number) => void
   onGroupMatchCreated?: (roomId: string, visibility: GroupVisibility) => void
   onGroupMatchParticipantJoined?: (roomId: string, userId: number, email?: string) => void
-  onGroupMatchParticipantLeft?: (roomId: string, userId: number) => void
+  onGroupMatchParticipantLeft?: (roomId: string, userId: number, peerId?: number) => void
   onGroupMatchInviteReceived?: (roomId: string, host: PublicUser) => void
   onGroupMatchInviteSent?: (userId: number) => void
   onGroupMatchInviteDeclined?: (roomId: string) => void
@@ -194,7 +194,7 @@ export function useMatchSocket(handlers: Handlers) {
           h.onGroupMatchParticipantJoined?.(msg.roomId, msg.userId, msg.email)
           break
         case WS_MESSAGE_TYPE.groupMatchParticipantLeft:
-          h.onGroupMatchParticipantLeft?.(msg.roomId, msg.userId)
+          h.onGroupMatchParticipantLeft?.(msg.roomId, msg.userId, msg.peerId)
           break
         case WS_MESSAGE_TYPE.groupMatchInviteReceived:
           h.onGroupMatchInviteReceived?.(msg.roomId, msg.host)

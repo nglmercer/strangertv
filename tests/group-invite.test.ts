@@ -291,4 +291,113 @@ describe('group invite from match', () => {
     clientB.close()
     clientC.close()
   })
+
+  it('group match assigns unique peerIds and routes signals by peerId (multi-guest userId collision)', async () => {
+    const password = 'password12'
+    const host = await createUser(`gpeer_host_${Date.now()}@example.com`, password)
+
+    const hostClient = await connectWs(host.token)
+    const guestB = await connectWs() // anonymous -> userId 0
+    const guestC = await connectWs() // anonymous -> userId 0
+
+    const prefsAll = { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all' }
+
+    // guestC waits in the solo queue first so the group can merge with it.
+    guestC.send({ type: 'queue:join', preferences: prefsAll })
+    await guestC.waitFor('queue:waiting', 5000)
+
+    // host creates a group but does NOT join the solo queue, so it won't
+    // solo-match guestC ahead of time.
+    hostClient.send({ type: 'group-match:create', token: host.token, visibility: 'private', preferences: { ...prefsAll, mode: 'group', matchScope: 'all' } })
+    const groupCreated = await hostClient.waitFor('group-match:created', 5000)
+
+    // guestB joins the group directly by roomId (anonymous). Group size becomes
+    // 2, which auto-enters the queue and merges with solo guestC -> a 3-way
+    // match containing TWO guests that both have userId 0.
+    guestB.send({ type: 'group-match:join', roomId: groupCreated.roomId })
+
+    const matchedHost = await hostClient.waitFor('group-match:matched', 5000)
+    const matchedB = await guestB.waitFor('group-match:matched', 5000)
+    const matchedC = await guestC.waitFor('group-match:matched', 5000)
+
+    // Each participant sees the other two as peers.
+    expect(matchedHost.peers.length).toBe(2)
+    expect(matchedB.peers.length).toBe(2)
+    expect(matchedC.peers.length).toBe(2)
+
+    // The three participants' own peerIds must be unique.
+    const ownIds = new Set<number>([matchedHost.peerId, matchedB.peerId, matchedC.peerId])
+    expect(ownIds.size).toBe(3)
+
+    // The two guests share userId 0 but MUST have distinct peerIds — this is
+    // the collision that previously broke mesh negotiation and signal routing.
+    const guests = (matchedHost.peers as Array<{ userId: number; peerId: number }>).filter((p) => p.userId === 0)
+    expect(guests.length).toBe(2)
+    expect(guests[0].peerId).not.toBe(guests[1].peerId)
+
+    const targetGuest = guests[0]
+    const otherGuest = guests[1]
+    const targetClient = matchedB.peerId === targetGuest.peerId ? guestB : guestC
+    const otherClient = matchedB.peerId === targetGuest.peerId ? guestC : guestB
+
+    // A signal targeted at one guest's peerId reaches exactly that guest,
+    // stamped with the sender's fromPeerId.
+    hostClient.send({ type: 'signal', payload: { kind: 'offer', data: { type: 'offer', sdp: 'fake' } }, targetPeerId: targetGuest.peerId })
+    const sig = await targetClient.waitFor('signal', 5000)
+    expect(sig.fromPeerId).toBe(matchedHost.peerId)
+    expect((sig.payload as { kind: string }).kind).toBe('offer')
+
+    // The other guest (same userId 0) must NOT receive that targeted signal.
+    await sleep(400)
+    expect(otherClient.messages.some((m) => m.type === 'signal')).toBe(false)
+
+    // The second guest is individually addressable too, despite the shared userId.
+    hostClient.send({ type: 'signal', payload: { kind: 'offer', data: { type: 'offer', sdp: 'fake2' } }, targetPeerId: otherGuest.peerId })
+    const sig2 = await otherClient.waitFor('signal', 5000)
+    expect(sig2.fromPeerId).toBe(matchedHost.peerId)
+
+    hostClient.close()
+    guestB.close()
+    guestC.close()
+  })
+
+  it('non-host leaving an active group match notifies remaining peers with peerId (graceful exit)', async () => {
+    const password = 'password12'
+    const host = await createUser(`gleave_host_${Date.now()}@example.com`, password)
+
+    const hostClient = await connectWs(host.token)
+    const guestB = await connectWs() // anonymous -> userId 0
+    const guestC = await connectWs() // anonymous -> userId 0
+
+    const prefsAll = { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all' }
+
+    guestC.send({ type: 'queue:join', preferences: prefsAll })
+    await guestC.waitFor('queue:waiting', 5000)
+
+    hostClient.send({ type: 'group-match:create', token: host.token, visibility: 'private', preferences: { ...prefsAll, mode: 'group', matchScope: 'all' } })
+    const groupCreated = await hostClient.waitFor('group-match:created', 5000)
+
+    guestB.send({ type: 'group-match:join', roomId: groupCreated.roomId })
+
+    const matchedHost = await hostClient.waitFor('group-match:matched', 5000)
+    const matchedB = await guestB.waitFor('group-match:matched', 5000)
+    const matchedC = await guestC.waitFor('group-match:matched', 5000)
+    expect(matchedHost.peers.length).toBe(2)
+
+    // guestC (a non-host participant) leaves the active group match.
+    guestC.send({ type: 'group-match:leave' })
+
+    // The remaining participants are notified with the leaver's peerId so they
+    // can tear down the correct mesh peer (the two guests share userId 0).
+    const leftHost = await hostClient.waitFor('group-match:participant-left', 5000)
+    const leftB = await guestB.waitFor('group-match:participant-left', 5000)
+
+    expect(leftHost.peerId).toBe(matchedC.peerId)
+    expect(leftB.peerId).toBe(matchedC.peerId)
+    expect(leftHost.userId).toBe(0)
+
+    hostClient.close()
+    guestB.close()
+    guestC.close()
+  })
 })

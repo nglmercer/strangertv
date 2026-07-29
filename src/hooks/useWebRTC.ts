@@ -226,6 +226,28 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
     setLinkStats(emptyLinkStats)
   }, [stopStatsLoop, stopSoloStatsLoop])
 
+  /** Gracefully tear down a single mesh peer (e.g. when that participant leaves). */
+  const removePeer = useCallback(
+    (peerId: number) => {
+      const peer = peersRef.current.get(peerId)
+      if (!peer) return
+      console.debug('[webrtc] removePeer', { peerId, userId: peer.userId })
+      stopStatsLoop(peer)
+      peer.pc.close()
+      peersRef.current.delete(peerId)
+      setPeerStreams((prev) => {
+        if (!(peerId in prev)) return prev
+        const next = { ...prev }
+        delete next[peerId]
+        return next
+      })
+      if (peersRef.current.size === 0) {
+        setHasRemote(false)
+      }
+    },
+    [stopStatsLoop],
+  )
+
   const createPeer = useCallback(
     async (stream: MediaStream, remoteVideo: HTMLVideoElement | null, asOfferer: boolean) => {
       console.debug('[webrtc] createPeer', { asOfferer, hasStream: Boolean(stream) })
@@ -524,6 +546,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
     createMeshPeers,
     handleSignal,
     clear,
+    removePeer,
     quality,
     linkStats,
     hasRemote,
