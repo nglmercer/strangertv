@@ -201,6 +201,8 @@ export function App(_props: AppProps) {
   const anyModalOpen =
     showStart || preferences || authActive || settings || reportOpen || friendManager.open || profileNeeded || Boolean(page)
 
+  const isGroupMatch = session.matched && session.groupPeers.length > 0
+
   useCallKeyboard({
     active: session.finding || session.matched,
     muted: session.media.muted,
@@ -209,7 +211,7 @@ export function App(_props: AppProps) {
     setCamera: session.media.setCameraTrack,
     onNext: session.next,
     onStop: session.stop,
-    canNext: session.finding,
+    canNext: session.finding || isGroupMatch,
     modalOpen: anyModalOpen,
   })
 
@@ -396,6 +398,7 @@ export function App(_props: AppProps) {
               t={tr}
               finding={session.finding}
               matched={session.matched}
+              isGroupMatch={isGroupMatch}
               muted={session.media.muted}
               cameraOn={session.media.cameraOn}
               quality={session.webrtc.quality}
@@ -469,6 +472,7 @@ export function App(_props: AppProps) {
               prefs={prefs}
               finding={session.finding}
               matched={session.matched}
+              isGroupMatch={isGroupMatch}
               lookingLabel={lookingLabel}
               onStart={onStartClick}
               onStop={session.stop}

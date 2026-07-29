@@ -13,6 +13,7 @@ type Props = {
   t: Messages
   finding: boolean
   matched: boolean
+  isGroupMatch: boolean
   muted: boolean
   cameraOn: boolean
   quality: Quality
@@ -56,6 +57,7 @@ export function CallBar({
   t,
   finding,
   matched,
+  isGroupMatch,
   muted,
   cameraOn,
   quality,
@@ -270,7 +272,7 @@ export function CallBar({
               <Icon d={icons.start} size={18} />
             </button>
           )}
-          {finding && !matched && (
+          {(finding && !matched || isGroupMatch) && (
             <button
               type="button"
               class="call-btn icon call-fullscreen-btn"

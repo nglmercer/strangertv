@@ -12,6 +12,7 @@ export function ControlDeck({
   prefs,
   finding,
   matched,
+  isGroupMatch,
   lookingLabel,
   onStart,
   onStop,
@@ -23,6 +24,7 @@ export function ControlDeck({
   prefs: MatchPreferences
   finding: boolean
   matched: boolean
+  isGroupMatch: boolean
   lookingLabel: string
   onStart: () => void
   onStop: () => void
@@ -85,7 +87,7 @@ export function ControlDeck({
           type="button"
           class="deck-card next"
           onClick={onNext}
-          disabled={!finding}
+          disabled={!finding && !isGroupMatch}
           title={t.skipNext}
         >
           <span>{t.next}</span>

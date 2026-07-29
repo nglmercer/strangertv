@@ -131,11 +131,17 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   const match = useMatchSocket({
     onWaiting: (position, onl) => {
-      if (matchedRef.current) return
+      if (matchedRef.current && !groupRoomIdRef.current) return
       onStatus(trRef.current.finding)
       setQueuePos(position)
       if (onl != null) setOnline(onl)
       setMatched(false)
+      matchedRef.current = false
+      setFinding(true)
+      findingRef.current = true
+      setGroupPeers([])
+      acceptingSignalsRef.current = false
+      matchedAt.current = null
       if (!waitingSince.current) waitingSince.current = Date.now()
       webrtcRef.current.clear()
       if (remoteVideo.current) remoteVideo.current.srcObject = null
@@ -149,6 +155,9 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       console.debug('[match] onMatched', { roomId: id, role, peerUserId: meta?.peerUserId, relationship: meta?.relationship })
       setRoomId(id)
       setMatched(true)
+      matchedRef.current = true
+      setFinding(false)
+      findingRef.current = false
       waitingSince.current = null
       setLongWait(false)
       matchedAt.current = Date.now()
@@ -284,7 +293,10 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       setGroupRoomId(id)
       setGroupVisibility(visibility)
       groupRoomIdRef.current = id
+      setMatched(false)
+      matchedRef.current = false
       setFinding(true)
+      findingRef.current = true
       onStatus(trRef.current.finding)
     },
     onGroupMatchParticipantJoined: (id, userId, email) => {
@@ -327,7 +339,9 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       console.debug('[match] group-match:matched', { roomId: id, role, peerCount: peers.length })
       setRoomId(id)
       setMatched(true)
+      matchedRef.current = true
       setFinding(false)
+      findingRef.current = false
       setGroupPeers(peers)
       setSharedInterests(interests)
       setGroupRoomId(id)
@@ -485,6 +499,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     match.leave()
     setMatchMode(MATCH_MODE.group)
     setFinding(true)
+    findingRef.current = true
+    matchedRef.current = false
     onStatus(trRef.current.connecting)
     match.groupMatchJoin(inviteRoomId)
   }, [pendingGroupInvite, match, webrtc, onStatus])
