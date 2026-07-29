@@ -34,7 +34,7 @@ export type GroupRoom = {
   visibility: GroupVisibility
   scope: MatchScope
   preferences: MatchPreferences
-  participants: Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string }>
+  participants: Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string; peerId?: number }>
   createdAt: number
   inQueue: boolean
 }

@@ -5,7 +5,7 @@ import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
 import { GROUP_VISIBILITY, MATCH_MODE, PEER_LEFT_REASON, QUALITY_TIER, SignalKind, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
-import { getStoredUser, isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
+import { isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
 import { messagesApi } from '../api'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
@@ -97,9 +97,9 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   const mediaRef = useRef(media)
   mediaRef.current = media
 
-  const signalOut = useRef<(payload: { kind: SignalKind; data: unknown }, targetUserId?: number) => void>(() => undefined)
-  const onSignalOut = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, targetUserId?: number) => {
-    signalOut.current(payload, targetUserId)
+  const signalOut = useRef<(payload: { kind: SignalKind; data: unknown }, targetPeerId?: number) => void>(() => undefined)
+  const onSignalOut = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, targetPeerId?: number) => {
+    signalOut.current(payload, targetPeerId)
   }, [])
 
   const webrtc = useWebRTC(onSignalOut)
@@ -229,9 +229,9 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
         }
       }, TIMING_MS.requeueDelay)
     },
-    onSignal: (payload, fromUserId) => {
+    onSignal: (payload, fromPeerId) => {
       if (!acceptingSignalsRef.current) return
-      void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current, fromUserId)
+      void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current, fromPeerId)
     },
     onChat: (text, time) => setChat((m) => [...m, { text, time, mine: false }]),
     onStats: (onl, wait) => {
@@ -330,13 +330,13 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       setMatchMode(MATCH_MODE.solo)
       onStatus(trRef.current.ready)
     },
-    onGroupMatchMatched: async (id, role, peers, interests) => {
+    onGroupMatchMatched: async (id, role, peers, interests, peerId) => {
       if (!findingRef.current) {
         matchRef.current?.leave()
         return
       }
       acceptingSignalsRef.current = true
-      console.debug('[match] group-match:matched', { roomId: id, role, peerCount: peers.length })
+      console.debug('[match] group-match:matched', { roomId: id, role, peerId, peerCount: peers.length })
       setRoomId(id)
       setMatched(true)
       matchedRef.current = true
@@ -368,17 +368,17 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       }
       await webrtcRef.current.createMeshPeers(
         stream,
-        peers.map((p) => ({ userId: p.userId, role: p.role })),
-        getStoredUser()?.id ?? 0,
+        peers.map((p) => ({ peerId: p.peerId, userId: p.userId, role: p.role })),
+        peerId,
       )
     },
   })
 
   const matchRef = useRef(match)
   matchRef.current = match
-  signalOut.current = (payload, targetUserId) => {
-    if (targetUserId != null) {
-      match.sendSignal(payload, targetUserId)
+  signalOut.current = (payload, targetPeerId) => {
+    if (targetPeerId != null) {
+      match.sendSignal(payload, targetPeerId)
     } else {
       match.send({ type: WS_MESSAGE_TYPE.signal, payload })
     }

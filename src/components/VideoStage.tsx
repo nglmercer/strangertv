@@ -13,7 +13,7 @@ import { BrandMark3D } from './brandmark/BrandMark3D'
 import { Icon, icons } from './icons'
 import { SPEECH_ON, useSpeakerFocus } from '../hooks/useSpeakerFocus'
 
-type GroupPeer = { userId: number; email?: string; country?: string; side?: 'local' | 'remote' }
+type GroupPeer = { peerId: number; userId: number; email?: string; country?: string; side?: 'local' | 'remote' }
 
 type Tile = {
   id: string
@@ -215,10 +215,10 @@ export function VideoStage({
   const tiles: Tile[] = isGroupMatch
     ? [
         ...groupPeers!.map((peer) => ({
-          id: `p${peer.userId}`,
+          id: `p${peer.peerId}`,
           name: peer.email ? peer.email.split('@')[0] : `User ${peer.userId}`,
           country: peer.country,
-          stream: peerStreams[peer.userId] ?? null,
+          stream: peerStreams[peer.peerId] ?? null,
           local: false,
           side: peer.side ?? (localGroupIds.includes(peer.userId) ? 'local' : 'remote'),
         })),

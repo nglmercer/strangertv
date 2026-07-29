@@ -15,6 +15,12 @@ export type GroupRole = 'admin' | 'member'
 
 /** Participant info in a group match room. */
 export type GroupMatchPeer = {
+  /**
+   * Unique identifier for this participant within the match, assigned by the
+   * server. Used to key WebRTC mesh peers and route signals. Unlike `userId`,
+   * it is unique even when several guests (userId 0) share a match.
+   */
+  peerId: number
   userId: number
   email?: string
   country?: string
@@ -140,7 +146,7 @@ export type ClientMessage =
   | { type: 'queue:heartbeat' }
   | { type: 'room:next'; preferences: MatchPreferences; token?: string }
   | { type: 'room:leave' }
-  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number }
+  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number; targetPeerId?: number }
   | { type: 'chat'; payload: { text: string; time: string } }
   | { type: 'report'; reason: ReportReason; detail?: string }
   | { type: 'block' }
@@ -187,7 +193,7 @@ export type ServerMessage =
       relationship?: RelationshipStatus
     }
   | { type: 'room:peer-left'; reason?: string }
-  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number }
+  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number; fromPeerId?: number }
   | { type: 'chat'; payload: { text: string; time: string } }
   | { type: 'stats'; online: number; waiting: number }
   | { type: 'error'; code: string; message: string }
@@ -228,6 +234,8 @@ export type ServerMessage =
       type: 'group-match:matched'
       roomId: string
       role: Role
+      /** The receiver's own unique participant id within this match. */
+      peerId: number
       peers: GroupMatchPeer[]
       sharedInterests: string[]
     }

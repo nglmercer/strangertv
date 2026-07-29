@@ -11,7 +11,7 @@ type Handlers = {
     meta?: { peerCountry?: string; peerEmail?: string; peerUserId?: number; sharedInterests?: string[]; relationship?: RelationshipStatus },
   ) => void
   onPeerLeft?: (reason?: string) => void
-  onSignal?: (payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, fromUserId?: number) => void
+  onSignal?: (payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, fromPeerId?: number) => void
   onChat?: (text: string, time: string) => void
   onStats?: (online: number, waiting: number) => void
   onError?: (code: string, message: string) => void
@@ -36,7 +36,7 @@ type Handlers = {
   onGroupMatchInviteReceived?: (roomId: string, host: PublicUser) => void
   onGroupMatchInviteSent?: (userId: number) => void
   onGroupMatchInviteDeclined?: (roomId: string) => void
-  onGroupMatchMatched?: (roomId: string, role: Role, peers: GroupMatchPeer[], sharedInterests: string[]) => void
+  onGroupMatchMatched?: (roomId: string, role: Role, peers: GroupMatchPeer[], sharedInterests: string[], peerId: number) => void
 }
 
 export function useMatchSocket(handlers: Handlers) {
@@ -70,8 +70,8 @@ export function useMatchSocket(handlers: Handlers) {
     }
   }, [])
 
-  const sendSignal = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, targetUserId?: number) => {
-    const msg: Extract<ClientMessage, { type: 'signal' }> = { type: WS_MESSAGE_TYPE.signal, payload, targetUserId }
+  const sendSignal = useCallback((payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }, targetPeerId?: number) => {
+    const msg: Extract<ClientMessage, { type: 'signal' }> = { type: WS_MESSAGE_TYPE.signal, payload, targetPeerId }
     send(msg)
   }, [send])
 
@@ -127,7 +127,7 @@ export function useMatchSocket(handlers: Handlers) {
           h.onPeerLeft?.(msg.reason)
           break
         case WS_MESSAGE_TYPE.signal:
-          h.onSignal?.(msg.payload, msg.targetUserId)
+          h.onSignal?.(msg.payload, msg.fromPeerId)
           break
         case WS_MESSAGE_TYPE.chat:
           h.onChat?.(msg.payload.text, msg.payload.time)
@@ -206,7 +206,7 @@ export function useMatchSocket(handlers: Handlers) {
           h.onGroupMatchInviteDeclined?.(msg.roomId)
           break
         case WS_MESSAGE_TYPE.groupMatchMatched:
-          h.onGroupMatchMatched?.(msg.roomId, msg.role, msg.peers, msg.sharedInterests)
+          h.onGroupMatchMatched?.(msg.roomId, msg.role, msg.peers, msg.sharedInterests, msg.peerId)
           break
       }
     }

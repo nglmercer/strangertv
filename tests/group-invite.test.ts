@@ -43,14 +43,14 @@ interface WsClient {
   close(): void
 }
 
-function connectWs(token: string): Promise<WsClient> {
+function connectWs(token?: string): Promise<WsClient> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(WS_URL)
     const messages: Array<{ type: string; [k: string]: unknown }> = []
     const timer = setTimeout(() => reject(new Error('ws connect timeout')), 10_000)
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'ws:auth', token }))
+      if (token) ws.send(JSON.stringify({ type: 'ws:auth', token }))
     }
     ws.onmessage = (ev) => {
       const msg = JSON.parse(String(ev.data))

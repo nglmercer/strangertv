@@ -797,6 +797,7 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
       email: p.email,
       preferences: p.preferences,
       sessionKey: '',
+      peerId: p.index,
     })
     groupRoomsBySocket.set(p.socket, unifiedGroup)
   }
@@ -812,6 +813,7 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
     const peers = participantList
       .filter((p) => p.socket !== self.socket)
       .map((p) => ({
+        peerId: p.index,
         userId: p.userId ?? 0,
         email: p.email,
         country: p.preferences.country !== DEFAULT_COUNTRY ? p.preferences.country : undefined,
@@ -823,6 +825,7 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
       type: WS_MESSAGE_TYPE.groupMatchMatched,
       roomId: matchedRoomId,
       role: self.index === 0 ? ROLE.offerer : ROLE.answerer,
+      peerId: self.index,
       peers,
       sharedInterests,
     })

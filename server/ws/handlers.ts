@@ -317,16 +317,28 @@ export function createWsHandler(state: WsState) {
     }
 
     if (message.type === WS_MESSAGE_TYPE.signal) {
-      const msgAsAny = message as unknown as { targetUserId?: number }
+      const msgAsAny = message as unknown as { targetUserId?: number; targetPeerId?: number }
       const targetId = msgAsAny.targetUserId
+      const targetPeerId = msgAsAny.targetPeerId
       const group = getGroupRoom(socket)
       if (group && message.payload) {
-        const senderUserId = group.participants.get(socket)?.userId ?? getSocketUserId(socket) ?? 0
+        const senderParticipant = group.participants.get(socket)
+        const senderUserId = senderParticipant?.userId ?? getSocketUserId(socket) ?? 0
+        const senderPeerId = senderParticipant?.peerId
         let relayed = false
-        if (targetId != null) {
+        if (targetPeerId != null) {
+          // Route by unique peerId so guests sharing userId 0 stay distinct.
+          for (const [sock, p] of group.participants) {
+            if (p.peerId === targetPeerId && sock !== socket) {
+              send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId, fromPeerId: senderPeerId })
+              relayed = true
+              break
+            }
+          }
+        } else if (targetId != null) {
           for (const [sock, p] of group.participants) {
             if (p.userId === targetId && sock !== socket) {
-              send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
+              send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId, fromPeerId: senderPeerId })
               relayed = true
               break
             }
@@ -334,7 +346,7 @@ export function createWsHandler(state: WsState) {
         } else {
           for (const [sock] of group.participants) {
             if (sock !== socket) {
-              send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId })
+              send(sock, { type: WS_MESSAGE_TYPE.signal, payload: message.payload, targetUserId: senderUserId, fromPeerId: senderPeerId })
               relayed = true
             }
           }
