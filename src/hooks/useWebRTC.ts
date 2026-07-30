@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'preact/hooks'
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { fetchIceServers } from '../api'
 import type { Quality } from '../types/ui'
 import { QUALITY_TIER, RTC_STATE, SIGNAL_KIND, SignalKind } from '../../shared/constants'
@@ -39,6 +39,12 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
   const [linkStats, setLinkStats] = useState<LinkStats>(emptyLinkStats)
   const [hasRemote, setHasRemote] = useState(false)
   const [peerStreams, setPeerStreams] = useState<Record<number, MediaStream>>({})
+  /** Per-peer audio mute (I don't want to hear them). Keyed by peerId. */
+  const [mutedPeers, setMutedPeers] = useState<Record<number, boolean>>({})
+  const peerStreamsRef = useRef<Record<number, MediaStream>>({})
+  useEffect(() => {
+    peerStreamsRef.current = peerStreams
+  }, [peerStreams])
 
   const stopStatsLoop = useCallback((peer: PeerConnection) => {
     if (peer.statsTimer != null) {
@@ -221,10 +227,22 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
     soloRemoteReady.current = false
     setHasRemote(false)
     setPeerStreams({})
+    setMutedPeers({})
     pendingSignalsRef.current = []
     setQuality(QUALITY_TIER.idle)
     setLinkStats(emptyLinkStats)
   }, [stopStatsLoop, stopSoloStatsLoop])
+
+  /** Mute/unmute a specific remote peer's incoming audio (does not affect what they hear). */
+  const setPeerMuted = useCallback((peerId: number, muted: boolean) => {
+    const stream = peerStreamsRef.current[peerId]
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = !muted
+      })
+    }
+    setMutedPeers((prev) => (prev[peerId] === muted ? prev : { ...prev, [peerId]: muted }))
+  }, [])
 
   /** Gracefully tear down a single mesh peer (e.g. when that participant leaves). */
   const removePeer = useCallback(
@@ -236,6 +254,12 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
       peer.pc.close()
       peersRef.current.delete(peerId)
       setPeerStreams((prev) => {
+        if (!(peerId in prev)) return prev
+        const next = { ...prev }
+        delete next[peerId]
+        return next
+      })
+      setMutedPeers((prev) => {
         if (!(peerId in prev)) return prev
         const next = { ...prev }
         delete next[peerId]
@@ -551,6 +575,8 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
     linkStats,
     hasRemote,
     peerStreams,
+    mutedPeers,
+    setPeerMuted,
     replaceTracks,
     restartIce,
   }

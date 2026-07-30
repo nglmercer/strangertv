@@ -263,13 +263,14 @@ export function App(_props: AppProps) {
   )
 
   /** Direct friend request when both users are logged in (peerUserId known); otherwise open manual manager. */
-  const onAddFriend = useCallback(() => {
+  const onAddFriend = useCallback(
+    (targetUserId?: number) => {
     if (!user) {
       setAuth(true)
       setAuthActive(true)
       return
     }
-    const peerId = session.peerUserId
+    const peerId = targetUserId ?? session.peerUserId
     if (peerId) {
       void friendsApi
         .request(peerId)
@@ -285,13 +286,14 @@ export function App(_props: AppProps) {
   }, [user, session.peerUserId, session.peerEmail, showToast, tr])
 
   /** Direct follow when both users are logged in; updates local relationship badge immediately. */
-  const onFollow = useCallback(() => {
+  const onFollow = useCallback(
+    (targetUserId?: number) => {
     if (!user) {
       setAuth(true)
       setAuthActive(true)
       return
     }
-    const peerId = session.peerUserId
+    const peerId = targetUserId ?? session.peerUserId
     if (!peerId) {
       if (session.peerEmail) showToast(tr.peerNotSignedIn, 'error')
       return
@@ -306,6 +308,14 @@ export function App(_props: AppProps) {
       })
       .catch(() => showToast(tr.followFailed, 'error'))
   }, [user, session.peerUserId, session.peerEmail, session.relationship, session.setRelationship, showToast, tr])
+
+  /** Invite a specific peer (or the current 1:1 peer by default) to a group match. */
+  const onInviteGroup = useCallback(
+    (targetUserId?: number) => {
+      void session.invitePeerToGroup(targetUserId ?? session.peerUserId ?? undefined)
+    },
+    [session],
+  )
 
   const lookingLabel =
     prefs.lookingFor === GENDER.male
@@ -388,8 +398,11 @@ export function App(_props: AppProps) {
               onAuthClick={onAuthClick}
               onAddFriend={onAddFriend}
               onFollow={onFollow}
+              onInviteGroup={onInviteGroup}
               groupPeers={session.groupPeers.length > 0 ? session.groupPeers : undefined}
               peerStreams={session.webrtc.peerStreams}
+              mutedPeers={session.webrtc.mutedPeers}
+              onPeerMute={(peerId, muted) => session.webrtc.setPeerMuted(peerId, muted)}
               localGroupIds={[...(user ? [user.id] : []), ...session.groupParticipants.map((p) => p.userId)]}
               soloLayout={uiSettings.soloLayout}
               groupLayout={uiSettings.groupLayout}
@@ -441,9 +454,7 @@ export function App(_props: AppProps) {
                 console.debug('[app] invite clicked, opening friend manager')
                 setFriendManager({ open: true, inviteMode: true })
               }}
-              onInviteGroup={() => {
-                void session.invitePeerToGroup(session.peerUserId ?? undefined)
-              }}
+              onInviteGroup={onInviteGroup}
               relationship={session.relationship}
             />
           </div>

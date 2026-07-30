@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import type { RefObject } from 'preact'
+import type { ComponentChildren, RefObject } from 'preact'
 import { countryLabel, interestLabel, type Messages } from '../i18n'
 import type { GroupLayout, Quality, SoloLayout } from '../types/ui'
 import type { RelationshipStatus } from '../../shared/types'
@@ -11,6 +11,7 @@ import { QualityBadge } from './QualityBadge'
 import type { PublicUser } from '../api'
 import { BrandMark3D } from './brandmark/BrandMark3D'
 import { Icon, icons } from './icons'
+import { PeerTileActions } from './PeerTileActions'
 import { SPEECH_ON, useSpeakerFocus } from '../hooks/useSpeakerFocus'
 
 type GroupPeer = { peerId: number; userId: number; email?: string; country?: string; side?: 'local' | 'remote' }
@@ -22,6 +23,9 @@ type Tile = {
   stream: MediaStream | null
   local: boolean
   side: 'local' | 'remote'
+  peerId?: number
+  userId?: number
+  email?: string
 }
 
 function StreamVideo({
@@ -53,6 +57,9 @@ function initials(name: string): string {
     .join('')
 }
 
+const LONG_PRESS_MS = 550
+const LONG_PRESS_MOVE_PX = 10
+
 function GroupTile({
   tile,
   t,
@@ -60,8 +67,10 @@ function GroupTile({
   speaking,
   compact,
   pinned,
+  muted,
   onSelect,
   localVideo,
+  renderActions,
 }: {
   tile: Tile
   t: Messages
@@ -69,10 +78,60 @@ function GroupTile({
   speaking: boolean
   compact: boolean
   pinned: boolean
+  muted?: boolean
   onSelect?: () => void
   localVideo?: RefObject<HTMLVideoElement>
+  renderActions?: (ctx: { open: boolean; close: () => void }) => ComponentChildren
 }) {
   const interactive = Boolean(onSelect)
+  const hasActions = Boolean(renderActions)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const pressTimer = useRef<number | null>(null)
+  const longPressed = useRef(false)
+  const pressStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  const clearPress = () => {
+    if (pressTimer.current != null) {
+      window.clearTimeout(pressTimer.current)
+      pressTimer.current = null
+    }
+  }
+  useEffect(() => clearPress, [])
+
+  // Touch devices have no hover: hold the tile to pin the actions menu open.
+  const onPointerDown = (e: PointerEvent) => {
+    if (!hasActions) return
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    longPressed.current = false
+    pressStart.current = { x: e.clientX, y: e.clientY }
+    clearPress()
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true
+      setMenuOpen((open) => !open)
+    }, LONG_PRESS_MS)
+  }
+  const onPointerMove = (e: PointerEvent) => {
+    if (!hasActions || pressTimer.current == null) return
+    const dx = e.clientX - pressStart.current.x
+    const dy = e.clientY - pressStart.current.y
+    if (dx * dx + dy * dy > LONG_PRESS_MOVE_PX * LONG_PRESS_MOVE_PX) clearPress()
+  }
+  const cancelPress = () => {
+    if (hasActions) clearPress()
+  }
+
+  const handleClick = () => {
+    if (longPressed.current) {
+      longPressed.current = false
+      return
+    }
+    if (menuOpen) {
+      setMenuOpen(false)
+      return
+    }
+    onSelect?.()
+  }
+
   return (
     <article
       class={[
@@ -82,10 +141,19 @@ function GroupTile({
         speaking ? 'is-speaking' : '',
         compact ? 'tile-compact' : '',
         pinned ? 'is-pinned' : '',
+        menuOpen ? 'menu-open' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      onClick={onSelect}
+      onClick={hasActions ? handleClick : onSelect}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={cancelPress}
+      onPointerLeave={cancelPress}
+      onPointerCancel={cancelPress}
+      onContextMenu={(e) => {
+        if (hasActions) e.preventDefault()
+      }}
       onKeyDown={
         interactive
           ? (e: KeyboardEvent) => {
@@ -116,10 +184,16 @@ function GroupTile({
       )}
       <span class="label">{tile.name}</span>
       {tile.country && <span class="peer-country">{countryLabel(t, tile.country)}</span>}
+      {muted && (
+        <span class="peer-muted-badge" title={t.mute} aria-label={t.mute}>
+          <Icon d={icons.micOff} size={compact ? 12 : 14} />
+        </span>
+      )}
       {speaking && <span class="talk-flag">{t.speaking}</span>}
       <span class="talk-meter" aria-hidden="true">
         <i style={{ width: `${Math.min(100, Math.round(level * 130))}%` }} />
       </span>
+      {hasActions && renderActions!({ open: menuOpen, close: () => setMenuOpen(false) })}
     </article>
   )
 }
@@ -150,8 +224,11 @@ export function VideoStage({
   onAuthClick,
   onAddFriend,
   onFollow,
+  onInviteGroup,
   groupPeers,
   peerStreams,
+  mutedPeers,
+  onPeerMute,
   localGroupIds,
   soloLayout,
   groupLayout,
@@ -179,10 +256,13 @@ export function VideoStage({
   onPreferences: () => void
   onSettings: () => void
   onAuthClick: () => void
-  onAddFriend: () => void
-  onFollow: () => void
+  onAddFriend: (targetUserId?: number) => void
+  onFollow: (targetUserId?: number) => void
+  onInviteGroup: (targetUserId?: number) => void
   groupPeers?: GroupPeer[]
   peerStreams: Record<number, MediaStream>
+  mutedPeers: Record<number, boolean>
+  onPeerMute: (peerId: number, muted: boolean) => void
   localGroupIds: number[]
   soloLayout: SoloLayout
   groupLayout: GroupLayout
@@ -221,10 +301,36 @@ export function VideoStage({
           stream: peerStreams[peer.peerId] ?? null,
           local: false,
           side: peer.side ?? (localGroupIds.includes(peer.userId) ? 'local' : 'remote'),
+          peerId: peer.peerId,
+          userId: peer.userId,
+          email: peer.email,
         })),
         { id: 'local', name: t.labelYou, stream: localStream, local: true, side: 'local' },
       ]
     : []
+
+  // Per-remote-peer quick actions (add friend / follow / invite / mute), shown
+  // on hover (desktop) or via long-press (touch). Local tile gets none.
+  const tileActions = (tile: Tile) => {
+    if (tile.peerId == null) return undefined
+    const peer = { peerId: tile.peerId, userId: tile.userId ?? 0, email: tile.email }
+    return ({ open, close }: { open: boolean; close: () => void }) => (
+      <PeerTileActions
+        peer={peer}
+        t={t}
+        user={user}
+        muted={mutedPeers[tile.peerId!] ?? false}
+        open={open}
+        onClose={close}
+        onAddFriend={onAddFriend}
+        onFollow={onFollow}
+        onInviteGroup={onInviteGroup}
+        onToggleMute={onPeerMute}
+      />
+    )
+  }
+
+  const tileMuted = (tile: Tile) => tile.peerId != null && Boolean(mutedPeers[tile.peerId])
 
   const spotlight = isGroupMatch && groupLayout === 'spotlight'
   const { activeId, levels } = useSpeakerFocus(
@@ -259,6 +365,8 @@ export function VideoStage({
                     pinned={pinnedId === mainTile.id}
                     onSelect={pinnedId === mainTile.id ? () => setPinnedId(null) : undefined}
                     localVideo={localVideo}
+                    muted={tileMuted(mainTile)}
+                    renderActions={tileActions(mainTile)}
                   />
                 </div>
                 <div class="spotlight-rail" aria-label={t.participants}>
@@ -273,6 +381,8 @@ export function VideoStage({
                       pinned={pinnedId === tile.id}
                       onSelect={() => setPinnedId(pinnedId === tile.id ? null : tile.id)}
                       localVideo={localVideo}
+                      muted={tileMuted(tile)}
+                      renderActions={tileActions(tile)}
                     />
                   ))}
                 </div>
@@ -296,6 +406,8 @@ export function VideoStage({
                           compact={remoteTiles.length > 2}
                           pinned={false}
                           localVideo={localVideo}
+                          muted={tileMuted(tile)}
+                          renderActions={tileActions(tile)}
                         />
                       ))}
                     </div>
@@ -309,6 +421,8 @@ export function VideoStage({
                           compact={false}
                           pinned={false}
                           localVideo={localVideo}
+                          muted={tileMuted(youTile)}
+                          renderActions={tileActions(youTile)}
                         />
                       </div>
                       {companionTiles.length > 0 && (
@@ -323,6 +437,8 @@ export function VideoStage({
                               compact
                               pinned={false}
                               localVideo={localVideo}
+                              muted={tileMuted(tile)}
+                              renderActions={tileActions(tile)}
                             />
                           ))}
                         </div>
@@ -343,6 +459,8 @@ export function VideoStage({
                       compact={false}
                       pinned={false}
                       localVideo={localVideo}
+                      muted={tileMuted(tile)}
+                      renderActions={tileActions(tile)}
                     />
                   ))}
                 </div>
@@ -393,7 +511,7 @@ export function VideoStage({
                     <button
                       type="button"
                       class="peer-action"
-                      onClick={onAddFriend}
+                      onClick={() => onAddFriend()}
                       title={peerUserId ? t.addFriend : peerEmail ? t.peerNotSignedIn : t.addFriend}
                       disabled={!peerUserId && !peerEmail}
                     >
@@ -405,7 +523,7 @@ export function VideoStage({
                     <button
                       type="button"
                       class="peer-action"
-                      onClick={onFollow}
+                      onClick={() => onFollow()}
                       title={peerUserId ? t.follow : t.peerNotSignedIn}
                       disabled={!peerUserId}
                     >
