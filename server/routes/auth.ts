@@ -33,10 +33,13 @@ import {
   SERVER_ERROR_CODE,
 } from '../../shared/constants'
 
+const REGISTER_RATE_LIMIT = Number(process.env.REGISTER_RATE_LIMIT ?? 10)
+const REGISTER_RATE_WINDOW_MS = Number(process.env.REGISTER_RATE_WINDOW_MS ?? 15 * 60_000)
+
 export function registerAuthRoutes(app: Hono, appUrl: string) {
   app.post(API_ROUTES.authRegister, async (c) => {
     const ip = clientIp(c)
-    const rl = rateLimitInfo(`register:${ip}`, 10, 15 * 60_000)
+    const rl = rateLimitInfo(`register:${ip}`, REGISTER_RATE_LIMIT, REGISTER_RATE_WINDOW_MS)
     if (!rl.ok) {
       return c.json({ error: 'Too many attempts. Try later.' }, HTTP_STATUS.tooManyRequests, rateLimitHeaders(rl))
     }

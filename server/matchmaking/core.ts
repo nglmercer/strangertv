@@ -181,6 +181,48 @@ export function leaveGroup(socket: SocketLike, reason?: string): GroupRoom | und
 
   if (participant?.userId) unregisterUserSocket(participant.userId, socket)
 
+  // ---------------------------------------------------------------------------
+  // Live match: degrade gracefully (e.g. group|solo -> solo|solo) instead of
+  // tearing the whole room down when one participant — even the host — leaves.
+  // ---------------------------------------------------------------------------
+  if (group.matched) {
+    // The host leaving must not dissolve the match; hand host to a survivor.
+    if (group.hostSocket === socket && group.participants.size > 0) {
+      const nextSocket = Array.from(group.participants.keys())[0]!
+      const next = group.participants.get(nextSocket)
+      group.hostSocket = nextSocket
+      group.hostUserId = next?.userId
+      group.hostEmail = next?.email
+    }
+
+    // Tell survivors to drop the departed peer's mesh tile. peerId lets the
+    // client remove exactly that WebRTC peer and keep the rest of the call alive.
+    for (const [sock] of group.participants) {
+      send(sock, {
+        type: WS_MESSAGE_TYPE.groupMatchParticipantLeft,
+        roomId: group.id,
+        userId: participant?.userId ?? 0,
+        peerId: participant?.peerId,
+      })
+    }
+
+    // With one (or zero) people left there is no match to continue: release the
+    // last participant back to idle so they can find a new stranger.
+    if (group.participants.size <= 1) {
+      for (const [sock] of group.participants) {
+        send(sock, { type: WS_MESSAGE_TYPE.roomPeerLeft, reason: reason || PEER_LEFT_REASON.disconnect })
+        groupRoomsBySocket.delete(sock)
+      }
+      group.participants.clear()
+      groupRoomsById.delete(group.id)
+    }
+
+    return group
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pre-match lobby: original behaviour. The host leaving dissolves the lobby.
+  // ---------------------------------------------------------------------------
   if (group.hostSocket === socket) {
     const participantSockets = Array.from(group.participants.keys())
     for (const sock of participantSockets) {
@@ -459,9 +501,9 @@ export function createGroupMatchRoom(
   socket: SocketLike,
   visibility: GroupVisibility,
   preferences: MatchPreferences,
-  opts: { userId?: number; email?: string; sessionKey: string; skipLeaveRoom?: boolean },
+  opts: { userId?: number; email?: string; sessionKey: string; skipLeaveRoom?: boolean; groupLeaveReason?: string },
 ): string {
-  leaveGroup(socket)
+  leaveGroup(socket, opts.groupLeaveReason)
   if (!opts.skipLeaveRoom) {
     leaveRoom(socket, true, PEER_LEFT_REASON.groupInvite)
   }
@@ -789,6 +831,7 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
     participants: new Map(),
     createdAt: Date.now(),
     inQueue: false,
+    matched: true,
   }
 
   for (const p of participantList) {

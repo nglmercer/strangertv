@@ -188,20 +188,33 @@ export function createWsHandler(state: WsState) {
         send(socket, { type: WS_MESSAGE_TYPE.error, code: SERVER_ERROR_CODE.authRequired, message: 'Invalid token.' })
         return
       }
-      const partnerSocket = getPartner(socket)
       const visibility = GROUP_VISIBILITY.private
       const prefs = normalizePreferences(message.preferences) || {
         country: 'any', language: 'any', gender: 'any', lookingFor: 'any',
         interests: [], allowMatchWithSameUsers: true, mode: MATCH_MODE.group, matchScope: MATCH_SCOPE.all,
       }
+
+      // Resolve the invite target BEFORE mutating match state. In a (possibly
+      // degraded group|solo -> solo|solo) group match there is no 1:1 partner,
+      // so fall back to the other participant(s) of the current group room.
+      // createGroupMatchRoom() below tears that room down, so capture first.
+      const currentGroup = getGroupRoom(socket)
+      const partnerSocket = getPartner(socket)
+      const targetSockets: SocketLike[] = message.userId ? getAllSocketsForUser(message.userId) : []
+      if (targetSockets.length === 0 && currentGroup) {
+        for (const [sock] of currentGroup.participants) {
+          if (sock !== socket) targetSockets.push(sock)
+        }
+      }
+      if (targetSockets.length === 0 && partnerSocket) targetSockets.push(partnerSocket)
+
       const roomId = createGroupMatchRoom(socket, visibility, { ...prefs, mode: MATCH_MODE.group, matchScope: prefs.matchScope }, {
         userId: user.id,
         email: user.email,
         sessionKey,
         skipLeaveRoom: true,
+        groupLeaveReason: PEER_LEFT_REASON.groupInvite,
       })
-      const targetSockets = message.userId ? getAllSocketsForUser(message.userId) : []
-      if (targetSockets.length === 0 && partnerSocket) targetSockets.push(partnerSocket)
       if (targetSockets.length > 0) {
         const inviterRow = await db.execute({ sql: 'SELECT id, email, birth_date, gender, country, language, interests, email_verified FROM users WHERE id = ?', args: [user.id] })
         const inviterProfile = inviterRow.rows[0]

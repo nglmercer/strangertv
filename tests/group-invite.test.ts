@@ -109,6 +109,9 @@ describe('group invite from match', () => {
         PORT: String(PORT),
         ADMIN_KEY: 'itest-admin',
         NODE_ENV: 'test',
+        // The suite registers many users against one shared server; lift the
+        // default 10/15min cap so later tests don't hit the rate limit.
+        REGISTER_RATE_LIMIT: '1000',
         TURSO_DATABASE_URL: `file:group_invite_${Date.now()}.db`,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -395,6 +398,139 @@ describe('group invite from match', () => {
     expect(leftHost.peerId).toBe(matchedC.peerId)
     expect(leftB.peerId).toBe(matchedC.peerId)
     expect(leftHost.userId).toBe(0)
+
+    hostClient.close()
+    guestB.close()
+    guestC.close()
+  })
+
+  it('host leaving an active group match degrades gracefully (group|solo -> solo|solo) instead of disconnecting everyone', async () => {
+    const password = 'password12'
+    const host = await createUser(`ghostleave_host_${Date.now()}@example.com`, password)
+
+    const hostClient = await connectWs(host.token)
+    const guestB = await connectWs() // anonymous -> userId 0
+    const guestC = await connectWs() // anonymous -> userId 0 (the solo side)
+
+    const prefsAll = { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all' }
+
+    // Solo waits in queue; the group will match against it.
+    guestC.send({ type: 'queue:join', preferences: prefsAll })
+    await guestC.waitFor('queue:waiting', 5000)
+
+    hostClient.send({ type: 'group-match:create', token: host.token, visibility: 'private', preferences: { ...prefsAll, mode: 'group', matchScope: 'all' } })
+    const groupCreated = await hostClient.waitFor('group-match:created', 5000)
+
+    guestB.send({ type: 'group-match:join', roomId: groupCreated.roomId })
+
+    const matchedHost = await hostClient.waitFor('group-match:matched', 5000)
+    const matchedB = await guestB.waitFor('group-match:matched', 5000)
+    const matchedC = await guestC.waitFor('group-match:matched', 5000)
+    expect(matchedHost.peers.length).toBe(2)
+
+    // The host (group side) leaves the active match. This used to send
+    // room:peer-left to everyone and destroy the whole match.
+    hostClient.send({ type: 'group-match:leave' })
+
+    // Survivors get a participant-left (with peerId) so they keep the call as a
+    // solo|solo pair — NOT a room:peer-left that would disconnect them.
+    const leftB = await guestB.waitFor('group-match:participant-left', 5000)
+    const leftC = await guestC.waitFor('group-match:participant-left', 5000)
+    expect(leftB.peerId).toBe(matchedHost.peerId)
+    expect(leftC.peerId).toBe(matchedHost.peerId)
+
+    // The match is still alive for the two survivors: no room:peer-left yet.
+    expect(guestB.messages.some((m) => m.type === 'room:peer-left')).toBe(false)
+    expect(guestC.messages.some((m) => m.type === 'room:peer-left')).toBe(false)
+
+    // When the match drops to a single participant it ends for them.
+    guestB.send({ type: 'group-match:leave' })
+    const endedC = await guestC.waitFor('room:peer-left', 5000)
+    expect(endedC).toBeTruthy()
+
+    hostClient.close()
+    guestB.close()
+    guestC.close()
+  })
+
+  it('inviting to a group from a degraded solo|solo match delivers the invite (no userId, no 1:1 partner)', async () => {
+    // waitFor() returns the first buffered message of a type, which collides
+    // with messages from the original group formation. Wait on a predicate and
+    // only consider messages recorded after a given index.
+    const waitForMatch = (client: WsClient, from: number, pred: (m: any) => boolean, timeout = 5000) =>
+      new Promise<any>((res, rej) => {
+        const scan = () => {
+          for (let i = from; i < client.messages.length; i++) {
+            if (pred(client.messages[i])) return client.messages[i]
+          }
+          return undefined
+        }
+        const found = scan()
+        if (found) {
+          res(found)
+          return
+        }
+        const handler = () => {
+          const f = scan()
+          if (f) {
+            clearTimeout(t)
+            client.ws.removeEventListener('message', handler)
+            res(f)
+          }
+        }
+        const t = setTimeout(() => {
+          client.ws.removeEventListener('message', handler)
+          rej(new Error(`timeout waiting; buffer=${JSON.stringify(client.messages.map((m) => m.type))}`))
+        }, timeout)
+        client.ws.addEventListener('message', handler)
+      })
+
+    const password = 'password12'
+    const host = await createUser(`ginvite_host_${Date.now()}@example.com`, password)
+
+    const hostClient = await connectWs(host.token)
+    const guestB = await connectWs() // anonymous -> userId 0
+    const guestC = await connectWs() // anonymous -> userId 0 (the solo side)
+
+    const prefsAll = { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all' }
+
+    guestC.send({ type: 'queue:join', preferences: prefsAll })
+    await guestC.waitFor('queue:waiting', 5000)
+
+    hostClient.send({ type: 'group-match:create', token: host.token, visibility: 'private', preferences: { ...prefsAll, mode: 'group', matchScope: 'all' } })
+    const groupCreated = await hostClient.waitFor('group-match:created', 5000)
+
+    guestB.send({ type: 'group-match:join', roomId: groupCreated.roomId })
+
+    await hostClient.waitFor('group-match:matched', 5000)
+    await guestB.waitFor('group-match:matched', 5000)
+    await guestC.waitFor('group-match:matched', 5000)
+
+    // Degrade group|solo -> solo|solo: the solo side leaves, host + guestB remain.
+    guestC.send({ type: 'group-match:leave' })
+    await hostClient.waitFor('group-match:participant-left', 5000)
+    await guestB.waitFor('group-match:participant-left', 5000)
+
+    // Snapshot buffer lengths so we only inspect messages produced after this point.
+    const hostFrom = hostClient.messages.length
+    const bFrom = guestB.messages.length
+
+    // From the degraded match the host invites "the other person" to a group.
+    // The client has no peerUserId here and there is no 1:1 partner, so no
+    // userId is sent — the server must resolve the target from the group room.
+    hostClient.send({ type: 'group-match:create-and-invite', token: host.token, visibility: 'private', preferences: { ...prefsAll, mode: 'group', matchScope: 'all' } })
+
+    // The host gets a fresh group room (a NEW group-match:created)...
+    const newGroup = await waitForMatch(hostClient, hostFrom, (m) => m.type === 'group-match:created')
+    // ...and the remaining participant receives the invite instead of being
+    // silently disconnected.
+    const invite = await waitForMatch(guestB, bFrom, (m) => m.type === 'group-match:invite-received')
+    expect(invite.roomId).toBe(newGroup.roomId)
+
+    // Accepting the invite reunites them in the new group.
+    guestB.send({ type: 'group-match:join', roomId: newGroup.roomId })
+    const joined = await waitForMatch(hostClient, hostFrom, (m) => m.type === 'group-match:participant-joined' && m.roomId === newGroup.roomId)
+    expect(joined.roomId).toBe(newGroup.roomId)
 
     hostClient.close()
     guestB.close()

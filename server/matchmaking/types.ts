@@ -37,6 +37,8 @@ export type GroupRoom = {
   participants: Map<SocketLike, { userId?: number; email?: string; preferences: MatchPreferences; sessionKey: string; peerId?: number }>
   createdAt: number
   inQueue: boolean
+  /** True once this room is a live match (post notifyGroupMatch). Leaves degrade gracefully instead of dissolving the room. */
+  matched?: boolean
 }
 
 export type { Gender, GroupVisibility, MatchMode, MatchPreferences, MatchScope, Role, ServerMessage, RelationshipStatus }
