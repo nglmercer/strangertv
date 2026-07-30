@@ -87,7 +87,6 @@ export function ControlDeck({
           type="button"
           class="deck-card next"
           onClick={onNext}
-          disabled={!finding && !isGroupMatch}
           title={t.skipNext}
         >
           <span>{t.next}</span>

@@ -272,7 +272,7 @@ export function CallBar({
               <Icon d={icons.start} size={18} />
             </button>
           )}
-          {(finding && !matched || isGroupMatch) && (
+          {(finding || matched) && (
             <button
               type="button"
               class="call-btn icon call-fullscreen-btn"
