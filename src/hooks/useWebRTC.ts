@@ -30,6 +30,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
   const soloPcRef = useRef<RTCPeerConnection | null>(null)
   const soloPending = useRef<RTCIceCandidateInit[]>([])
   const soloRemoteReady = useRef(false)
+  const soloRemoteStreamRef = useRef<MediaStream | null>(null)
   const soloStatsTimer = useRef<number | null>(null)
   const soloStatsSeed = useRef<{ packetsReceived: number; packetsLost: number; bytesReceived: number; at: number } | null>(null)
   const peersRef = useRef<Map<number, PeerConnection>>(new Map())
@@ -41,6 +42,8 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
   const [peerStreams, setPeerStreams] = useState<Record<number, MediaStream>>({})
   /** Per-peer audio mute (I don't want to hear them). Keyed by peerId. */
   const [mutedPeers, setMutedPeers] = useState<Record<number, boolean>>({})
+  /** Solo (1:1) remote audio mute — separate from the group mesh peer map. */
+  const [soloMuted, setSoloMutedState] = useState(false)
   const peerStreamsRef = useRef<Record<number, MediaStream>>({})
   useEffect(() => {
     peerStreamsRef.current = peerStreams
@@ -225,9 +228,11 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
     soloPcRef.current = null
     soloPending.current = []
     soloRemoteReady.current = false
+    soloRemoteStreamRef.current = null
     setHasRemote(false)
     setPeerStreams({})
     setMutedPeers({})
+    setSoloMutedState(false)
     pendingSignalsRef.current = []
     setQuality(QUALITY_TIER.idle)
     setLinkStats(emptyLinkStats)
@@ -242,6 +247,17 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
       })
     }
     setMutedPeers((prev) => (prev[peerId] === muted ? prev : { ...prev, [peerId]: muted }))
+  }, [])
+
+  /** Mute/unmute the solo (1:1) remote peer's incoming audio. */
+  const setSoloMuted = useCallback((muted: boolean) => {
+    const stream = soloRemoteStreamRef.current
+    if (stream) {
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = !muted
+      })
+    }
+    setSoloMutedState(muted)
   }, [])
 
   /** Gracefully tear down a single mesh peer (e.g. when that participant leaves). */
@@ -292,6 +308,7 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
 
       pc.ontrack = (event) => {
         console.debug('[webrtc] solo ontrack', { connectionState: pc.connectionState })
+        soloRemoteStreamRef.current = event.streams[0] ?? null
         if (remoteVideo) {
           remoteVideo.srcObject = event.streams[0] ?? null
         }
@@ -577,6 +594,8 @@ export function useWebRTC(onSignal: (payload: SignalPayload, targetPeerId?: numb
     peerStreams,
     mutedPeers,
     setPeerMuted,
+    soloMuted,
+    setSoloMuted,
     replaceTracks,
     restartIce,
   }

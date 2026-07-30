@@ -403,6 +403,8 @@ export function App(_props: AppProps) {
               peerStreams={session.webrtc.peerStreams}
               mutedPeers={session.webrtc.mutedPeers}
               onPeerMute={(peerId, muted) => session.webrtc.setPeerMuted(peerId, muted)}
+              soloMuted={session.webrtc.soloMuted}
+              onSoloMute={(muted) => session.webrtc.setSoloMuted(muted)}
               localGroupIds={[...(user ? [user.id] : []), ...session.groupParticipants.map((p) => p.userId)]}
               soloLayout={uiSettings.soloLayout}
               groupLayout={uiSettings.groupLayout}

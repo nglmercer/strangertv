@@ -13,6 +13,7 @@ import { BrandMark3D } from './brandmark/BrandMark3D'
 import { Icon, icons } from './icons'
 import { PeerTileActions } from './PeerTileActions'
 import { SPEECH_ON, useSpeakerFocus } from '../hooks/useSpeakerFocus'
+import { useTileMenu } from '../hooks/useTileMenu'
 
 type GroupPeer = { peerId: number; userId: number; email?: string; country?: string; side?: 'local' | 'remote' }
 
@@ -57,9 +58,6 @@ function initials(name: string): string {
     .join('')
 }
 
-const LONG_PRESS_MS = 550
-const LONG_PRESS_MOVE_PX = 10
-
 function GroupTile({
   tile,
   t,
@@ -85,52 +83,7 @@ function GroupTile({
 }) {
   const interactive = Boolean(onSelect)
   const hasActions = Boolean(renderActions)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const pressTimer = useRef<number | null>(null)
-  const longPressed = useRef(false)
-  const pressStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
-
-  const clearPress = () => {
-    if (pressTimer.current != null) {
-      window.clearTimeout(pressTimer.current)
-      pressTimer.current = null
-    }
-  }
-  useEffect(() => clearPress, [])
-
-  // Touch devices have no hover: hold the tile to pin the actions menu open.
-  const onPointerDown = (e: PointerEvent) => {
-    if (!hasActions) return
-    if (e.pointerType === 'mouse' && e.button !== 0) return
-    longPressed.current = false
-    pressStart.current = { x: e.clientX, y: e.clientY }
-    clearPress()
-    pressTimer.current = window.setTimeout(() => {
-      longPressed.current = true
-      setMenuOpen((open) => !open)
-    }, LONG_PRESS_MS)
-  }
-  const onPointerMove = (e: PointerEvent) => {
-    if (!hasActions || pressTimer.current == null) return
-    const dx = e.clientX - pressStart.current.x
-    const dy = e.clientY - pressStart.current.y
-    if (dx * dx + dy * dy > LONG_PRESS_MOVE_PX * LONG_PRESS_MOVE_PX) clearPress()
-  }
-  const cancelPress = () => {
-    if (hasActions) clearPress()
-  }
-
-  const handleClick = () => {
-    if (longPressed.current) {
-      longPressed.current = false
-      return
-    }
-    if (menuOpen) {
-      setMenuOpen(false)
-      return
-    }
-    onSelect?.()
-  }
+  const { menuOpen, close, onClick, bind } = useTileMenu(hasActions)
 
   return (
     <article
@@ -145,15 +98,8 @@ function GroupTile({
       ]
         .filter(Boolean)
         .join(' ')}
-      onClick={hasActions ? handleClick : onSelect}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={cancelPress}
-      onPointerLeave={cancelPress}
-      onPointerCancel={cancelPress}
-      onContextMenu={(e) => {
-        if (hasActions) e.preventDefault()
-      }}
+      onClick={hasActions ? onClick(onSelect) : onSelect}
+      {...bind}
       onKeyDown={
         interactive
           ? (e: KeyboardEvent) => {
@@ -193,7 +139,7 @@ function GroupTile({
       <span class="talk-meter" aria-hidden="true">
         <i style={{ width: `${Math.min(100, Math.round(level * 130))}%` }} />
       </span>
-      {hasActions && renderActions!({ open: menuOpen, close: () => setMenuOpen(false) })}
+      {hasActions && renderActions!({ open: menuOpen, close })}
     </article>
   )
 }
@@ -229,6 +175,8 @@ export function VideoStage({
   peerStreams,
   mutedPeers,
   onPeerMute,
+  soloMuted,
+  onSoloMute,
   localGroupIds,
   soloLayout,
   groupLayout,
@@ -263,6 +211,8 @@ export function VideoStage({
   peerStreams: Record<number, MediaStream>
   mutedPeers: Record<number, boolean>
   onPeerMute: (peerId: number, muted: boolean) => void
+  soloMuted: boolean
+  onSoloMute: (muted: boolean) => void
   localGroupIds: number[]
   soloLayout: SoloLayout
   groupLayout: GroupLayout
@@ -285,7 +235,10 @@ export function VideoStage({
     .filter(Boolean)
     .join(' · ')
 
-  const showPeerActions = matched && user && Boolean(peerUserId || peerEmail)
+  // Solo (1:1) tile reuses the same hover/long-press action menu as group tiles.
+  // Mute is always offered; the social buttons self-gate inside PeerTileActions.
+  const soloMenu = useTileMenu(matched)
+  const soloPeer = { peerId: 0, userId: peerUserId ?? 0, email: peerEmail ?? undefined }
 
   const relationshipLabel =
     relationship === 'friend' ? t.alreadyFriends : relationship === 'following' ? t.following : relationship === 'follower' ? t.follower : null
@@ -481,7 +434,9 @@ export function VideoStage({
         ) : (
           <>
             <article
-              class={`video remote ${finding ? 'is-finding' : ''} ${hasRemote ? 'has-stream' : ''} ${matched && !hasRemote ? 'is-connecting' : ''}`}
+              class={`video remote ${finding ? 'is-finding' : ''} ${hasRemote ? 'has-stream' : ''} ${matched && !hasRemote ? 'is-connecting' : ''} ${soloMenu.menuOpen ? 'menu-open' : ''}`}
+              onClick={soloMenu.onClick()}
+              {...soloMenu.bind}
             >
               <video ref={remoteVideo} autoplay playsinline aria-label={t.labelStranger} />
               {!hasRemote && (
@@ -505,33 +460,24 @@ export function VideoStage({
               {relationshipLabel && matched && (
                 <span class="relationship-badge">{relationshipLabel}</span>
               )}
-              {showPeerActions && (
-                <div class="peer-actions">
-                  {relationship !== 'friend' && (
-                    <button
-                      type="button"
-                      class="peer-action"
-                      onClick={() => onAddFriend()}
-                      title={peerUserId ? t.addFriend : peerEmail ? t.peerNotSignedIn : t.addFriend}
-                      disabled={!peerUserId && !peerEmail}
-                    >
-                      <Icon d={icons.userPlus} size={14} />
-                      <span>{t.addFriend}</span>
-                    </button>
-                  )}
-                  {relationship !== 'friend' && relationship !== 'following' && (
-                    <button
-                      type="button"
-                      class="peer-action"
-                      onClick={() => onFollow()}
-                      title={peerUserId ? t.follow : t.peerNotSignedIn}
-                      disabled={!peerUserId}
-                    >
-                      <Icon d={icons.follow} size={14} />
-                      <span>{t.follow}</span>
-                    </button>
-                  )}
-                </div>
+              {soloMuted && matched && (
+                <span class="peer-muted-badge" title={t.mute} aria-label={t.mute}>
+                  <Icon d={icons.micOff} size={14} />
+                </span>
+              )}
+              {matched && (
+                <PeerTileActions
+                  peer={soloPeer}
+                  t={t}
+                  user={user}
+                  muted={soloMuted}
+                  open={soloMenu.menuOpen}
+                  onClose={soloMenu.close}
+                  onAddFriend={onAddFriend}
+                  onFollow={onFollow}
+                  onInviteGroup={onInviteGroup}
+                  onToggleMute={(_peerId, muted) => onSoloMute(muted)}
+                />
               )}
               {sharedInterests.length > 0 && matched && (
               <div class="interest-badge" aria-label={t.sharedInterests}>

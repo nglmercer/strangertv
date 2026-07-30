@@ -259,45 +259,7 @@
   color: #fff;
 }
 
-/* Peer actions (follow/friend) shown when matched with a logged-in user */
-.peer-actions {
-  position: absolute;
-  z-index: 5;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  gap: 6px;
-  opacity: 0.1;
-}
-.peer-actions:hover {
-  opacity: 1;
-  transition: opacity 0.2s ease-in-out;
-}
-.peer-action {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  background: #1a1a1acc;
-  color: #eee;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.12s ease;
-}
-
-.peer-action:hover {
-  background: #2a2a2aee;
-  transform: translateY(-1px);
-}
-
-.peer-action:active {
-  transform: scale(0.97);
-}
-
-/* Per-peer quick actions on group tiles.
+/* Per-peer quick actions on video tiles (solo and group), hidden by default.
    Desktop: revealed on tile hover / keyboard focus.
    Touch: pinned open via long-press (.open), since hover doesn't exist. */
 .tile-actions {
