@@ -7,8 +7,10 @@ import { Icon, icons } from './icons'
 export type DeckOption = {
   value: string
   label: string
-  /** Optional leading icon path (from `icons`). */
+  /** Leading icon path (from `icons`). */
   icon?: string
+  /** Leading custom artwork (e.g. a flag), used instead of `icon`. */
+  art?: ComponentChildren
 }
 
 type Anchor = { left: number; width: number; top?: number; bottom?: number; maxHeight: number }
@@ -204,7 +206,9 @@ export function DeckSelect({
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => pick(option.value)}
             >
-              <span class="deck-select-icon">{option.icon ? <Icon d={option.icon} size={16} /> : null}</span>
+              <span class="deck-select-icon">
+                {option.art ?? (option.icon ? <Icon d={option.icon} size={16} /> : null)}
+              </span>
               <span class="deck-select-label">{option.label}</span>
               <span class="deck-select-check">{selected ? <Icon d={icons.check} size={16} /> : null}</span>
             </button>

@@ -1,10 +1,15 @@
 import { useState } from 'preact/hooks'
 import { COUNTRY_CODES, type Gender, type MatchPreferences } from '../../shared/types'
 import { countryLabel, type Messages } from '../i18n'
-import { DEFAULT_COUNTRY, GENDERS } from '../../shared/constants'
+import { GENDER, GENDERS } from '../../shared/constants'
 import { sharePrefsUrl } from '../utils/sharePrefs'
 import { DeckSelect } from './DeckSelect'
+import { Flag } from './Flag'
 import { Icon, icons } from './icons'
+
+/** Distinct glyph per "looking for" option (mars / venus / transgender / globe). */
+const genderIcon = (g: string) =>
+  g === GENDER.male ? icons.genderMale : g === GENDER.female ? icons.genderFemale : g === GENDER.other ? icons.genderOther : icons.globe
 
 export function ControlDeck({
   t,
@@ -33,7 +38,6 @@ export function ControlDeck({
   onChangeLookingFor: (gender: Gender) => void
 }) {
   const isActive = finding || matched
-  const countryDisplay = prefs.country === DEFAULT_COUNTRY ? <Icon d={icons.globe} size={18} /> : prefs.country
   const [copied, setCopied] = useState(false)
 
   const handleShare = async () => {
@@ -81,10 +85,10 @@ export function ControlDeck({
         t={t}
         label={t.country}
         value={prefs.country}
-        options={COUNTRY_CODES.map((code) => ({ value: code, label: countryLabel(t, code), icon: code === DEFAULT_COUNTRY ? icons.globe : undefined }))}
+        options={COUNTRY_CODES.map((code) => ({ value: code, label: countryLabel(t, code), art: <Flag code={code} size={20} /> }))}
         onChange={onChangeCountry}
         searchable
-        triggerIcon={countryDisplay}
+        triggerIcon={<Flag code={prefs.country} size={26} />}
         triggerLabel={countryLabel(t, prefs.country)}
         triggerTitle={`${t.country}: ${countryLabel(t, prefs.country)}`}
       />
@@ -94,11 +98,11 @@ export function ControlDeck({
         value={prefs.lookingFor}
         options={GENDERS.map((g) => ({
           value: g,
-          label: g === GENDERS[1] ? t.male : g === GENDERS[2] ? t.female : g === GENDERS[3] ? t.other : t.everyone,
-          icon: g === GENDERS[0] ? icons.globe : icons.user,
+          label: g === GENDER.male ? t.male : g === GENDER.female ? t.female : g === GENDER.other ? t.other : t.everyone,
+          icon: genderIcon(g),
         }))}
         onChange={(next) => onChangeLookingFor(next as Gender)}
-        triggerIcon={prefs.lookingFor === GENDERS[0] ? <Icon d={icons.globe} size={18} /> : <Icon d={icons.user} size={18} />}
+        triggerIcon={<Icon d={genderIcon(prefs.lookingFor)} size={24} />}
         triggerLabel={lookingLabel}
         triggerTitle={`${t.lookingFor}: ${lookingLabel}`}
       />

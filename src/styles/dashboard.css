@@ -209,7 +209,7 @@
 
 .deck-select-icon,
 .deck-select-check {
-  width: 16px;
+  width: 20px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
@@ -226,6 +226,11 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+.flag {
+  display: block;
+  flex-shrink: 0;
 }
 
 .deck-select-empty {
