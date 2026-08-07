@@ -296,11 +296,17 @@
   -webkit-backdrop-filter: blur(4px);
   transition: background 0.15s ease, transform 0.12s ease;
 }
-.tile-action:hover {
+.tile-action:hover:not(:disabled) {
   background: #2a2a2aee;
   transform: translateY(-1px);
 }
-.tile-action:active {
+/* Kept visible (not hidden) so the tile still advertises its actions when the
+   participant is a guest and social actions cannot target an account. */
+.tile-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.tile-action:active:not(:disabled) {
   transform: scale(0.94);
 }
 .tile-action.is-muted {

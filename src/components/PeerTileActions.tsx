@@ -29,6 +29,7 @@ export function PeerTileActions({
   onFollow,
   onInviteGroup,
   onToggleMute,
+  solo = false,
 }: {
   peer: TilePeer
   t: Messages
@@ -40,14 +41,38 @@ export function PeerTileActions({
   onFollow: (userId: number) => void
   onInviteGroup: (userId: number) => void
   onToggleMute: (peerId: number, muted: boolean) => void
+  /** 1:1 tile: the peer is unambiguous, so it can be invited even as a guest. */
+  solo?: boolean
 }) {
   // Social actions need a signed-in viewer and a signed-in peer who isn't us.
+  // When that is not the case the buttons stay visible but disabled: a lone
+  // mute icon gives no hint that a tile carries per-participant actions.
   const signedPeer = Boolean(user && peer.userId && peer.userId !== user.id)
+  // A group invite is routed by userId, so a guest tile in a group match cannot
+  // be singled out — in a 1:1 call the server resolves it from the partner.
+  const canInvite = Boolean(user) && (signedPeer || solo)
+  const socialHint = user ? t.peerNotSignedIn : t.signIn
 
   const act = (fn: () => void) => (e: Event) => {
     e.stopPropagation()
     fn()
   }
+
+  const socialAction = (label: string, iconPath: string, enabled: boolean, run: () => void) => (
+    <button
+      type="button"
+      class="tile-action"
+      disabled={!enabled}
+      title={enabled ? label : socialHint}
+      aria-label={label}
+      onClick={act(() => {
+        run()
+        onClose()
+      })}
+    >
+      <Icon d={iconPath} size={16} />
+    </button>
+  )
 
   return (
     <div
@@ -57,48 +82,9 @@ export function PeerTileActions({
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      {signedPeer && (
-        <button
-          type="button"
-          class="tile-action"
-          title={t.addFriend}
-          aria-label={t.addFriend}
-          onClick={act(() => {
-            onAddFriend(peer.userId)
-            onClose()
-          })}
-        >
-          <Icon d={icons.userPlus} size={16} />
-        </button>
-      )}
-      {signedPeer && (
-        <button
-          type="button"
-          class="tile-action"
-          title={t.follow}
-          aria-label={t.follow}
-          onClick={act(() => {
-            onFollow(peer.userId)
-            onClose()
-          })}
-        >
-          <Icon d={icons.follow} size={16} />
-        </button>
-      )}
-      {signedPeer && (
-        <button
-          type="button"
-          class="tile-action"
-          title={t.inviteToGroupMatch}
-          aria-label={t.inviteToGroupMatch}
-          onClick={act(() => {
-            onInviteGroup(peer.userId)
-            onClose()
-          })}
-        >
-          <Icon d={icons.users} size={16} />
-        </button>
-      )}
+      {socialAction(t.addFriend, icons.userPlus, signedPeer, () => onAddFriend(peer.userId))}
+      {socialAction(t.follow, icons.follow, signedPeer, () => onFollow(peer.userId))}
+      {socialAction(t.inviteToGroupMatch, icons.users, canInvite, () => onInviteGroup(peer.userId))}
       <button
         type="button"
         class={`tile-action ${muted ? 'is-muted' : ''}`}

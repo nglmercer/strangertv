@@ -392,21 +392,6 @@ export function CallBar({
               <Icon d={icons.fullscreen} size={18} />
               <span>{t.fullscreen}</span>
             </button>
-            <div class="call-menu-sep" />
-            {user && relationship !== 'friend' && (
-              <button
-                type="button"
-                role="menuitem"
-                class="call-menu-item"
-                onClick={() => {
-                  setMenu(null)
-                  onAddFriend()
-                }}
-              >
-                <Icon d={icons.userPlus} size={18} />
-                <span>{t.addFriend}</span>
-              </button>
-            )}
             {user && (
               <button
                 type="button"
@@ -422,21 +407,51 @@ export function CallBar({
                 <span>{t.inviteToMatch}</span>
               </button>
             )}
-            {/* TODO: Restrict to friends/followed users in the future */}
+
+            {/* Actions aimed at the person you are talking to. They resolve to
+                "the" peer, which only exists in a 1:1 call — in a group match
+                each tile carries its own menu, so point there instead. */}
             {user && matched && (
-              <button
-                type="button"
-                role="menuitem"
-                class="call-menu-item"
-                onClick={() => {
-                  setMenu(null)
-                  onInviteGroup()
-                }}
-              >
-                <Icon d={icons.users} size={18} />
-                <span>{t.inviteToGroupMatch}</span>
-              </button>
+              <>
+                <div class="call-menu-sep" />
+                <div class="call-menu-heading">{t.labelStranger}</div>
+                {isGroupMatch ? (
+                  <p class="call-menu-hint">{t.perTileActionsHint}</p>
+                ) : (
+                  <>
+                    {relationship !== 'friend' && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        class="call-menu-item"
+                        onClick={() => {
+                          setMenu(null)
+                          onAddFriend()
+                        }}
+                      >
+                        <Icon d={icons.userPlus} size={18} />
+                        <span>{t.addFriend}</span>
+                      </button>
+                    )}
+                    {/* TODO: Restrict to friends/followed users in the future */}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      class="call-menu-item"
+                      onClick={() => {
+                        setMenu(null)
+                        onInviteGroup()
+                      }}
+                    >
+                      <Icon d={icons.users} size={18} />
+                      <span>{t.inviteToGroupMatch}</span>
+                    </button>
+                  </>
+                )}
+              </>
             )}
+
+            <div class="call-menu-sep" />
             <button
               type="button"
               role="menuitem"

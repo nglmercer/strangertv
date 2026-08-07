@@ -312,7 +312,9 @@ export function App(_props: AppProps) {
   /** Invite a specific peer (or the current 1:1 peer by default) to a group match. */
   const onInviteGroup = useCallback(
     (targetUserId?: number) => {
-      void session.invitePeerToGroup(targetUserId ?? session.peerUserId ?? undefined)
+      // `|| undefined` (not `??`): a guest tile reports userId 0, which the
+      // server must see as "no target" so it falls back to the 1:1 partner.
+      void session.invitePeerToGroup(targetUserId || session.peerUserId || undefined)
     },
     [session],
   )

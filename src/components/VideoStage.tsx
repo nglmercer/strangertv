@@ -501,6 +501,7 @@ export function VideoStage({
               {matched && (
                 <PeerTileActions
                   peer={soloPeer}
+                  solo
                   t={t}
                   user={user}
                   muted={soloMuted}
