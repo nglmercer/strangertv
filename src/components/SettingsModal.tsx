@@ -3,6 +3,7 @@ import { authApi, socialApi, type PublicUser } from '../api'
 import { isMatchNotifyEnabled, isMatchSoundEnabled, setMatchNotifyEnabled, setMatchSoundEnabled, clearSession } from '../utils/storage'
 import type { Messages } from '../i18n'
 import { requestNotifyPermission } from '../utils/notify'
+import { useConfirm } from './ConfirmDialog'
 import { Modal } from './Modal'
 import { Icon, icons } from './icons'
 
@@ -22,6 +23,7 @@ export function SettingsModal({
   onUserUpdate?: (u: PublicUser) => void
 }) {
   const [error, setError] = useState('')
+  const [confirmUi, confirm] = useConfirm(t)
   const [info, setInfo] = useState('')
   const [blocks, setBlocks] = useState<BlockRow[]>([])
   const [sound, setSound] = useState(isMatchSoundEnabled)
@@ -37,6 +39,7 @@ export function SettingsModal({
 
   return (
     <Modal onClose={onClose} labelledBy="settings-title">
+      {confirmUi}
       <button type="button" class="modal-close" onClick={onClose} aria-label={t.close}>
         ×
       </button>
@@ -143,7 +146,13 @@ export function SettingsModal({
         type="button"
         class="match full danger"
         onClick={async () => {
-          if (!confirm(t.deleteAccountConfirm)) return
+          const ok = await confirm({
+            title: t.deleteAccountTitle,
+            message: t.deleteAccountConfirm,
+            confirmLabel: t.deleteAccount,
+            danger: true,
+          })
+          if (!ok) return
           try {
             await authApi.deleteAccount()
             clearSession()

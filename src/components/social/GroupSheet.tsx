@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks'
 import type { Friend, Group, GroupMember } from '../../../shared/types'
 import type { Messages } from '../../i18n'
+import { useConfirm } from '../ConfirmDialog'
 import { Icon, icons } from '../icons'
 import { Avatar } from './Avatar'
 import { displayName } from './ConversationList'
@@ -45,6 +46,21 @@ export function GroupSheet({
   const [name, setName] = useState(group.name)
   const [adding, setAdding] = useState<Set<number>>(new Set())
   const [busy, setBusy] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [confirmUi, confirm] = useConfirm(t)
+
+  /** Runs an action, surfacing failures instead of leaving the sheet inert. */
+  const run = async (action: () => Promise<void>) => {
+    setBusy(true)
+    setFailed(false)
+    try {
+      await action()
+    } catch {
+      setFailed(true)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const memberIds = new Set(members.map((m) => m.userId))
   const addable = friends.filter((f) => !memberIds.has(f.otherUser.id))
@@ -59,29 +75,22 @@ export function GroupSheet({
 
   const submitAdd = async () => {
     if (adding.size === 0) return
-    setBusy(true)
-    try {
+    await run(async () => {
       await onAddMembers([...adding])
       setAdding(new Set())
-    } finally {
-      setBusy(false)
-    }
+    })
   }
 
   const submitRename = async (e: Event) => {
     e.preventDefault()
     const next = name.trim()
     if (!next || next === group.name) return
-    setBusy(true)
-    try {
-      await onRename(next)
-    } finally {
-      setBusy(false)
-    }
+    await run(() => onRename(next))
   }
 
   return (
     <aside class="group-sheet" aria-label={t.groupInfo}>
+      {confirmUi}
       <header class="group-sheet-top">
         <h2>{t.groupInfo}</h2>
         <button type="button" class="icon-btn" onClick={onClose} aria-label={t.close}>
@@ -134,7 +143,12 @@ export function GroupSheet({
                   title={t.removeMember}
                   aria-label={t.removeMember}
                   onClick={() => {
-                    if (confirm(t.confirmRemoveMember)) void onRemoveMember(m.userId)
+                    void confirm({
+                      title: t.removeMemberTitle,
+                      message: t.confirmRemoveMember,
+                      confirmLabel: t.removeMember,
+                      danger: true,
+                    }).then((ok) => { if (ok) void run(() => onRemoveMember(m.userId)) })
                   }}
                 >
                   <Icon d={icons.userX} size={16} />
@@ -178,12 +192,20 @@ export function GroupSheet({
           </section>
         )}
 
+        {failed && <p class="people-note error">{t.genericError}</p>}
+
         <section class="group-sheet-section">
           <button
             type="button"
             class="social-btn danger full"
+            disabled={busy}
             onClick={() => {
-              if (confirm(t.confirmLeaveGroup)) void onLeave()
+              void confirm({
+                title: t.leaveGroupTitle,
+                message: t.confirmLeaveGroup,
+                confirmLabel: t.leaveGroup,
+                danger: true,
+              }).then((ok) => { if (ok) void run(onLeave) })
             }}
           >
             <Icon d={icons.signOut} size={16} />

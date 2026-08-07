@@ -743,6 +743,48 @@
   color: var(--danger);
 }
 
+/* Solid variant for the confirming button of a destructive dialog. */
+.social-btn.danger-solid {
+  border-color: transparent;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 600;
+}
+
+.social-btn.danger-solid:hover:not(:disabled) {
+  background: var(--danger-dark);
+}
+
+/* --------------------------------------------------------------------------
+   Confirmation dialog
+   -------------------------------------------------------------------------- */
+.confirm-modal {
+  max-width: 400px;
+}
+
+.confirm-modal h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.confirm-message {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-actions .social-btn {
+  min-width: 104px;
+  padding: 10px 16px;
+}
+
 .social-btn.full {
   width: 100%;
 }

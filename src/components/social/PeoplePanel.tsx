@@ -4,6 +4,7 @@ import type { Friend, GroupInvite } from '../../../shared/types'
 import { friendsApi, type PublicUser } from '../../api'
 import type { Messages } from '../../i18n'
 import { useSocialStore } from '../../store/socialStore'
+import { useConfirm } from '../ConfirmDialog'
 import { Icon, icons } from '../icons'
 import { Avatar } from './Avatar'
 import { displayName } from './ConversationList'
@@ -53,6 +54,7 @@ export function PeoplePanel({
   const [search, setSearch] = useState<SearchState>({ kind: 'idle' })
   const [busy, setBusy] = useState<number | null>(null)
   const store = useSocialStore()
+  const [confirmUi, confirm] = useConfirm(t)
 
   const runSearch = async (e: Event) => {
     e.preventDefault()
@@ -90,6 +92,7 @@ export function PeoplePanel({
 
   return (
     <div class="people-panel">
+      {confirmUi}
       <section class="people-section">
         <h3 class="people-heading">{t.addFriendTitle}</h3>
         <form class="people-search" onSubmit={runSearch}>
@@ -272,7 +275,12 @@ export function PeoplePanel({
                   title={t.unfriend}
                   aria-label={t.unfriend}
                   onClick={() => {
-                    if (confirm(t.removeFriendConfirm)) void onRemoveFriend(f.id, f.otherUser.id)
+                    void confirm({
+                      title: t.removeFriendTitle,
+                      message: t.removeFriendConfirm,
+                      confirmLabel: t.unfriend,
+                      danger: true,
+                    }).then((ok) => { if (ok) void onRemoveFriend(f.id, f.otherUser.id) })
                   }}
                 >
                   <Icon d={icons.userX} size={16} />

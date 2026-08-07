@@ -157,19 +157,42 @@ export async function removeGroupMember(groupId: number, userId: number, targetU
   return { removed: true }
 }
 
+/**
+ * Remove a member from a group.
+ *
+ * The last admin used to be refused ("Cannot leave group with no other
+ * admins"), which left them permanently stuck in the group. Instead the role is
+ * handed to the next-oldest member, and a group nobody is left in is deleted.
+ */
 export async function leaveGroup(groupId: number, userId: number, db: Client = defaultDb) {
   const group = await getGroup(groupId, userId, db)
   if (!group) throw new Error('Group not found')
-  if (group.myRole === 'admin') {
-    const members = await getGroupMembers(groupId, db)
-    const otherAdmins = members.filter((m) => m.role === 'admin' && m.userId !== userId)
-    if (otherAdmins.length === 0) throw new Error('Cannot leave group with no other admins')
-  }
+
+  const members = await getGroupMembers(groupId, db)
+  const others = members.filter((m) => m.userId !== userId)
+
   await db.execute({
     sql: 'DELETE FROM group_members WHERE group_id = ? AND user_id = ?',
     args: [groupId, userId],
   })
-  return { left: true }
+
+  if (others.length === 0) {
+    // Explicit cleanup: SQLite only cascades when foreign keys are enabled.
+    await db.execute({ sql: 'DELETE FROM group_messages WHERE group_id = ?', args: [groupId] })
+    await db.execute({ sql: 'DELETE FROM group_invites WHERE group_id = ?', args: [groupId] })
+    await db.execute({ sql: 'DELETE FROM groups WHERE id = ?', args: [groupId] })
+    return { left: true, dissolved: true }
+  }
+
+  if (group.myRole === 'admin' && !others.some((m) => m.role === 'admin')) {
+    const successor = others[0]!
+    await db.execute({
+      sql: "UPDATE group_members SET role = 'admin' WHERE group_id = ? AND user_id = ?",
+      args: [groupId, successor.userId],
+    })
+  }
+
+  return { left: true, dissolved: false }
 }
 
 export async function sendGroupMessage(groupId: number, senderId: number, text: string, db: Client = defaultDb) {

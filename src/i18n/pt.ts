@@ -430,6 +430,12 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   removeFriendConfirm: 'Remover este amigo?',
   you: 'Você',
   saveShort: 'Salvar',
+  confirmTitle: 'Tem certeza?',
+  confirmAction: 'Confirmar',
+  removeFriendTitle: 'Remover amigo',
+  removeMemberTitle: 'Remover membro',
+  leaveGroupTitle: 'Sair do grupo',
+  deleteAccountTitle: 'Excluir conta',
   socialPointFriends: 'Adicione amigos e converse direto com eles',
   // Share match prefs
   sharePrefs: 'Compartilhar preferências',

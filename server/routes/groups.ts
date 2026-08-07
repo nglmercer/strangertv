@@ -101,8 +101,12 @@ export function registerGroupsRoutes(app: Hono, send: (socket: SocketLike, msg: 
     if (!user) return c.json({ error: 'Unauthorized' }, HTTP_STATUS.unauthorized)
     const groupId = Number(c.req.param('id'))
     if (!groupId) return c.json({ error: 'Invalid id' }, HTTP_STATUS.badRequest)
-    await leaveGroup(groupId, user.id)
-    return c.json({ ok: true })
+    try {
+      const result = await leaveGroup(groupId, user.id)
+      return c.json({ ok: true, ...result })
+    } catch (e) {
+      return c.json({ error: e instanceof Error ? e.message : 'Could not leave group' }, HTTP_STATUS.badRequest)
+    }
   })
 
   app.get(API_ROUTES.groupMessages(':id'), async (c) => {
