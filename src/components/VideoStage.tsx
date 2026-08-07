@@ -79,11 +79,11 @@ function GroupTile({
   muted?: boolean
   onSelect?: () => void
   localVideo?: RefObject<HTMLVideoElement>
-  renderActions?: (ctx: { open: boolean; close: () => void }) => ComponentChildren
+  renderActions?: (ctx: { open: boolean; close: () => void; toggle: () => void }) => ComponentChildren
 }) {
   const interactive = Boolean(onSelect)
   const hasActions = Boolean(renderActions)
-  const { menuOpen, close, onClick, bind } = useTileMenu(hasActions)
+  const { menuOpen, close, toggle, onClick, bind } = useTileMenu(hasActions)
 
   return (
     <article
@@ -139,7 +139,7 @@ function GroupTile({
       <span class="talk-meter" aria-hidden="true">
         <i style={{ width: `${Math.min(100, Math.round(level * 130))}%` }} />
       </span>
-      {hasActions && renderActions!({ open: menuOpen, close })}
+      {hasActions && renderActions!({ open: menuOpen, close, toggle })}
     </article>
   )
 }
@@ -298,7 +298,7 @@ export function VideoStage({
   const tileActions = (tile: Tile) => {
     if (tile.peerId == null) return undefined
     const peer = { peerId: tile.peerId, userId: tile.userId ?? 0, email: tile.email }
-    return ({ open, close }: { open: boolean; close: () => void }) => (
+    return ({ open, close, toggle }: { open: boolean; close: () => void; toggle: () => void }) => (
       <PeerTileActions
         peer={peer}
         t={t}
@@ -306,6 +306,7 @@ export function VideoStage({
         muted={mutedPeers[tile.peerId!] ?? false}
         open={open}
         onClose={close}
+        onToggle={toggle}
         onAddFriend={onAddFriend}
         onFollow={onFollow}
         onInviteGroup={onInviteGroup}
@@ -513,6 +514,7 @@ export function VideoStage({
                   muted={soloMuted}
                   open={soloMenu.menuOpen}
                   onClose={soloMenu.close}
+                  onToggle={soloMenu.toggle}
                   onAddFriend={onAddFriend}
                   onFollow={onFollow}
                   onInviteGroup={onInviteGroup}

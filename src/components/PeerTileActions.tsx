@@ -10,11 +10,10 @@ export type TilePeer = {
 }
 
 /**
- * Per-participant quick actions rendered on top of a group video tile.
- *
- * Desktop: revealed on tile hover / keyboard focus (pure CSS in stage.css).
- * Touch: the parent tile long-presses to pin the menu open (`open`), since
- * hover does not exist on mobile.
+ * Per-participant actions for a video tile, as a panel that is collapsed by
+ * default: only a small toggle sits on the video, and opening it reveals the
+ * actions plus the connection status. Long-pressing the tile toggles it too,
+ * for touch. Each button carries a `data-tip` tooltip (styled in stage.css).
  *
  * `onPointerDown`/`onClick` stop-propagation so taps here never trigger the
  * tile's own long-press/pin handling underneath.
@@ -32,6 +31,7 @@ export function PeerTileActions({
   onToggleMute,
   onReport,
   onBlock,
+  onToggle,
   status,
   solo = false,
 }: {
@@ -47,7 +47,9 @@ export function PeerTileActions({
   onToggleMute: (peerId: number, muted: boolean) => void
   onReport: (userId: number) => void
   onBlock: (userId: number) => void
-  /** Always-visible status (connection quality) pinned to the end of the row. */
+  /** Opens/closes the panel from its toggle button. */
+  onToggle: () => void
+  /** Status (connection quality) pinned to the end of the row. */
   status?: ComponentChildren
   /** 1:1 tile: the peer is unambiguous, so it can be invited even as a guest. */
   solo?: boolean
@@ -66,12 +68,19 @@ export function PeerTileActions({
     fn()
   }
 
-  const socialAction = (label: string, iconPath: string, enabled: boolean, run: () => void) => (
+  const action = (
+    label: string,
+    iconPath: string,
+    enabled: boolean,
+    run: () => void,
+    extraClass = '',
+    disabledHint = socialHint,
+  ) => (
     <button
       type="button"
-      class="tile-action"
+      class={`tile-action ${extraClass}`.trim()}
       disabled={!enabled}
-      title={enabled ? label : socialHint}
+      data-tip={enabled ? label : disabledHint}
       aria-label={label}
       onClick={act(() => {
         run()
@@ -85,52 +94,48 @@ export function PeerTileActions({
   return (
     <div
       class={`tile-actions ${open ? 'open' : ''}`}
-      role="toolbar"
-      aria-label={t.participants}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      {socialAction(t.addFriend, icons.userPlus, signedPeer, () => onAddFriend(peer.userId))}
-      {socialAction(t.follow, icons.follow, signedPeer, () => onFollow(peer.userId))}
-      {socialAction(t.inviteToGroupMatch, icons.users, canInvite, () => onInviteGroup(peer.userId))}
+      {/* Collapsed by default: only this toggle sits on the video. Everything
+          else — including the connection status — lives in the panel below. */}
       <button
         type="button"
-        class={`tile-action ${muted ? 'is-muted' : ''}`}
-        title={muted ? t.unmute : t.mute}
-        aria-label={muted ? t.unmute : t.mute}
-        aria-pressed={muted}
-        onClick={act(() => onToggleMute(peer.peerId, !muted))}
+        class="tile-actions-toggle"
+        aria-expanded={open}
+        aria-label={t.moreActions}
+        data-tip={t.moreActions}
+        onClick={act(onToggle)}
       >
-        <Icon d={muted ? icons.micOff : icons.micOn} size={16} />
+        <Icon d={open ? icons.chevron : icons.more} size={16} />
       </button>
-      {/* Safety actions live next to the participant they act on: in a group
-          match there is no other way to say WHO is being reported/blocked. */}
-      <button
-        type="button"
-        class="tile-action"
-        title={t.report}
-        aria-label={t.report}
-        onClick={act(() => {
-          onReport(peer.userId)
-          onClose()
-        })}
-      >
-        <Icon d={icons.report} size={16} />
-      </button>
-      <button
-        type="button"
-        class="tile-action danger"
-        disabled={!signedPeer}
-        title={signedPeer ? t.blockPeer : user ? t.peerNotSignedIn : t.signInToBlock}
-        aria-label={t.blockPeer}
-        onClick={act(() => {
-          onBlock(peer.userId)
-          onClose()
-        })}
-      >
-        <Icon d={icons.block} size={16} />
-      </button>
-      {status}
+      <div class="tile-actions-panel" role="toolbar" aria-label={t.participants} aria-hidden={!open}>
+        {action(t.addFriend, icons.userPlus, signedPeer, () => onAddFriend(peer.userId))}
+        {action(t.follow, icons.follow, signedPeer, () => onFollow(peer.userId))}
+        {action(t.inviteToGroupMatch, icons.users, canInvite, () => onInviteGroup(peer.userId))}
+        <button
+          type="button"
+          class={`tile-action ${muted ? 'is-muted' : ''}`}
+          data-tip={muted ? t.unmute : t.mute}
+          aria-label={muted ? t.unmute : t.mute}
+          aria-pressed={muted}
+          onClick={act(() => onToggleMute(peer.peerId, !muted))}
+        >
+          <Icon d={muted ? icons.micOff : icons.micOn} size={16} />
+        </button>
+        {/* Safety actions live next to the participant they act on: in a group
+            match there is no other way to say WHO is being reported/blocked. */}
+        {action(t.report, icons.report, true, () => onReport(peer.userId))}
+        {action(
+          t.blockPeer,
+          icons.block,
+          signedPeer,
+          () => onBlock(peer.userId),
+          'danger',
+          user ? t.peerNotSignedIn : t.signInToBlock,
+        )}
+        {status}
+      </div>
     </div>
   )
 }

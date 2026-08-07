@@ -4,13 +4,13 @@ const LONG_PRESS_MS = 550
 const LONG_PRESS_MOVE_PX = 10
 
 /**
- * Shared hover/long-press menu controller for a video tile.
+ * Open/close controller for a video tile's action panel.
  *
- * Desktop reveals the menu purely via CSS (`:hover` / `:focus-within`); this
- * hook only owns the touch path, where hover does not exist: holding the tile
- * pins the menu open (`menuOpen`), and a tap while open closes it. It also
- * suppresses the synthetic click that follows a long-press so the tile's own
- * click action (e.g. select/pin) never fires by accident.
+ * The panel is collapsed by default and opened from its own toggle button
+ * (`toggle`). This hook adds the touch path on top: holding the tile pins the
+ * panel open (`menuOpen`), a tap while open closes it, and the synthetic click
+ * that follows a long-press is swallowed so the tile's own click action (e.g.
+ * select/pin) never fires by accident.
  *
  * Pass `hasActions=false` for tiles with no menu (e.g. the local tile) to make
  * every handler a no-op.
@@ -68,6 +68,7 @@ export function useTileMenu(hasActions: boolean) {
   return {
     menuOpen,
     close: () => setMenuOpen(false),
+    toggle: () => setMenuOpen((open) => !open),
     onClick,
     bind: {
       onPointerDown,
