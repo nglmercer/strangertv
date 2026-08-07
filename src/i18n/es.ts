@@ -430,7 +430,6 @@ Las conversaciones no son privadas frente a tu pareja; trata a los desconocidos 
   startMatching: 'Iniciar Búsqueda',
   groupNeedMoreParticipants: 'Invita al menos 1 amigo para empezar',
   inviteToGroupMatch: 'Invitar a grupo',
-  perTileActionsHint: 'Pasa el cursor sobre un participante para agregarlo, seguirlo o invitarlo',
   participants: 'Participantes',
   groupMatchInviteTitle: 'Invitación a grupo',
   groupMatchInviteBody: 'te invita a unirte a un grupo',

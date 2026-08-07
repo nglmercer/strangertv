@@ -430,7 +430,6 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   startMatching: 'Iniciar Busca',
   groupNeedMoreParticipants: 'Convide pelo menos 1 amigo para começar',
   inviteToGroupMatch: 'Convidar para grupo',
-  perTileActionsHint: 'Passe o cursor sobre um participante para adicionar, seguir ou convidar',
   participants: 'Participantes',
   groupMatchInviteTitle: 'Convite para grupo',
   groupMatchInviteBody: 'convida você para entrar em um grupo',

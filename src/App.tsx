@@ -74,6 +74,7 @@ export function App(_props: AppProps) {
   const [resetTokenFromUrl, setResetTokenFromUrl] = useState('')
   const [settings, setSettings] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [reportTarget, setReportTarget] = useState<number | undefined>()
   const [friendManager, setFriendManager] = useState<{ open: boolean; inviteMode: boolean }>({ open: false, inviteMode: false })
   const [page, setPage] = useState<PageId>(null)
   const [authActive, setAuthActive] = useState(false)
@@ -253,13 +254,24 @@ export function App(_props: AppProps) {
     [session],
   )
 
+  /** Report/block are aimed at one participant, picked from that person's tile. */
+  const onReportPeer = useCallback((targetUserId?: number) => {
+    setReportTarget(targetUserId || session.peerUserId || undefined)
+    setReportOpen(true)
+  }, [session.peerUserId])
+
+  const onBlockPeer = useCallback((targetUserId?: number) => {
+    session.match.block(targetUserId || session.peerUserId || undefined)
+  }, [session.match, session.peerUserId])
+
   const onReport = useCallback(
     (reason: ReportReason, detail: string) => {
-      session.match.report(reason, detail)
+      session.match.report(reason, detail, reportTarget)
       void socialApi.report(reason, detail, session.roomId ?? undefined).catch(() => undefined)
       setReportOpen(false)
+      setReportTarget(undefined)
     },
-    [session],
+    [session, reportTarget],
   )
 
   /** Direct friend request when both users are logged in (peerUserId known); otherwise open manual manager. */
@@ -401,6 +413,8 @@ export function App(_props: AppProps) {
               onAddFriend={onAddFriend}
               onFollow={onFollow}
               onInviteGroup={onInviteGroup}
+              onReportPeer={onReportPeer}
+              onBlockPeer={onBlockPeer}
               groupPeers={session.groupPeers.length > 0 ? session.groupPeers : undefined}
               peerStreams={session.webrtc.peerStreams}
               mutedPeers={session.webrtc.mutedPeers}
@@ -415,11 +429,9 @@ export function App(_props: AppProps) {
               t={tr}
               finding={session.finding}
               matched={session.matched}
-              isGroupMatch={isGroupMatch}
               muted={session.media.muted}
               cameraOn={session.media.cameraOn}
               quality={session.webrtc.quality}
-              canBlock={Boolean(user)}
               devices={session.media.devices}
               videoId={session.media.videoId}
               audioId={session.media.audioId}
@@ -430,8 +442,6 @@ export function App(_props: AppProps) {
               onStart={onStartClick}
               onMute={() => session.media.setMutedTrack(!session.media.muted)}
               onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
-              onReport={() => setReportOpen(true)}
-              onBlock={() => session.match.block()}
               onRetryIce={() => void session.webrtc.restartIce()}
               onOpenSocial={() => {
                 route('/social')
@@ -453,13 +463,10 @@ export function App(_props: AppProps) {
               }}
               onSettings={() => setSettings(true)}
               onAuthClick={onAuthClick}
-              onAddFriend={onAddFriend}
               onInvite={() => {
                 console.debug('[app] invite clicked, opening friend manager')
                 setFriendManager({ open: true, inviteMode: true })
               }}
-              onInviteGroup={onInviteGroup}
-              relationship={session.relationship}
             />
           </div>
           {friendManager.open && (

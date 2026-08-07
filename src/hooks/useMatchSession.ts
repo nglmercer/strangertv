@@ -271,17 +271,22 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       onStatus(message)
       setFinding(false)
     },
+    // Reporting or blocking takes us out of the room for good — including a
+    // group room, which the server drops us from — so clear the group tiles too.
     onReportAck: () => {
       webrtcRef.current.clear()
-      setMatched(false)
       setFinding(false)
-      setRoomId(null)
+      clearPeerUi()
+      clearGroupState()
+      setMatchMode(MATCH_MODE.solo)
       onStatus(trRef.current.reportThanks)
     },
     onBlockAck: () => {
       webrtcRef.current.clear()
       setFinding(false)
       clearPeerUi()
+      clearGroupState()
+      setMatchMode(MATCH_MODE.solo)
       onStatus(trRef.current.blocked)
     },
     onDraining: (message) => {

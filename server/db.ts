@@ -248,6 +248,13 @@ export async function migrate() {
   } catch {
     /* column exists */
   }
+  try {
+    // Who was reported. A 1:1 report is unambiguous, but a group match has
+    // several participants, so the reporter names one.
+    await db.execute('ALTER TABLE reports ADD COLUMN reported_id INTEGER')
+  } catch {
+    /* column exists */
+  }
 
   // Group match rooms table — multi-party match rooms
   await db.execute(`

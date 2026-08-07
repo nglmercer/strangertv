@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Messages } from '../i18n'
 import type { PublicUser } from '../api'
 import type { Quality } from '../types/ui'
-import type { MatchPreferences, RelationshipStatus } from '../../shared/types'
+import type { MatchPreferences } from '../../shared/types'
 import { QUALITY_TIER } from '../../shared/constants'
 import { Icon, icons } from './icons'
 
@@ -13,11 +13,9 @@ type Props = {
   t: Messages
   finding: boolean
   matched: boolean
-  isGroupMatch: boolean
   muted: boolean
   cameraOn: boolean
   quality: Quality
-  canBlock: boolean
   devices: Devices
   videoId: string
   audioId: string
@@ -27,8 +25,6 @@ type Props = {
   showSharedPrefs: boolean
   onMute: () => void
   onCamera: () => void
-  onReport: () => void
-  onBlock: () => void
   onRetryIce: () => void
   onFullscreen: () => void
   onStart: () => void
@@ -43,10 +39,7 @@ type Props = {
   onPreferences: () => void
   onSettings: () => void
   onAuthClick: () => void
-  onAddFriend: () => void
   onInvite: () => void
-  onInviteGroup: () => void
-  relationship: RelationshipStatus
 }
 
 function deviceLabel(d: MediaDeviceInfo, fallback: string) {
@@ -57,11 +50,9 @@ export function CallBar({
   t,
   finding,
   matched,
-  isGroupMatch,
   muted,
   cameraOn,
   quality,
-  canBlock,
   devices,
   videoId,
   audioId,
@@ -71,8 +62,6 @@ export function CallBar({
   showSharedPrefs,
   onMute,
   onCamera,
-  onReport,
-  onBlock,
   onRetryIce,
   onFullscreen,
   onStart,
@@ -87,10 +76,7 @@ export function CallBar({
   onPreferences,
   onSettings,
   onAuthClick,
-  onAddFriend,
   onInvite,
-  onInviteGroup,
-  relationship,
 }: Props) {
   const [menu, setMenu] = useState<MenuKind>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -339,33 +325,6 @@ export function CallBar({
               <Icon d={icons.users} size={18} />
               <span>{t.social}</span>
             </button>
-            <button
-              type="button"
-              role="menuitem"
-              class="call-menu-item"
-              disabled={!matched}
-              onClick={() => {
-                setMenu(null)
-                onReport()
-              }}
-            >
-              <Icon d={icons.report} size={18} />
-              <span>{t.report}</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              class="call-menu-item danger"
-              disabled={!matched || !canBlock}
-              title={!canBlock ? t.signInToBlock : undefined}
-              onClick={() => {
-                setMenu(null)
-                onBlock()
-              }}
-            >
-              <Icon d={icons.block} size={18} />
-              <span>{canBlock ? t.blockPeer : t.signInToBlock}</span>
-            </button>
             {quality === QUALITY_TIER.failed && (
               <button
                 type="button"
@@ -406,49 +365,6 @@ export function CallBar({
                 <Icon d={icons.userPlus} size={18} />
                 <span>{t.inviteToMatch}</span>
               </button>
-            )}
-
-            {/* Actions aimed at the person you are talking to. They resolve to
-                "the" peer, which only exists in a 1:1 call — in a group match
-                each tile carries its own menu, so point there instead. */}
-            {user && matched && (
-              <>
-                <div class="call-menu-sep" />
-                <div class="call-menu-heading">{t.labelStranger}</div>
-                {isGroupMatch ? (
-                  <p class="call-menu-hint">{t.perTileActionsHint}</p>
-                ) : (
-                  <>
-                    {relationship !== 'friend' && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        class="call-menu-item"
-                        onClick={() => {
-                          setMenu(null)
-                          onAddFriend()
-                        }}
-                      >
-                        <Icon d={icons.userPlus} size={18} />
-                        <span>{t.addFriend}</span>
-                      </button>
-                    )}
-                    {/* TODO: Restrict to friends/followed users in the future */}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      class="call-menu-item"
-                      onClick={() => {
-                        setMenu(null)
-                        onInviteGroup()
-                      }}
-                    >
-                      <Icon d={icons.users} size={18} />
-                      <span>{t.inviteToGroupMatch}</span>
-                    </button>
-                  </>
-                )}
-              </>
             )}
 
             <div class="call-menu-sep" />

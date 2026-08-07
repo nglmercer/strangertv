@@ -57,6 +57,31 @@ function asSocket(ws: WebSocket): SocketLike {
   return ws as unknown as SocketLike
 }
 
+/**
+ * Resolves who a report/block is aimed at.
+ *
+ * A requested id is only honoured when it really is someone the caller shares a
+ * room with, so a client cannot report or block an arbitrary account. With no
+ * request (1:1 call, or a group of two) the single other participant is used.
+ */
+function targetUserId(socket: SocketLike, requested?: number): number | undefined {
+  const partnerId = getPartnerUserId(socket)
+  const group = getGroupRoom(socket)
+  const groupUserIds = group
+    ? Array.from(group.participants.entries())
+        .filter(([sock]) => sock !== socket)
+        .map(([, p]) => p.userId)
+        .filter((id): id is number => Boolean(id))
+    : []
+
+  if (requested) {
+    if (requested === partnerId) return requested
+    return groupUserIds.includes(requested) ? requested : undefined
+  }
+  if (partnerId) return partnerId
+  return groupUserIds.length === 1 ? groupUserIds[0] : undefined
+}
+
 export interface WsState {
   draining: { value: boolean }
 }
@@ -422,20 +447,23 @@ export function createWsHandler(state: WsState) {
       }
       const room = getRoom(socket)
       const meta = getMeta(socket)
+      const group = getGroupRoom(socket)
       await db.execute({
-        sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail) VALUES (?, ?, ?, ?, ?)',
+        sql: 'INSERT INTO reports (reporter_id, reporter_session, room_id, reason, detail, reported_id) VALUES (?, ?, ?, ?, ?, ?)',
         args: [
           meta?.userId ?? null,
           sessionKey,
-          room?.id ?? null,
+          room?.id ?? group?.id ?? null,
           message.reason,
           message.detail?.slice(0, 500) ?? null,
+          targetUserId(socket, message.userId) ?? null,
         ],
       })
       inc(METRIC_NAMES.reportsTotal)
       void noteReport(message.reason)
       const partner = getPartner(socket)
       leaveRoom(socket, true, PEER_LEFT_REASON.reported)
+      if (group) leaveGroup(socket, PEER_LEFT_REASON.reported)
       send(socket, { type: WS_MESSAGE_TYPE.reportAck })
       if (partner) leaveRoom(partner, false)
       return
@@ -443,7 +471,7 @@ export function createWsHandler(state: WsState) {
 
     if (message.type === WS_MESSAGE_TYPE.block) {
       const meta = getMeta(socket)
-      const peerId = getPartnerUserId(socket)
+      const peerId = targetUserId(socket, message.userId)
       if (meta?.userId && peerId) {
         await db.execute({
           sql: 'INSERT OR IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?, ?)',
@@ -453,6 +481,9 @@ export function createWsHandler(state: WsState) {
         inc(METRIC_NAMES.blocksTotal)
       }
       const partner = getPartner(socket)
+      // Blocking from a group match takes the blocker out of the room; the
+      // remaining participants keep talking to each other.
+      if (getGroupRoom(socket)) leaveGroup(socket, PEER_LEFT_REASON.blocked)
       leaveRoom(socket, true, PEER_LEFT_REASON.blocked)
       send(socket, { type: WS_MESSAGE_TYPE.blockAck })
       if (partner) leaveRoom(partner, false)

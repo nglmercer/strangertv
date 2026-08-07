@@ -250,15 +250,18 @@ export function useMatchSocket(handlers: Handlers) {
   }, [send])
 
   const report = useCallback(
-    (reason: import('../../shared/types').ReportReason, detail?: string) => {
-      send({ type: WS_MESSAGE_TYPE.report, reason, detail })
+    (reason: import('../../shared/types').ReportReason, detail?: string, userId?: number) => {
+      send({ type: WS_MESSAGE_TYPE.report, reason, detail, userId })
     },
     [send],
   )
 
-  const block = useCallback(() => {
-    send({ type: WS_MESSAGE_TYPE.block })
-  }, [send])
+  const block = useCallback(
+    (userId?: number) => {
+      send({ type: WS_MESSAGE_TYPE.block, userId })
+    },
+    [send],
+  )
 
   const groupInvite = useCallback(
     (groupId: number, userId: number) => {

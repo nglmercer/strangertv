@@ -148,8 +148,9 @@ export type ClientMessage =
   | { type: 'room:leave' }
   | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number; targetPeerId?: number }
   | { type: 'chat'; payload: { text: string; time: string } }
-  | { type: 'report'; reason: ReportReason; detail?: string }
-  | { type: 'block' }
+  /** `userId` names the reported/blocked participant; required to target one person in a group match. */
+  | { type: 'report'; reason: ReportReason; detail?: string; userId?: number }
+  | { type: 'block'; userId?: number }
   | { type: 'friend:request'; userId: number }
   | { type: 'friend:accept'; friendId: number }
   | { type: 'friend:decline'; friendId: number }

@@ -166,17 +166,6 @@
   background: var(--call-menu-sep);
 }
 
-/* Explains where an action moved to instead of showing a control that cannot
-   pick a target (e.g. per-participant actions during a group match). */
-.call-menu-hint {
-  margin: 0;
-  padding: 2px 12px 8px;
-  max-width: 220px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
 .call-menu-check {
   width: 16px;
   height: 16px;

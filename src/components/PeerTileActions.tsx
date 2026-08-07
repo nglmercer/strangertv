@@ -29,6 +29,8 @@ export function PeerTileActions({
   onFollow,
   onInviteGroup,
   onToggleMute,
+  onReport,
+  onBlock,
   solo = false,
 }: {
   peer: TilePeer
@@ -41,6 +43,8 @@ export function PeerTileActions({
   onFollow: (userId: number) => void
   onInviteGroup: (userId: number) => void
   onToggleMute: (peerId: number, muted: boolean) => void
+  onReport: (userId: number) => void
+  onBlock: (userId: number) => void
   /** 1:1 tile: the peer is unambiguous, so it can be invited even as a guest. */
   solo?: boolean
 }) {
@@ -94,6 +98,33 @@ export function PeerTileActions({
         onClick={act(() => onToggleMute(peer.peerId, !muted))}
       >
         <Icon d={muted ? icons.micOff : icons.micOn} size={16} />
+      </button>
+      {/* Safety actions live next to the participant they act on: in a group
+          match there is no other way to say WHO is being reported/blocked. */}
+      <button
+        type="button"
+        class="tile-action"
+        title={t.report}
+        aria-label={t.report}
+        onClick={act(() => {
+          onReport(peer.userId)
+          onClose()
+        })}
+      >
+        <Icon d={icons.report} size={16} />
+      </button>
+      <button
+        type="button"
+        class="tile-action danger"
+        disabled={!signedPeer}
+        title={signedPeer ? t.blockPeer : user ? t.peerNotSignedIn : t.signInToBlock}
+        aria-label={t.blockPeer}
+        onClick={act(() => {
+          onBlock(peer.userId)
+          onClose()
+        })}
+      >
+        <Icon d={icons.block} size={16} />
       </button>
     </div>
   )

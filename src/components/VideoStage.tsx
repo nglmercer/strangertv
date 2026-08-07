@@ -198,6 +198,8 @@ export function VideoStage({
   onAddFriend,
   onFollow,
   onInviteGroup,
+  onReportPeer,
+  onBlockPeer,
   groupPeers,
   peerStreams,
   mutedPeers,
@@ -234,6 +236,8 @@ export function VideoStage({
   onAddFriend: (targetUserId?: number) => void
   onFollow: (targetUserId?: number) => void
   onInviteGroup: (targetUserId?: number) => void
+  onReportPeer: (targetUserId?: number) => void
+  onBlockPeer: (targetUserId?: number) => void
   groupPeers?: GroupPeer[]
   peerStreams: Record<number, MediaStream>
   mutedPeers: Record<number, boolean>
@@ -305,6 +309,8 @@ export function VideoStage({
         onAddFriend={onAddFriend}
         onFollow={onFollow}
         onInviteGroup={onInviteGroup}
+        onReport={onReportPeer}
+        onBlock={onBlockPeer}
         onToggleMute={onPeerMute}
       />
     )
@@ -510,6 +516,8 @@ export function VideoStage({
                   onAddFriend={onAddFriend}
                   onFollow={onFollow}
                   onInviteGroup={onInviteGroup}
+                  onReport={onReportPeer}
+                  onBlock={onBlockPeer}
                   onToggleMute={(_peerId, muted) => onSoloMute(muted)}
                 />
               )}
