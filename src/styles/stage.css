@@ -280,7 +280,7 @@
   background: #1c1c1cd9;
   color: #fff;
   cursor: pointer;
-  opacity: 0.45;
+  opacity: 0.3;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   transition: opacity 0.18s ease, background 0.15s ease;

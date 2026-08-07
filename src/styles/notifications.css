@@ -21,11 +21,13 @@
   cursor: pointer;
   padding: 6px;
   border-radius: 8px;
+  opacity: 0.5;
   transition: background 0.12s ease;
 }
 
 .notification-bell:hover {
   background: var(--bg-hover);
+  opacity: 1;
 }
 
 .notification-badge {
