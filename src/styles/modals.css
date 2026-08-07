@@ -286,11 +286,101 @@
   font-size: 13px;
 }
 
-.device-pickers {
+/* ---------------------------------------------------------------------------
+   Camera & microphone settings (start wizard + preferences)
+   --------------------------------------------------------------------------- */
+.media-settings {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.media-preview {
+  position: relative;
+  aspect-ratio: 16/10;
+  background: #101013;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+/* Mirrored like every other self-view, but only while it shows real video. */
+.media-preview.is-live .preview-video {
+  transform: scaleX(-1);
+}
+
+.media-preview-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
   gap: 8px;
-  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: 12px;
+  background: #101013;
+}
+
+.media-preview-actions {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.media-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #1c1c1cd9;
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: background 0.15s ease;
+}
+
+.media-toggle:hover {
+  background: #2a2a2aee;
+}
+
+.media-toggle.is-off {
+  background: #b3452fe6;
+}
+
+/* Live input level, so a muted or dead mic is obvious before the call starts. */
+.mic-meter {
+  display: block;
+  height: 4px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.mic-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--green);
+  transition: width 0.1s linear;
+}
+
+.media-warning,
+.media-hint {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-tertiary);
+}
+
+.media-warning {
+  color: var(--accent);
 }
 
 .media-error {

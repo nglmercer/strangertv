@@ -18,10 +18,16 @@ type MediaSlice = {
   devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
   videoId: string
   audioId: string
-  ensureStream: () => Promise<MediaStream>
+  ensureStream: (force?: boolean) => Promise<MediaStream>
   errorCode: MediaErrorCode | null
   acquiring: boolean
   refreshDevices: () => Promise<unknown>
+  labelsVisible: boolean
+  deviceLost: 'video' | 'audio' | null
+  muted: boolean
+  cameraOn: boolean
+  onToggleMute: () => void
+  onToggleCamera: () => void
 }
 
 export function AppModals({
@@ -112,6 +118,12 @@ export function AppModals({
           setVideoId={(id) => onDeviceChange('video', id)}
           setAudioId={(id) => onDeviceChange('audio', id)}
           errorCode={media.errorCode}
+          labelsVisible={media.labelsVisible}
+          deviceLost={media.deviceLost}
+          muted={media.muted}
+          cameraOn={media.cameraOn}
+          onToggleMute={media.onToggleMute}
+          onToggleCamera={media.onToggleCamera}
           acquiring={media.acquiring}
           refreshDevices={media.refreshDevices}
           onConfirm={(mode, visibility) => {
@@ -145,6 +157,12 @@ export function AppModals({
           refreshDevices={media.refreshDevices}
           stream={media.stream}
           streamVersion={media.streamVersion}
+          labelsVisible={media.labelsVisible}
+          deviceLost={media.deviceLost}
+          muted={media.muted}
+          cameraOn={media.cameraOn}
+          onToggleMute={media.onToggleMute}
+          onToggleCamera={media.onToggleCamera}
           initialTab={prefsInitialTab}
           onClose={() => {
             setPreferences(false)

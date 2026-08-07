@@ -572,8 +572,14 @@ export function App(_props: AppProps) {
           errorCode: session.media.errorCode,
           acquiring: session.media.acquiring,
           refreshDevices: session.media.refreshDevices,
-          ensureStream: async () => {
-            const s = await session.media.ensureStream()
+          labelsVisible: session.media.labelsVisible,
+          deviceLost: session.media.deviceLost,
+          muted: session.media.muted,
+          cameraOn: session.media.cameraOn,
+          onToggleMute: () => session.media.setMutedTrack(!session.media.muted),
+          onToggleCamera: () => session.media.setCameraTrack(!session.media.cameraOn),
+          ensureStream: async (force?: boolean) => {
+            const s = await session.media.ensureStream({ force })
             session.setStreamTick((n) => n + 1)
             if (session.localVideo.current) session.localVideo.current.srcObject = s
             session.webrtc.replaceTracks(s)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useState } from 'preact/hooks'
 import {
   COUNTRY_CODES,
   INTERESTS,
@@ -67,7 +67,6 @@ export function StartMatchModal({
   onConfirm: (mode: MatchMode, visibility?: GroupVisibility) => void
   onClose: () => void
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
   const [step, setStep] = useState(() => Math.max(0, getStartWizardStep() - 1))
   const [mode, setMode] = useState<MatchMode>(prefs.mode ?? DEFAULT_MATCH_MODE)
   const [visibility, setVisibility] = useState<GroupVisibility>('public')

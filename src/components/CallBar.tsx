@@ -4,6 +4,7 @@ import type { PublicUser } from '../api'
 import type { Quality } from '../types/ui'
 import type { MatchPreferences } from '../../shared/types'
 import { QUALITY_TIER } from '../../shared/constants'
+import { deviceName } from '../utils/deviceLabels'
 import { Icon, icons } from './icons'
 
 type Devices = { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
@@ -40,10 +41,6 @@ type Props = {
   onSettings: () => void
   onAuthClick: () => void
   onInvite: () => void
-}
-
-function deviceLabel(d: MediaDeviceInfo, fallback: string) {
-  return d.label || d.deviceId.slice(0, 8) || fallback
 }
 
 export function CallBar({
@@ -156,7 +153,7 @@ export function CallBar({
               <span class="call-menu-check">{!audioId ? <Icon d={icons.check} size={16} /> : null}</span>
               <span class="call-menu-label">{t.deviceDefault}</span>
             </button>
-            {devices.audio.map((d) => {
+            {devices.audio.map((d, i) => {
               const selected = audioId === d.deviceId
               return (
                 <button
@@ -168,7 +165,7 @@ export function CallBar({
                   onClick={() => pickDevice('audio', d.deviceId)}
                 >
                   <span class="call-menu-check">{selected ? <Icon d={icons.check} size={16} /> : null}</span>
-                  <span class="call-menu-label">{deviceLabel(d, t.deviceMic)}</span>
+                  <span class="call-menu-label">{deviceName(d, i, t.deviceMic)}</span>
                 </button>
               )
             })}
@@ -216,7 +213,7 @@ export function CallBar({
               <span class="call-menu-check">{!videoId ? <Icon d={icons.check} size={16} /> : null}</span>
               <span class="call-menu-label">{t.deviceDefault}</span>
             </button>
-            {devices.video.map((d) => {
+            {devices.video.map((d, i) => {
               const selected = videoId === d.deviceId
               return (
                 <button
@@ -228,7 +225,7 @@ export function CallBar({
                   onClick={() => pickDevice('video', d.deviceId)}
                 >
                   <span class="call-menu-check">{selected ? <Icon d={icons.check} size={16} /> : null}</span>
-                  <span class="call-menu-label">{deviceLabel(d, t.deviceCam)}</span>
+                  <span class="call-menu-label">{deviceName(d, i, t.deviceCam)}</span>
                 </button>
               )
             })}
