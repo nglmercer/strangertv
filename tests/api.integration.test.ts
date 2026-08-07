@@ -295,4 +295,47 @@ describe('API integration', () => {
     expect(ov.ratings && ov.ratings.count).toBeGreaterThanOrEqual(1)
     expect(typeof ov.openReports).toBe('number')
   })
+  it('leaving a group: last admin hands the role over, last member dissolves it', async () => {
+    const stamp = Date.now()
+    const reg = async (tag: string) => {
+      const res = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: `leave_${tag}_${stamp}@example.com`, password: 'password12', birthDate: '1990-01-01' }),
+      })
+      expect(res.status).toBe(201)
+      return (await res.json()) as { token: string; user: { id: number } }
+    }
+    const auth = (token: string) => ({ 'content-type': 'application/json', authorization: `Bearer ${token}` })
+
+    const admin = await reg('admin')
+    const member = await reg('member')
+
+    const created = await fetch(`${BASE}${API_ROUTES.groups}`, {
+      method: 'POST',
+      headers: auth(admin.token),
+      body: JSON.stringify({ name: 'Leavers', memberIds: [member.user.id] }),
+    })
+    expect(created.status).toBe(201)
+    const { group } = (await created.json()) as { group: { id: number } }
+
+    // The only admin can leave; the remaining member is promoted.
+    const left = await fetch(`${BASE}${API_ROUTES.groupLeave(group.id)}`, { method: 'POST', headers: auth(admin.token) })
+    expect(left.status).toBe(200)
+
+    const memberGroups = (await (await fetch(`${BASE}${API_ROUTES.groups}`, { headers: auth(member.token) })).json()) as {
+      groups: Array<{ id: number; myRole: string; memberCount: number }>
+    }
+    const survivor = memberGroups.groups.find((g) => g.id === group.id)
+    expect(survivor?.myRole).toBe('admin')
+    expect(survivor?.memberCount).toBe(1)
+
+    // The last member leaving removes the group entirely.
+    const last = await fetch(`${BASE}${API_ROUTES.groupLeave(group.id)}`, { method: 'POST', headers: auth(member.token) })
+    expect(last.status).toBe(200)
+    const after = (await (await fetch(`${BASE}${API_ROUTES.groups}`, { headers: auth(member.token) })).json()) as {
+      groups: Array<{ id: number }>
+    }
+    expect(after.groups.some((g) => g.id === group.id)).toBe(false)
+  })
 })
