@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect } from 'preact/hooks'
 import type { Messages } from '../../i18n'
 import type { MediaErrorCode } from '../../utils/mediaErrors'
-import { DevicePickers } from '../DevicePickers'
+import { MediaSettings } from '../MediaSettings'
 
 export function DevicesPrefsTab({
   t,
@@ -16,6 +16,12 @@ export function DevicesPrefsTab({
   refreshDevices,
   stream,
   streamVersion,
+  labelsVisible,
+  deviceLost,
+  muted,
+  cameraOn,
+  onToggleMute,
+  onToggleCamera,
 }: {
   t: Messages
   devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
@@ -25,39 +31,32 @@ export function DevicesPrefsTab({
   onAudioChange: (id: string) => void
   errorCode: MediaErrorCode | null
   acquiring: boolean
-  ensureStream: () => Promise<MediaStream>
-  refreshDevices: () => Promise<void>
+  ensureStream: (force?: boolean) => Promise<MediaStream>
+  refreshDevices: () => Promise<unknown>
   stream: MediaStream | null
   streamVersion: number
+  labelsVisible: boolean
+  deviceLost: 'video' | 'audio' | null
+  muted: boolean
+  cameraOn: boolean
+  onToggleMute: () => void
+  onToggleCamera: () => void
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-
   useEffect(() => {
+    // Reuses a live stream when there is one, so opening this tab mid-call
+    // never disturbs what the peer is receiving.
     void ensureStream().catch(() => undefined)
     void refreshDevices()
     // once when tab mounts
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    const el = videoRef.current
-    if (!el) return
-    if (stream) {
-      if (el.srcObject !== stream) el.srcObject = stream
-      void el.play().catch(() => undefined)
-    } else {
-      el.srcObject = null
-    }
-  }, [stream, streamVersion])
-
   return (
     <div class="prefs-tab-panel" role="tabpanel">
-      <div class="preview-wrap prefs-preview">
-        <video ref={videoRef} autoplay playsinline muted class="preview-video" />
-        {!stream && <span class="preview-empty">{t.previewCam}</span>}
-      </div>
-      <DevicePickers
+      <MediaSettings
         t={t}
+        stream={stream}
+        streamVersion={streamVersion}
         devices={devices}
         videoId={videoId}
         audioId={audioId}
@@ -65,7 +64,13 @@ export function DevicesPrefsTab({
         setAudioId={onAudioChange}
         errorCode={errorCode}
         acquiring={acquiring}
-        onRetry={() => void ensureStream().catch(() => undefined)}
+        labelsVisible={labelsVisible}
+        deviceLost={deviceLost}
+        muted={muted}
+        cameraOn={cameraOn}
+        onToggleMute={onToggleMute}
+        onToggleCamera={onToggleCamera}
+        onRetry={() => void ensureStream(true).catch(() => undefined)}
         onRefresh={() => void refreshDevices()}
       />
     </div>

@@ -96,6 +96,8 @@ export const en = {
   continueAnon: 'Continue',
   deviceCam: 'Camera',
   deviceMic: 'Microphone',
+  micLevel: 'Mic level',
+  deviceDisconnected: 'That device disconnected. Reconnect it or pick another one.',
   reportTitle: 'Report this user',
   reportSubmit: 'Submit report',
   reportThanks: 'Thanks. The chat has ended.',

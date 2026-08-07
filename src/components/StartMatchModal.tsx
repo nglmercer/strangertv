@@ -17,7 +17,7 @@ import {
   markMatchSetupComplete,
 } from '../utils/clientStorage'
 import type { MediaErrorCode } from '../utils/mediaErrors'
-import { DevicePickers } from './DevicePickers'
+import { MediaSettings } from './MediaSettings'
 import { Modal } from './Modal'
 
 export function StartMatchModal({
@@ -35,6 +35,12 @@ export function StartMatchModal({
   errorCode,
   acquiring,
   refreshDevices,
+  labelsVisible,
+  deviceLost,
+  muted,
+  cameraOn,
+  onToggleMute,
+  onToggleCamera,
   onConfirm,
   onClose,
 }: {
@@ -43,7 +49,7 @@ export function StartMatchModal({
   setPrefs: (p: MatchPreferences) => void
   stream: MediaStream | null
   streamVersion: number
-  ensureStream: () => Promise<MediaStream>
+  ensureStream: (force?: boolean) => Promise<MediaStream>
   devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
   videoId: string
   audioId: string
@@ -51,7 +57,13 @@ export function StartMatchModal({
   setAudioId: (id: string) => void
   errorCode: MediaErrorCode | null
   acquiring: boolean
-  refreshDevices: () => Promise<void>
+  refreshDevices: () => Promise<unknown>
+  labelsVisible: boolean
+  deviceLost: 'video' | 'audio' | null
+  muted: boolean
+  cameraOn: boolean
+  onToggleMute: () => void
+  onToggleCamera: () => void
   onConfirm: (mode: MatchMode, visibility?: GroupVisibility) => void
   onClose: () => void
 }) {
@@ -62,27 +74,20 @@ export function StartMatchModal({
   const [matchScope, setMatchScope] = useState<MatchScope>(prefs.matchScope ?? DEFAULT_MATCH_SCOPE)
   const [needStreamHint, setNeedStreamHint] = useState(false)
 
-  const tryStream = () => {
-    void ensureStream()
+  const tryStream = (force = false) => {
+    void ensureStream(force)
       .then(() => setNeedStreamHint(false))
       .catch(() => undefined)
   }
+  /** Explicit user retry: re-open the devices even if a stream already exists. */
+  const retryStream = () => tryStream(true)
 
+  // Acquire as soon as the devices step opens — it is the step that shows the
+  // preview, so waiting until the next one left it blank.
   useEffect(() => {
-    if (step < 2) return
+    if (step < 1) return
     tryStream()
   }, [step])
-
-  useEffect(() => {
-    const el = videoRef.current
-    if (!el) return
-    if (stream) {
-      if (el.srcObject !== stream) el.srcObject = stream
-      void el.play().catch(() => undefined)
-    } else {
-      el.srcObject = null
-    }
-  }, [stream, streamVersion])
 
   const genderLabel = (g: Gender) =>
     g === GENDER.male ? t.male : g === GENDER.female ? t.female : g === GENDER.other ? t.other : t.any
@@ -150,12 +155,10 @@ export function StartMatchModal({
 
       {step === 1 && (
         <>
-          <div class="preview-wrap">
-            <video ref={videoRef} autoplay playsinline muted class="preview-video" />
-            {!stream && <span class="preview-empty">{t.previewCam}</span>}
-          </div>
-          <DevicePickers
+          <MediaSettings
             t={t}
+            stream={stream}
+            streamVersion={streamVersion}
             devices={devices}
             videoId={videoId}
             audioId={audioId}
@@ -163,7 +166,13 @@ export function StartMatchModal({
             setAudioId={setAudioId}
             errorCode={errorCode}
             acquiring={acquiring}
-            onRetry={tryStream}
+            labelsVisible={labelsVisible}
+            deviceLost={deviceLost}
+            muted={muted}
+            cameraOn={cameraOn}
+            onToggleMute={onToggleMute}
+            onToggleCamera={onToggleCamera}
+            onRetry={() => retryStream()}
             onRefresh={() => void refreshDevices()}
           />
           {needStreamHint && !stream && <p class="form-error">{t.mediaNeedStream}</p>}

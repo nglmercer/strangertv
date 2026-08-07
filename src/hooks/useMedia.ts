@@ -8,6 +8,8 @@ export type EnsureStreamOpts = {
   /** Force these ids for this acquire (and persist). */
   videoId?: string
   audioId?: string
+  /** Re-open the devices even when the current stream already matches. */
+  force?: boolean
 }
 
 function stopTracks(stream: MediaStream | null) {
@@ -18,6 +20,10 @@ function stopTracks(stream: MediaStream | null) {
       /* ignore */
     }
   })
+}
+
+function isLive(track: MediaStreamTrack | undefined): boolean {
+  return Boolean(track && track.readyState === 'live')
 }
 
 function trackDeviceId(track: MediaStreamTrack | undefined): string {
@@ -42,6 +48,10 @@ export function useMedia() {
   const [acquiring, setAcquiring] = useState(false)
   /** Bumps when stream instance changes so UI previews rebind. */
   const [streamVersion, setStreamVersion] = useState(0)
+  /** True once permission was granted at least once (device labels readable). */
+  const [labelsVisible, setLabelsVisible] = useState(false)
+  /** Set when a live track ends on its own (device unplugged / taken over). */
+  const [deviceLost, setDeviceLost] = useState<'video' | 'audio' | null>(null)
 
   const videoIdRef = useRef(videoId)
   const audioIdRef = useRef(audioId)
@@ -72,23 +82,42 @@ export function useMedia() {
     })
   }, [])
 
+  /**
+   * A track that ends on its own means the device went away (unplugged, or an
+   * exclusive app grabbed it). Surface it so the UI can offer a retry instead
+   * of showing a frozen frame.
+   */
+  const watchTracks = useCallback((stream: MediaStream) => {
+    stream.getTracks().forEach((track) => {
+      track.onended = () => {
+        if (streamRef.current !== stream) return
+        setDeviceLost(track.kind === 'video' ? 'video' : 'audio')
+        setStreamVersion((n) => n + 1)
+      }
+    })
+  }, [])
+
   const publishStream = useCallback((stream: MediaStream) => {
     streamRef.current = stream
     applyTrackFlags(stream)
+    watchTracks(stream)
+    setDeviceLost(null)
     setStreamVersion((n) => n + 1)
-  }, [applyTrackFlags])
+  }, [applyTrackFlags, watchTracks])
 
   const refreshDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) return
     try {
       const list = await navigator.mediaDevices.enumerateDevices()
-      setDevices({
-        video: list.filter((d) => d.kind === 'videoinput'),
-        audio: list.filter((d) => d.kind === 'audioinput'),
-      })
+      const video = list.filter((d) => d.kind === 'videoinput')
+      const audio = list.filter((d) => d.kind === 'audioinput')
+      setDevices({ video, audio })
+      if ([...video, ...audio].some((d) => d.label)) setLabelsVisible(true)
+      return { video, audio }
     } catch {
       /* permission not yet granted */
     }
+    return undefined
   }, [])
 
   const openStream = useCallback(async (constraints: MediaStreamConstraints): Promise<MediaStream> => {
@@ -114,6 +143,25 @@ export function useMedia() {
 
       const vId = videoIdRef.current
       const aId = audioIdRef.current
+
+      // Reuse the live stream when it already is what was asked for. Without
+      // this, anything that "makes sure" there is a stream (opening the devices
+      // tab, the start wizard) would stop the tracks a call is publishing and
+      // hand back a new MediaStream the peer connection knows nothing about.
+      const current = streamRef.current
+      if (!opts?.force && current) {
+        const videoTrack = current.getVideoTracks()[0]
+        const audioTrack = current.getAudioTracks()[0]
+        const matches =
+          isLive(videoTrack) &&
+          isLive(audioTrack) &&
+          (!vId || trackDeviceId(videoTrack) === vId) &&
+          (!aId || trackDeviceId(audioTrack) === aId)
+        if (matches) {
+          void refreshDevices()
+          return current
+        }
+      }
 
       setAcquiring(true)
       setError('')
@@ -247,6 +295,8 @@ export function useMedia() {
             t.stop()
           })
           stream.addTrack(nextTrack)
+          watchTracks(stream)
+          setDeviceLost(null)
           // Stop leftover empty MediaStream container tracks if any
           media.getTracks().forEach((t) => {
             if (t !== nextTrack) t.stop()
@@ -273,6 +323,8 @@ export function useMedia() {
           t.stop()
         })
         stream.addTrack(nextTrack)
+        watchTracks(stream)
+        setDeviceLost(null)
         media.getTracks().forEach((t) => {
           if (t !== nextTrack) t.stop()
         })
@@ -294,7 +346,7 @@ export function useMedia() {
         }
       }
     },
-    [applyTrackFlags, ensureStream, refreshDevices, setAudioId, setVideoId],
+    [applyTrackFlags, ensureStream, refreshDevices, setAudioId, setVideoId, watchTracks],
   )
 
   const setMutedTrack = useCallback((value: boolean) => {
@@ -332,13 +384,22 @@ export function useMedia() {
   }, [])
 
   useEffect(() => {
-    const onChange = () => void refreshDevices()
+    const onChange = () => {
+      void (async () => {
+        const list = await refreshDevices()
+        if (!list) return
+        // A selection that no longer exists would make every future acquire
+        // fail on `deviceId: exact`; fall back to the system default.
+        if (videoIdRef.current && !list.video.some((d) => d.deviceId === videoIdRef.current)) setVideoId('')
+        if (audioIdRef.current && !list.audio.some((d) => d.deviceId === audioIdRef.current)) setAudioId('')
+      })()
+    }
     navigator.mediaDevices?.addEventListener?.('devicechange', onChange)
     return () => {
       navigator.mediaDevices?.removeEventListener?.('devicechange', onChange)
       stopStream()
     }
-  }, [refreshDevices, stopStream])
+  }, [refreshDevices, setAudioId, setVideoId, stopStream])
 
   return {
     streamRef,
@@ -361,5 +422,7 @@ export function useMedia() {
     acquiring,
     refreshDevices,
     activeDeviceIds,
+    labelsVisible,
+    deviceLost,
   }
 }

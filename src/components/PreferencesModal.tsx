@@ -31,6 +31,12 @@ export function PreferencesModal({
   refreshDevices,
   stream,
   streamVersion,
+  labelsVisible,
+  deviceLost,
+  muted,
+  cameraOn,
+  onToggleMute,
+  onToggleCamera,
   initialTab,
   onClose,
 }: {
@@ -48,10 +54,16 @@ export function PreferencesModal({
   onAudioChange: (id: string) => void
   errorCode: MediaErrorCode | null
   acquiring: boolean
-  ensureStream: () => Promise<MediaStream>
-  refreshDevices: () => Promise<void>
+  ensureStream: (force?: boolean) => Promise<MediaStream>
+  refreshDevices: () => Promise<unknown>
   stream: MediaStream | null
   streamVersion: number
+  labelsVisible: boolean
+  deviceLost: 'video' | 'audio' | null
+  muted: boolean
+  cameraOn: boolean
+  onToggleMute: () => void
+  onToggleCamera: () => void
   initialTab?: PrefsTabId
   onClose: () => void
 }) {
@@ -101,6 +113,12 @@ export function PreferencesModal({
           refreshDevices={refreshDevices}
           stream={stream}
           streamVersion={streamVersion}
+          labelsVisible={labelsVisible}
+          deviceLost={deviceLost}
+          muted={muted}
+          cameraOn={cameraOn}
+          onToggleMute={onToggleMute}
+          onToggleCamera={onToggleCamera}
         />
       )}
       {tab === PREFS_TAB.language && <LocalePrefsTab t={t} locale={locale} setLocale={setLocale} />}

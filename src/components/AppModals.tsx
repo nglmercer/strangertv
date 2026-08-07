@@ -21,7 +21,7 @@ type MediaSlice = {
   ensureStream: () => Promise<MediaStream>
   errorCode: MediaErrorCode | null
   acquiring: boolean
-  refreshDevices: () => Promise<void>
+  refreshDevices: () => Promise<unknown>
 }
 
 export function AppModals({

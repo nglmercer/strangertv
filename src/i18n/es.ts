@@ -98,6 +98,8 @@ export const es: Messages = {
   continueAnon: 'Continuar',
   deviceCam: 'Cámara',
   deviceMic: 'Micrófono',
+  micLevel: 'Nivel del micrófono',
+  deviceDisconnected: 'Ese dispositivo se desconectó. Vuelve a conectarlo o elige otro.',
   reportTitle: 'Reportar usuario',
   reportSubmit: 'Enviar reporte',
   reportThanks: 'Gracias. El chat ha terminado.',
