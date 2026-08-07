@@ -16,6 +16,12 @@ type SocialStoreListener = () => void
 
 class SocialStore {
   private listeners = new Set<SocialStoreListener>()
+  /**
+   * Bumped on every change. `useSyncExternalStore` compares snapshots by
+   * identity, so returning the store instance itself made every update a no-op
+   * — subscribers never re-rendered.
+   */
+  private _version = 0
   private _onlineFriends = new Set<number>()
   private _unreadCounts = new Map<string, number>()
   private _notifications: Notification[] = []
@@ -42,7 +48,12 @@ class SocialStore {
     return () => this.listeners.delete(listener)
   }
 
+  get version(): number {
+    return this._version
+  }
+
   private notify() {
+    this._version++
     for (const listener of this.listeners) listener()
   }
 
@@ -156,7 +167,7 @@ export const socialStore = new SocialStore()
 export function useSocialStore(): SocialStore {
   useSyncExternalStore(
     (cb) => socialStore.subscribe(cb),
-    () => socialStore,
+    () => socialStore.version,
   )
   return socialStore
 }

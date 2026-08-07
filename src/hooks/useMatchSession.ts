@@ -20,6 +20,8 @@ type Options = {
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
   onGroupInviteDeclined?: (inviteId: number, groupId: number, userId: number) => void
+  onPresenceList?: (userIds: number[]) => void
+  onPresenceChange?: (userId: number, online: boolean) => void
   onInvitationAccepted?: (invitationId: number, roomId: string) => void
   onInvitationDeclined?: (invitationId: number) => void
 }
@@ -46,7 +48,7 @@ export type GroupMatchParticipant = {
   country?: string
 }
 
-export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined }: Options) {
+export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -302,6 +304,8 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       }
     },
     onGroupMessage: onGroupMessage,
+    onPresenceList: (userIds) => onPresenceList?.(userIds),
+    onPresenceChange: (userId, online) => onPresenceChange?.(userId, online),
     onFriendRequest: (friendId, from) => onSocialEvent?.({ type: 'friend:request', friendId, from }),
     onFriendAccepted: (friendId, from) => onSocialEvent?.({ type: 'friend:accepted', friendId, from }),
     onFriendDeclined: (friendId) => onSocialEvent?.({ type: 'friend:declined', friendId }),

@@ -37,6 +37,8 @@ type Handlers = {
   onGroupMatchInviteSent?: (userId: number) => void
   onGroupMatchInviteDeclined?: (roomId: string) => void
   onGroupMatchMatched?: (roomId: string, role: Role, peers: GroupMatchPeer[], sharedInterests: string[], peerId: number) => void
+  onPresenceList?: (userIds: number[]) => void
+  onPresenceChange?: (userId: number, online: boolean) => void
 }
 
 export function useMatchSocket(handlers: Handlers) {
@@ -204,6 +206,15 @@ export function useMatchSocket(handlers: Handlers) {
           break
         case WS_MESSAGE_TYPE.groupMatchInviteDeclined:
           h.onGroupMatchInviteDeclined?.(msg.roomId)
+          break
+        case WS_MESSAGE_TYPE.presenceList:
+          h.onPresenceList?.(msg.userIds)
+          break
+        case WS_MESSAGE_TYPE.presenceOnline:
+          h.onPresenceChange?.(msg.userId, true)
+          break
+        case WS_MESSAGE_TYPE.presenceOffline:
+          h.onPresenceChange?.(msg.userId, false)
           break
         case WS_MESSAGE_TYPE.groupMatchMatched:
           h.onGroupMatchMatched?.(msg.roomId, msg.role, msg.peers, msg.sharedInterests, msg.peerId)

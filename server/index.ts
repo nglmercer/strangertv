@@ -9,7 +9,8 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import { config } from './config'
 import { db, migrate, tursoUrl } from './db'
 import { logger } from './logger'
-import { hydrateBlocks, send, fullRemove, type SocketLike } from './matchmaking'
+import { hydrateBlocks, send, fullRemove, getSocketUserId, type SocketLike } from './matchmaking'
+import { announceOffline } from './presence'
 import { inc } from './metrics'
 import { requestIdMiddleware } from './requestId'
 import { securityHeaders } from './security'
@@ -140,8 +141,14 @@ wss.on('connection', (ws, req) => {
   ws.on('message', (data) => {
     void handleWsMessage(ws, ip, sessionKey, String(data))
   })
-  ws.on('close', () => fullRemove(asSocket(ws)))
-  ws.on('error', () => fullRemove(asSocket(ws)))
+  const teardown = () => {
+    // Read the user before fullRemove() unregisters the socket.
+    const userId = getSocketUserId(asSocket(ws))
+    fullRemove(asSocket(ws))
+    if (userId) void announceOffline(userId)
+  }
+  ws.on('close', teardown)
+  ws.on('error', teardown)
 })
 
 // ---------------------------------------------------------------------------

@@ -161,6 +161,9 @@ export function App(_props: AppProps) {
     onStatus: setStatus,
     onGroupMessage: (message) => emitGroupMessage(message),
     onSocialEvent: handleSocialEvent,
+    onPresenceList: (userIds) => socialStore.setOnlineFriends(userIds),
+    onPresenceChange: (userId, online) =>
+      online ? socialStore.addOnlineFriend(userId) : socialStore.removeOnlineFriend(userId),
   })
 
   const { appVersion, sharedPrefs } = useSessionBootstrap({

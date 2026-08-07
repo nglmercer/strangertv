@@ -206,6 +206,10 @@ export type ServerMessage =
   | { type: 'friend:declined'; friendId: number }
   | { type: 'friend:removed'; friendId: number }
   | { type: 'friend:list'; friends: Array<{ id: number; user: PublicUser; status: FriendStatus }> }
+  /** Which of my friends are connected right now, and live changes to that. */
+  | { type: 'presence:list'; userIds: number[] }
+  | { type: 'presence:online'; userId: number }
+  | { type: 'presence:offline'; userId: number }
   | { type: 'follow:confirm'; followed: PublicUser }
   | { type: 'follow:removed'; followedId: number }
   | { type: 'follow:list'; followers: Array<{ id: number; user: PublicUser }>; following: Array<{ id: number; user: PublicUser }> }

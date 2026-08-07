@@ -38,6 +38,7 @@ import {
 import { sendMessage, getConversation, hasRelationship } from '../messages'
 import { sendGroupMessage, getGroupMembers, sendGroupInvite, respondGroupInvite, getGroupInvite } from '../groups'
 import { noteReport } from '../alerts'
+import { announceOnline } from '../presence'
 import { inc } from '../metrics'
 import { rateLimit } from '../rateLimit'
 import { config } from '../config'
@@ -113,6 +114,7 @@ export function createWsHandler(state: WsState) {
         if (user) {
           registerUserSocket(user.id, socket)
           console.debug('[ws] auth', { userId: user.id })
+          void announceOnline(user.id, socket)
         }
       }
       return
