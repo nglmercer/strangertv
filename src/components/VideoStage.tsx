@@ -519,6 +519,7 @@ export function VideoStage({
                   onReport={onReportPeer}
                   onBlock={onBlockPeer}
                   onToggleMute={(_peerId, muted) => onSoloMute(muted)}
+                  status={<QualityBadge quality={quality} stats={linkStats} t={t} />}
                 />
               )}
               {sharedInterests.length > 0 && matched && (
@@ -532,7 +533,6 @@ export function VideoStage({
                 </div>
               </div>
               )}
-              {matched && <QualityBadge quality={quality} stats={linkStats} t={t} />}
             </article>
 
             <article class={`video local ${hasLocalStream ? 'has-stream' : ''}`}>

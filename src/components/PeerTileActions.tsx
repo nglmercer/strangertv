@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact'
 import type { Messages } from '../i18n'
 import type { PublicUser } from '../api'
 import { Icon, icons } from './icons'
@@ -31,6 +32,7 @@ export function PeerTileActions({
   onToggleMute,
   onReport,
   onBlock,
+  status,
   solo = false,
 }: {
   peer: TilePeer
@@ -45,6 +47,8 @@ export function PeerTileActions({
   onToggleMute: (peerId: number, muted: boolean) => void
   onReport: (userId: number) => void
   onBlock: (userId: number) => void
+  /** Always-visible status (connection quality) pinned to the end of the row. */
+  status?: ComponentChildren
   /** 1:1 tile: the peer is unambiguous, so it can be invited even as a guest. */
   solo?: boolean
 }) {
@@ -126,6 +130,7 @@ export function PeerTileActions({
       >
         <Icon d={icons.block} size={16} />
       </button>
+      {status}
     </div>
   )
 }

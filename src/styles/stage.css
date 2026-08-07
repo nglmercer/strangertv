@@ -272,16 +272,19 @@
   justify-content: flex-end;
   max-width: calc(100% - 16px);
   gap: 6px;
-  opacity: 0;
-  transform: translateY(-4px);
+  align-items: center;
+  /* The row itself always occupies the corner so the persistent status badge
+     sits in line with the actions instead of on top of them; only the action
+     buttons fade in on hover. */
   pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
 }
-.video:hover .tile-actions,
-.video:focus-within .tile-actions,
-.tile-actions.open {
-  opacity: 1;
-  transform: translateY(0);
+/* `relative` (not `static`) keeps the badge in the flex row while still
+   anchoring its hover tooltip to itself. */
+.tile-actions .quality-badge {
+  position: relative;
+  right: auto;
+  top: auto;
+  flex-shrink: 0;
   pointer-events: auto;
 }
 .tile-action {
@@ -295,9 +298,19 @@
   background: #1c1c1cd9;
   color: #fff;
   cursor: pointer;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  transition: background 0.15s ease, transform 0.12s ease;
+  transition: opacity 0.18s ease, background 0.15s ease, transform 0.18s ease;
+}
+.video:hover .tile-action,
+.video:focus-within .tile-action,
+.tile-actions.open .tile-action {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
 }
 .tile-action:hover:not(:disabled) {
   background: #2a2a2aee;
