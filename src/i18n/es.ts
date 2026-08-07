@@ -206,6 +206,7 @@ export const es: Messages = {
   noRequests: 'Sin solicitudes pendientes.',
   searchFriends: 'Buscar por correo electrónico',
   search: 'Buscar',
+  noResults: 'Sin resultados',
   searchFailed: 'Usuario no encontrado.',
   micOptions: 'Opciones del micrófono',
   camOptions: 'Opciones de la cámara',

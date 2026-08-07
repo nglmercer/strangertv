@@ -155,12 +155,8 @@
     margin-top: 6px;
   }
 
-  .deck-dropdown-menu {
-    max-height: 180px;
-  }
-
-  .deck-dropdown-item {
-    padding: 6px 10px;
+  .deck-select-item {
+    padding: 8px 10px;
     font-size: 12px;
   }
 

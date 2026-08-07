@@ -205,6 +205,7 @@ export const en = {
   noRequests: 'No pending requests.',
   searchFriends: 'Search by email',
   search: 'Search',
+  noResults: 'No matches',
   searchFailed: 'User not found.',
   micOptions: 'Microphone options',
   camOptions: 'Camera options',
