@@ -39,6 +39,8 @@ export type GroupRoom = {
   inQueue: boolean
   /** True once this room is a live match (post notifyGroupMatch). Leaves degrade gracefully instead of dissolving the room. */
   matched?: boolean
+  /** True while the room is a live match between its own members only and is still queued looking for an opposing side. */
+  searching?: boolean
 }
 
 export type { Gender, GroupVisibility, MatchMode, MatchPreferences, MatchScope, Role, ServerMessage, RelationshipStatus }

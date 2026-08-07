@@ -214,6 +214,13 @@ export function leaveGroup(socket: SocketLike, reason?: string): GroupRoom | und
         groupRoomsBySocket.delete(sock)
       }
       group.participants.clear()
+      // A still-searching room must also leave the queue, otherwise it lingers
+      // there with no participants and can be handed a match.
+      if (group.inQueue) {
+        const idx = waitingGroups.indexOf(group)
+        if (idx >= 0) waitingGroups.splice(idx, 1)
+        group.inQueue = false
+      }
       groupRoomsById.delete(group.id)
     }
 
@@ -632,12 +639,16 @@ function tryMatchGroup(group: GroupRoom) {
     }
   }
 
-  if (group.participants.size >= 2) {
+  // No opposing side available yet. Connect the room's own members to each
+  // other so they see one another straight away, but keep the room queued: the
+  // members share one side and their clients keep showing "searching" for the
+  // other side. Only done once per room (`matched` guards re-entry).
+  if (group.participants.size >= 2 && !group.matched) {
     const idx = waitingGroups.indexOf(group)
     if (idx >= 0) waitingGroups.splice(idx, 1)
     group.inQueue = false
     const sharedInterests = computeSharedInterests(toSide(group))
-    notifyGroupMatch([toSide(group)], sharedInterests)
+    notifyGroupMatch([toSide(group)], sharedInterests, group)
     inc(METRIC_NAMES.matchesTotal)
   }
 }
@@ -794,7 +805,16 @@ function computeSharedInterests(participants: SideParticipant[]): string[] {
   return result
 }
 
-function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[]) {
+/**
+ * Wires every participant of `sides` into one mesh room and tells each client
+ * who sits on its own side and who is on the opposing side.
+ *
+ * When `keepSearchingFrom` is given there is only one side (the room's own
+ * members): the resulting room stays in the matchmaking queue so it can still
+ * find an opposing side, and everyone gets a fresh `queue:waiting` right after
+ * the match so their UI keeps the "searching" placeholder for that side.
+ */
+function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[], keepSearchingFrom?: GroupRoom) {
   const openSides = sides
     .map((side) => side.filter((p) => p.socket.readyState === 1))
     .filter((side) => side.length > 0)
@@ -825,13 +845,14 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
     hostSocket: participantList[0]!.socket,
     hostUserId: participantList[0]!.userId,
     hostEmail: participantList[0]!.email,
-    visibility: GROUP_VISIBILITY.public,
-    scope: MATCH_SCOPE.all,
-    preferences: participantList[0]!.preferences,
+    visibility: keepSearchingFrom?.visibility ?? GROUP_VISIBILITY.public,
+    scope: keepSearchingFrom?.scope ?? MATCH_SCOPE.all,
+    preferences: keepSearchingFrom?.preferences ?? participantList[0]!.preferences,
     participants: new Map(),
     createdAt: Date.now(),
     inQueue: false,
     matched: true,
+    searching: Boolean(keepSearchingFrom),
   }
 
   for (const p of participantList) {
@@ -872,6 +893,18 @@ function notifyGroupMatch(sides: SideParticipant[][], sharedInterests: string[])
       peers,
       sharedInterests,
     })
+  }
+
+  if (keepSearchingFrom) {
+    unifiedGroup.inQueue = true
+    waitingGroups.push(unifiedGroup)
+    for (const { socket } of participantList) {
+      send(socket, {
+        type: WS_MESSAGE_TYPE.queueWaiting,
+        position: waitingGroups.length,
+        online: queueStats().online,
+      })
+    }
   }
 }
 

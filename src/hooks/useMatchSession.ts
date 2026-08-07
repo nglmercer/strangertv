@@ -92,6 +92,13 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
   groupRoomIdRef.current = groupRoomId
   const groupPeersRef = useRef(groupPeers)
   groupPeersRef.current = groupPeers
+  /**
+   * True while the group room is connected to its own members only (everyone is
+   * on our side of the stage) and is still queued waiting for an opposing side.
+   */
+  const groupSearching = matched && groupPeers.length > 0 && groupPeers.every((p) => p.side === 'local')
+  const groupSearchingRef = useRef(groupSearching)
+  groupSearchingRef.current = groupSearching
   const isInvitingToGroupRef = useRef(false)
   const groupInviteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -134,6 +141,18 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   const match = useMatchSocket({
     onWaiting: (position, onl) => {
+      // A group room whose members are already connected to each other stays in
+      // the queue while it looks for an opposing side. Keep the live tiles and
+      // only refresh the queue info — tearing them down would drop the call.
+      if (matchedRef.current && groupPeersRef.current.length > 0) {
+        onStatus(trRef.current.finding)
+        setQueuePos(position)
+        if (onl != null) setOnline(onl)
+        setFinding(true)
+        findingRef.current = true
+        if (!waitingSince.current) waitingSince.current = Date.now()
+        return
+      }
       if (matchedRef.current && !groupRoomIdRef.current) return
       onStatus(trRef.current.finding)
       setQueuePos(position)
@@ -220,6 +239,13 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
         setFinding(true)
         onStatus(trRef.current.finding)
         return
+      }
+      // Getting room:peer-left while in a group room means the room itself is
+      // gone (last participant left / host dissolved it). Drop the stale id so
+      // the requeue below goes solo instead of restarting a dead room.
+      if (groupRoomIdRef.current) {
+        clearGroupState()
+        setMatchMode(MATCH_MODE.solo)
       }
       setFinding(true)
       onStatus(t.requeueing)
@@ -344,7 +370,9 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
       onStatus(trRef.current.ready)
     },
     onGroupMatchMatched: async (id, role, peers, interests, peerId) => {
-      if (!findingRef.current) {
+      // While a group room is queued for an opposing side it is both matched
+      // (with its own members) and finding, so accept a re-match in that case.
+      if (!findingRef.current && !(matchedRef.current && groupRoomIdRef.current)) {
         matchRef.current?.leave()
         return
       }
@@ -546,6 +574,9 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
 
   const next = useCallback(() => {
     console.debug('[match] next()', { roomId: roomIdRef.current, duration: callSecondsRef.current })
+    // Already queued for an opposing side: there is nobody to skip, and tearing
+    // the mesh down here would drop the members we are already connected to.
+    if (groupSearchingRef.current) return
     webrtc.clear()
     if (remoteVideo.current) remoteVideo.current.srcObject = null
     setChat([])
@@ -637,6 +668,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
     groupVisibility,
     groupParticipants,
     groupPeers,
+    groupSearching,
     setMatchMode,
     invitePeerToGroup,
     pendingGroupInvite,

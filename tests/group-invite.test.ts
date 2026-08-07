@@ -98,6 +98,40 @@ function connectWs(token?: string): Promise<WsClient> {
   })
 }
 
+/**
+ * waitFor() returns the first buffered message of a type, which collides with
+ * messages from an earlier phase of the same test (e.g. a first group match).
+ * Wait on a predicate and only consider messages recorded after `from`.
+ */
+function waitForMatch(client: WsClient, from: number, pred: (m: any) => boolean, timeout = 5000) {
+  return new Promise<any>((res, rej) => {
+    const scan = () => {
+      for (let i = from; i < client.messages.length; i++) {
+        if (pred(client.messages[i])) return client.messages[i]
+      }
+      return undefined
+    }
+    const found = scan()
+    if (found) {
+      res(found)
+      return
+    }
+    const handler = () => {
+      const f = scan()
+      if (f) {
+        clearTimeout(t)
+        client.ws.removeEventListener('message', handler)
+        res(f)
+      }
+    }
+    const t = setTimeout(() => {
+      client.ws.removeEventListener('message', handler)
+      rej(new Error(`timeout waiting; buffer=${JSON.stringify(client.messages.map((m) => m.type))}`))
+    }, timeout)
+    client.ws.addEventListener('message', handler)
+  })
+}
+
 describe('group invite from match', () => {
   let child: ChildProcess
 
@@ -454,37 +488,6 @@ describe('group invite from match', () => {
   })
 
   it('inviting to a group from a degraded solo|solo match delivers the invite (no userId, no 1:1 partner)', async () => {
-    // waitFor() returns the first buffered message of a type, which collides
-    // with messages from the original group formation. Wait on a predicate and
-    // only consider messages recorded after a given index.
-    const waitForMatch = (client: WsClient, from: number, pred: (m: any) => boolean, timeout = 5000) =>
-      new Promise<any>((res, rej) => {
-        const scan = () => {
-          for (let i = from; i < client.messages.length; i++) {
-            if (pred(client.messages[i])) return client.messages[i]
-          }
-          return undefined
-        }
-        const found = scan()
-        if (found) {
-          res(found)
-          return
-        }
-        const handler = () => {
-          const f = scan()
-          if (f) {
-            clearTimeout(t)
-            client.ws.removeEventListener('message', handler)
-            res(f)
-          }
-        }
-        const t = setTimeout(() => {
-          client.ws.removeEventListener('message', handler)
-          rej(new Error(`timeout waiting; buffer=${JSON.stringify(client.messages.map((m) => m.type))}`))
-        }, timeout)
-        client.ws.addEventListener('message', handler)
-      })
-
     const password = 'password12'
     const host = await createUser(`ginvite_host_${Date.now()}@example.com`, password)
 
@@ -531,6 +534,55 @@ describe('group invite from match', () => {
     guestB.send({ type: 'group-match:join', roomId: newGroup.roomId })
     const joined = await waitForMatch(hostClient, hostFrom, (m) => m.type === 'group-match:participant-joined' && m.roomId === newGroup.roomId)
     expect(joined.roomId).toBe(newGroup.roomId)
+
+    hostClient.close()
+    guestB.close()
+    guestC.close()
+  })
+
+  it('a pair with nobody to match keeps searching: members connect on the same side and stay queued', async () => {
+    const password = 'password12'
+    const host = await createUser(`gsearch_host_${Date.now()}@example.com`, password)
+    const hostClient = await connectWs(host.token)
+    const guestB = await connectWs() // anonymous -> userId 0
+
+    const prefsAll = { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all' }
+
+    hostClient.send({ type: 'group-match:create', token: host.token, visibility: 'private', preferences: { ...prefsAll, mode: 'group', matchScope: 'all' } })
+    const groupCreated = await hostClient.waitFor('group-match:created', 5000)
+    guestB.send({ type: 'group-match:join', roomId: groupCreated.roomId })
+
+    // With no opposing side available, the two members are connected to each
+    // other — but both land on the SAME (local) side of the stage.
+    const matchedHost = await hostClient.waitFor('group-match:matched', 5000)
+    const matchedB = await guestB.waitFor('group-match:matched', 5000)
+    expect(matchedHost.peers.map((p: any) => p.side)).toEqual(['local'])
+    expect(matchedB.peers.map((p: any) => p.side)).toEqual(['local'])
+
+    // ...and the room stays in the queue, so both clients get a fresh
+    // queue:waiting AFTER the match and keep showing "searching" for the
+    // opposing side instead of settling into a finished 2-person call.
+    const matchedIdx = hostClient.messages.findIndex((m) => m.type === 'group-match:matched')
+    const waiting = await waitForMatch(hostClient, matchedIdx + 1, (m) => m.type === 'queue:waiting')
+    expect(waiting.position).toBeGreaterThan(0)
+
+    // A solo peer arriving later fills the empty side for everyone.
+    const guestC = await connectWs()
+    const hostFrom = hostClient.messages.length
+    const bFrom = guestB.messages.length
+    guestC.send({ type: 'queue:join', preferences: prefsAll })
+
+    const rematchHost = await waitForMatch(hostClient, hostFrom, (m) => m.type === 'group-match:matched')
+    const rematchB = await waitForMatch(guestB, bFrom, (m) => m.type === 'group-match:matched')
+    const matchedC = await guestC.waitFor('group-match:matched', 5000)
+
+    expect(rematchHost.roomId).toBe(matchedC.roomId)
+    expect(rematchB.roomId).toBe(matchedC.roomId)
+    // Host now sees one companion (local) and the newcomer (remote)...
+    expect(rematchHost.peers.map((p: any) => p.side).sort()).toEqual(['local', 'remote'])
+    // ...while the newcomer sees the pair as the opposing side.
+    expect(matchedC.peers.length).toBe(2)
+    expect(matchedC.peers.every((p: any) => p.side === 'remote')).toBe(true)
 
     hostClient.close()
     guestB.close()

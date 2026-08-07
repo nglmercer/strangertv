@@ -144,6 +144,33 @@ function GroupTile({
   )
 }
 
+/**
+ * Placeholder that fills the opposing side of a group match while the room is
+ * still queued for a peer side (e.g. right after a friend accepts an invite:
+ * both of you sit on the local side and nobody is on the remote one yet).
+ */
+function SearchingTile({ finding, title, body, label }: { finding: boolean; title: string; body: string; label: string }) {
+  return (
+    <article class={`video remote group-peer is-searching ${finding ? 'is-finding' : ''}`} aria-label={label}>
+      <div class="stage-empty">
+        <StaticNoise opacity={0.55} density={0.6} cellSize={5} />
+        <BrandMark3D />
+        {finding && (
+          <div class="pulse-ring" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+        )}
+        <div class="empty">
+          <h2>{title}</h2>
+          <p>{body}</p>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 export function VideoStage({
   t,
   finding,
@@ -345,24 +372,30 @@ export function VideoStage({
               const localTiles = tiles.filter((tile) => tile.side === 'local')
               const youTile = localTiles.find((tile) => tile.local) ?? localTiles[0]
               const companionTiles = localTiles.filter((tile) => tile.id !== youTile?.id)
-              if (remoteTiles.length > 0 && youTile) {
+              if (youTile) {
                 return (
                   <div class="group-sides">
                     <div class="sides-remote">
-                      {remoteTiles.map((tile) => (
-                        <GroupTile
-                          key={tile.id}
-                          tile={tile}
-                          t={t}
-                          level={levels[tile.id] ?? 0}
-                          speaking={(levels[tile.id] ?? 0) >= SPEECH_ON}
-                          compact={remoteTiles.length > 2}
-                          pinned={false}
-                          localVideo={localVideo}
-                          muted={tileMuted(tile)}
-                          renderActions={tileActions(tile)}
-                        />
-                      ))}
+                      {remoteTiles.length > 0 ? (
+                        remoteTiles.map((tile) => (
+                          <GroupTile
+                            key={tile.id}
+                            tile={tile}
+                            t={t}
+                            level={levels[tile.id] ?? 0}
+                            speaking={(levels[tile.id] ?? 0) >= SPEECH_ON}
+                            compact={remoteTiles.length > 2}
+                            pinned={false}
+                            localVideo={localVideo}
+                            muted={tileMuted(tile)}
+                            renderActions={tileActions(tile)}
+                          />
+                        ))
+                      ) : (
+                        // Everyone matched so far is on our own side: keep looking
+                        // for the other side instead of showing a dead half-stage.
+                        <SearchingTile finding={finding} title={emptyTitle} body={emptyBody} label={t.labelStranger} />
+                      )}
                     </div>
                     <div class={`sides-local ${companionTiles.length === 0 ? 'no-companions' : ''}`}>
                       <div class="sides-you">
