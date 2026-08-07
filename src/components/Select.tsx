@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/ho
 import type { Messages } from '../i18n'
 import { Icon, icons } from './icons'
 
-export type DeckOption = {
+export type SelectOption = {
   value: string
   label: string
   /** Leading icon path (from `icons`). */
@@ -26,20 +26,25 @@ function normalize(text: string): string {
 }
 
 /**
- * Deck dropdown rendered in a portal on document.body.
+ * Dropdown whose menu is rendered in a portal on document.body.
  *
- * The deck lives inside `.dashboard`, which clips overflow, so an in-flow menu
- * is cut off by its own ancestors. Portalling it out and positioning it from
- * the trigger's viewport rect keeps it above everything, and lets it flip below
- * the trigger when there is not enough room above.
+ * Every in-flow menu here was clipped by an ancestor — the deck lives inside
+ * `.dashboard` (overflow: hidden) and form fields live inside a scrolling
+ * modal. Portalling the menu out and positioning it from the trigger's viewport
+ * rect keeps it above everything and lets it flip sides when space runs out.
+ *
+ * `deck` renders the big square deck card; `field` renders a form control that
+ * matches a native `<select>` in the modals.
  */
-export function DeckSelect({
+export function Select({
   t,
   label,
   value,
   options,
   onChange,
   searchable = false,
+  variant = 'field',
+  disabled = false,
   triggerIcon,
   triggerLabel,
   triggerTitle,
@@ -48,12 +53,16 @@ export function DeckSelect({
   /** Accessible name of the list (e.g. "Country"). */
   label: string
   value: string
-  options: DeckOption[]
+  options: SelectOption[]
   onChange: (value: string) => void
   searchable?: boolean
-  triggerIcon: ComponentChildren
-  triggerLabel: string
-  triggerTitle: string
+  variant?: 'deck' | 'field'
+  disabled?: boolean
+  /** Deck variant only — defaults to the selected option's art/icon. */
+  triggerIcon?: ComponentChildren
+  /** Defaults to the selected option's label. */
+  triggerLabel?: string
+  triggerTitle?: string
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -62,6 +71,9 @@ export function DeckSelect({
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+
+  const selected = options.find((o) => o.value === value)
+  const isDeck = variant === 'deck'
 
   const shown = useMemo(() => {
     if (!searchable || !query.trim()) return options
@@ -73,14 +85,15 @@ export function DeckSelect({
     const el = triggerRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    const width = Math.max(rect.width, MIN_WIDTH)
+    const width = Math.max(rect.width, isDeck ? MIN_WIDTH : 0)
     const left = Math.min(Math.max(EDGE, rect.left), Math.max(EDGE, window.innerWidth - width - EDGE))
     const above = rect.top - GAP - EDGE
     const below = window.innerHeight - rect.bottom - GAP - EDGE
-    // Prefer opening upward (the deck sits at the bottom of the page) unless
-    // the space below is meaningfully bigger.
+    // The deck sits at the bottom of the page, so it prefers opening upward;
+    // a form field prefers downward. Either way, flip when space runs out.
+    const upward = isDeck ? above >= Math.min(MAX_HEIGHT, below) || above >= below : above > Math.max(below, MAX_HEIGHT)
     setAnchor(
-      above >= Math.min(MAX_HEIGHT, below) || above >= below
+      upward
         ? { left, width, bottom: window.innerHeight - rect.top + GAP, maxHeight: Math.min(MAX_HEIGHT, above) }
         : { left, width, top: rect.bottom + GAP, maxHeight: Math.min(MAX_HEIGHT, below) },
     )
@@ -138,6 +151,8 @@ export function DeckSelect({
 
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key === 'Escape' || e.key === 'Tab') {
+      // Inside a modal, a bubbling Escape would close the modal as well.
+      e.stopPropagation()
       setOpen(false)
       triggerRef.current?.focus()
       return
@@ -164,7 +179,7 @@ export function DeckSelect({
   const menu = open && anchor && (
     <div
       ref={menuRef}
-      class="deck-select-menu"
+      class="select-menu"
       role="listbox"
       aria-label={label}
       tabIndex={-1}
@@ -177,7 +192,7 @@ export function DeckSelect({
       }}
     >
       {searchable && (
-        <div class="deck-select-search">
+        <div class="select-search">
           <Icon d={icons.search} size={15} />
           <input
             ref={searchRef}
@@ -192,7 +207,7 @@ export function DeckSelect({
           />
         </div>
       )}
-      <div class="deck-select-list">
+      <div class="select-list">
         {shown.map((option, index) => {
           const selected = option.value === value
           return (
@@ -201,47 +216,67 @@ export function DeckSelect({
               role="option"
               aria-selected={selected}
               data-active={index === activeIndex}
-              class={`deck-select-item ${selected ? 'is-selected' : ''} ${index === activeIndex ? 'is-active' : ''}`}
+              class={`select-item ${selected ? 'is-selected' : ''} ${index === activeIndex ? 'is-active' : ''}`}
               key={option.value}
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => pick(option.value)}
             >
-              <span class="deck-select-icon">
+              <span class="select-icon">
                 {option.art ?? (option.icon ? <Icon d={option.icon} size={16} /> : null)}
               </span>
-              <span class="deck-select-label">{option.label}</span>
-              <span class="deck-select-check">{selected ? <Icon d={icons.check} size={16} /> : null}</span>
+              <span class="select-label">{option.label}</span>
+              <span class="select-check">{selected ? <Icon d={icons.check} size={16} /> : null}</span>
             </button>
           )
         })}
-        {shown.length === 0 && <p class="deck-select-empty">{t.noResults}</p>}
+        {shown.length === 0 && <p class="select-empty">{t.noResults}</p>}
       </div>
     </div>
   )
 
+  const triggerProps = {
+    ref: triggerRef,
+    type: 'button' as const,
+    disabled,
+    onClick: () => (open ? setOpen(false) : openMenu()),
+    onKeyDown: (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault()
+        openMenu()
+      }
+    },
+    'aria-expanded': open,
+    'aria-haspopup': 'listbox' as const,
+    'aria-label': label,
+    title: triggerTitle,
+  }
+
+  const art = selected?.art ?? (selected?.icon ? <Icon d={selected.icon} size={isDeck ? 24 : 16} /> : null)
+
+  if (isDeck) {
+    return (
+      <div class={`deck-card deck-dropdown ${open ? 'open' : ''}`}>
+        <button {...triggerProps} class="deck-dropdown-trigger">
+          <span class="deck-emoji" aria-hidden="true">
+            {triggerIcon ?? art}
+          </span>
+          <small>{triggerLabel ?? selected?.label ?? value}</small>
+        </button>
+        {menu && createPortal(menu, document.body)}
+      </div>
+    )
+  }
+
   return (
-    <div class={`deck-card deck-dropdown ${open ? 'open' : ''}`}>
-      <button
-        ref={triggerRef}
-        type="button"
-        class="deck-dropdown-trigger"
-        onClick={() => (open ? setOpen(false) : openMenu())}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-            e.preventDefault()
-            openMenu()
-          }
-        }}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        title={triggerTitle}
-      >
-        <span class="deck-emoji" aria-hidden="true">
-          {triggerIcon}
+    <>
+      <button {...triggerProps} class={`field-select ${open ? 'open' : ''}`}>
+        {art && <span class="field-select-art">{art}</span>}
+        <span class="field-select-value">{triggerLabel ?? selected?.label ?? value}</span>
+        <span class="field-select-caret" aria-hidden="true">
+          <Icon d={icons.chevron} size={16} />
         </span>
-        <small>{triggerLabel}</small>
       </button>
       {menu && createPortal(menu, document.body)}
-    </div>
+    </>
   )
 }

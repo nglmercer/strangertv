@@ -3,7 +3,7 @@ import { COUNTRY_CODES, type Gender, type MatchPreferences } from '../../shared/
 import { countryLabel, type Messages } from '../i18n'
 import { GENDER, GENDERS } from '../../shared/constants'
 import { sharePrefsUrl } from '../utils/sharePrefs'
-import { DeckSelect } from './DeckSelect'
+import { Select } from './Select'
 import { Flag } from './Flag'
 import { Icon, icons } from './icons'
 
@@ -81,18 +81,19 @@ export function ControlDeck({
       >
         <span>{t.stop}</span>
       </button>
-      <DeckSelect
+      <Select
         t={t}
         label={t.country}
         value={prefs.country}
         options={COUNTRY_CODES.map((code) => ({ value: code, label: countryLabel(t, code), art: <Flag code={code} size={20} /> }))}
         onChange={onChangeCountry}
         searchable
+        variant="deck"
         triggerIcon={<Flag code={prefs.country} size={26} />}
         triggerLabel={countryLabel(t, prefs.country)}
         triggerTitle={`${t.country}: ${countryLabel(t, prefs.country)}`}
       />
-      <DeckSelect
+      <Select
         t={t}
         label={t.lookingFor}
         value={prefs.lookingFor}
@@ -101,7 +102,8 @@ export function ControlDeck({
           label: g === GENDER.male ? t.male : g === GENDER.female ? t.female : g === GENDER.other ? t.other : t.everyone,
           icon: genderIcon(g),
         }))}
-        onChange={(next) => onChangeLookingFor(next as Gender)}
+        variant="deck"
+        onChange={(next: string) => onChangeLookingFor(next as Gender)}
         triggerIcon={<Icon d={genderIcon(prefs.lookingFor)} size={24} />}
         triggerLabel={lookingLabel}
         triggerTitle={`${t.lookingFor}: ${lookingLabel}`}

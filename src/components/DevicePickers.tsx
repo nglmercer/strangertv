@@ -1,4 +1,6 @@
 import type { Messages } from '../i18n'
+import { Select } from './Select'
+import { icons } from './icons'
 import {
   mediaErrorHelp,
   mediaErrorMessage,
@@ -47,33 +49,33 @@ export function DevicePickers({
       )}
       <label>
         {t.deviceCam}
-        <select
+        <Select
+          t={t}
+          label={t.deviceCam}
           value={videoId}
           disabled={acquiring}
-          onChange={(e) => setVideoId(e.currentTarget.value)}
-        >
-          <option value="">{t.deviceDefault}</option>
-          {devices.video.map((d) => (
-            <option value={d.deviceId} key={d.deviceId}>
-              {d.label || d.deviceId.slice(0, 8)}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: t.deviceDefault, icon: icons.camOn },
+            ...devices.video.map((d) => ({ value: d.deviceId, label: d.label || d.deviceId.slice(0, 8), icon: icons.camOn })),
+          ]}
+          onChange={setVideoId}
+          searchable={devices.video.length > 5}
+        />
       </label>
       <label>
         {t.deviceMic}
-        <select
+        <Select
+          t={t}
+          label={t.deviceMic}
           value={audioId}
           disabled={acquiring}
-          onChange={(e) => setAudioId(e.currentTarget.value)}
-        >
-          <option value="">{t.deviceDefault}</option>
-          {devices.audio.map((d) => (
-            <option value={d.deviceId} key={d.deviceId}>
-              {d.label || d.deviceId.slice(0, 8)}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: t.deviceDefault, icon: icons.micOn },
+            ...devices.audio.map((d) => ({ value: d.deviceId, label: d.label || d.deviceId.slice(0, 8), icon: icons.micOn })),
+          ]}
+          onChange={setAudioId}
+          searchable={devices.audio.length > 5}
+        />
       </label>
       <div class="device-actions">
         <button type="button" class="device-btn" disabled={acquiring} onClick={onRetry}>

@@ -2,6 +2,7 @@ import type { Locale } from '../../../shared/types'
 import { LOCALES } from '../../../shared/constants'
 import { setStoredLocale } from '../../utils/storage'
 import type { Messages } from '../../i18n'
+import { Select } from '../Select'
 
 export function LocalePrefsTab({
   t,
@@ -16,20 +17,17 @@ export function LocalePrefsTab({
     <div class="prefs-tab-panel" role="tabpanel">
       <label>
         {t.language}
-        <select
+        <Select
+          t={t}
+          label={t.language}
           value={locale}
-          onChange={(e) => {
-            const l = e.currentTarget.value as Locale
+          options={LOCALES.map((l) => ({ value: l, label: l === 'en' ? t.localeEn : l === 'es' ? t.localeEs : t.localePt }))}
+          onChange={(next: string) => {
+            const l = next as Locale
             setLocale(l)
             setStoredLocale(l)
           }}
-        >
-          {LOCALES.map((l) => (
-            <option value={l} key={l}>
-              {l === 'en' ? t.localeEn : l === 'es' ? t.localeEs : t.localePt}
-            </option>
-          ))}
-        </select>
+        />
       </label>
     </div>
   )
