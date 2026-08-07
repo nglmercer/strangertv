@@ -62,7 +62,7 @@ export function MatchPrefsTab({
           t={t}
           label={t.matchLanguage}
           value={prefs.language}
-          options={MATCH_LANGUAGE_CODES.map((code) => ({ value: code, label: matchLangLabel(t, code) }))}
+          options={MATCH_LANGUAGE_CODES.map((code) => ({ value: code, label: matchLangLabel(t, code), icon: icons.globe }))}
           onChange={(language: string) => setPrefs({ ...prefs, language })}
         />
       </label>
