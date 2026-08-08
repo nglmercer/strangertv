@@ -1,9 +1,9 @@
 import { useState } from 'preact/hooks'
 import { authApi, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
-import { isAdult } from '../utils/age'
+import { isAdult, maxAdultBirthDate } from '../utils/age'
 import { setSession } from '../utils/storage'
-import { get, set, storageKeys, applyUserToClient } from '../utils/clientStorage'
+import { get, storageKeys, applyUserToClient } from '../utils/clientStorage'
 import { Modal } from './Modal'
 
 export function AuthModal({
@@ -107,7 +107,13 @@ export function AuthModal({
         {registering && resetMode === 'off' && (
           <label>
             {t.birthday}
-            <input type="date" value={birthDate} onInput={(e) => setBirthDate(e.currentTarget.value)} required />
+            <input
+              type="date"
+              value={birthDate}
+              max={maxAdultBirthDate()}
+              onInput={(e) => setBirthDate(e.currentTarget.value)}
+              required
+            />
           </label>
         )}
         {error && <p class="form-error" role="alert">{error}</p>}

@@ -27,6 +27,7 @@ import { GroupMatchInviteModal } from './components/socialchat/GroupMatchInviteM
 import {
   applyUserToClient,
   canQuickStart,
+  ensureDefaultSetup,
   isAgeGateComplete,
 } from './utils/clientStorage'
 
@@ -221,9 +222,11 @@ export function App(_props: AppProps) {
 
   const onStartClick = () => {
     if (profileNeeded) return
+    // Age gate only; skip config wizard and join with system defaults.
+    ensureDefaultSetup()
     if (canQuickStart()) {
       void session.beginMatch().then((ok) => {
-        // Camera busy / denied after first-time setup: open Devices tab.
+        // Camera/mic conflict: open Devices tab so the user can pick another device.
         if (!ok) {
           setPrefsTab(PREFS_TAB.devices)
           setPreferences(true)

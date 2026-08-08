@@ -20,6 +20,8 @@ export function isAgeGateComplete(): boolean {
 export function markAgeGateComplete(birthDate: string) {
   set(storageKeys.birthDate, birthDate)
   setBool(storageKeys.profileComplete, true)
+  // Skip the multi-step config wizard: accept terms + use system default devices.
+  markMatchSetupComplete()
 }
 
 export function isTermsAccepted(): boolean {
@@ -49,9 +51,19 @@ export function markMatchSetupComplete() {
   setFlag(storageKeys.setupComplete, true)
 }
 
-/** True when Start can join the queue without re-opening the wizard. */
+/**
+ * True when Start can join the queue without a config wizard.
+ * Age gate is the only required pre-step; devices/prefs use system defaults
+ * and device pickers only surface on media conflict.
+ */
 export function canQuickStart(): boolean {
-  return isAgeGateComplete() && isMatchSetupComplete()
+  return isAgeGateComplete()
+}
+
+/** Ensure setup flags exist so legacy clients skip the old wizard. */
+export function ensureDefaultSetup(): void {
+  if (!isAgeGateComplete()) return
+  if (!isMatchSetupComplete()) markMatchSetupComplete()
 }
 
 export function loadDeviceIds(): { videoId: string; audioId: string } {

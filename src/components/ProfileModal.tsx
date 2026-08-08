@@ -1,6 +1,6 @@
-import { useState } from 'preact/hooks'
+import { useMemo, useState } from 'preact/hooks'
 import { monthIndex, monthKeys, monthLabel, type Messages, type MonthKey } from '../i18n'
-import { isAdult } from '../utils/age'
+import { adultBirthYears, daysInMonth, isAdult } from '../utils/age'
 import { markAgeGateComplete } from '../utils/clientStorage'
 import { Modal } from './Modal'
 
@@ -8,16 +8,40 @@ export function ProfileModal({ t, onComplete }: { t: Messages; onComplete: () =>
   const [birthday, setBirthday] = useState({ month: '' as MonthKey | '', day: '', year: '' })
   const [error, setError] = useState('')
 
+  const years = useMemo(() => adultBirthYears(), [])
+  const month = birthday.month ? monthIndex(birthday.month) : 0
+  const yearNum = birthday.year ? Number(birthday.year) : 0
+  const maxDay = daysInMonth(yearNum, month)
+  const dayOptions = useMemo(
+    () => Array.from({ length: maxDay }, (_, i) => i + 1),
+    [maxDay],
+  )
+
   const complete = () => {
     if (!birthday.month) return
-    const month = monthIndex(birthday.month)
-    const normalized = `${birthday.year}-${String(month).padStart(2, '0')}-${String(birthday.day).padStart(2, '0')}`
+    const m = monthIndex(birthday.month)
+    const day = Math.min(Number(birthday.day), daysInMonth(Number(birthday.year), m))
+    const normalized = `${birthday.year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`
     if (!isAdult(normalized)) {
       setError(t.mustBe18)
       return
     }
     markAgeGateComplete(normalized)
     onComplete()
+  }
+
+  const onYearChange = (year: string) => {
+    const nextMonth = birthday.month ? monthIndex(birthday.month) : 0
+    const max = daysInMonth(Number(year), nextMonth)
+    const day = birthday.day && Number(birthday.day) > max ? String(max) : birthday.day
+    setBirthday({ ...birthday, year, day })
+  }
+
+  const onMonthChange = (key: MonthKey | '') => {
+    const nextMonth = key ? monthIndex(key) : 0
+    const max = daysInMonth(yearNum, nextMonth)
+    const day = birthday.day && Number(birthday.day) > max ? String(max) : birthday.day
+    setBirthday({ ...birthday, month: key, day })
   }
 
   return (
@@ -30,7 +54,7 @@ export function ProfileModal({ t, onComplete }: { t: Messages; onComplete: () =>
         <div class="selects">
           <select
             value={birthday.month}
-            onChange={(e) => setBirthday({ ...birthday, month: e.currentTarget.value as MonthKey | '' })}
+            onChange={(e) => onMonthChange(e.currentTarget.value as MonthKey | '')}
           >
             <option value="">{t.month}</option>
             {monthKeys().map((key) => (
@@ -41,17 +65,17 @@ export function ProfileModal({ t, onComplete }: { t: Messages; onComplete: () =>
           </select>
           <select value={birthday.day} onChange={(e) => setBirthday({ ...birthday, day: e.currentTarget.value })}>
             <option value="">{t.day}</option>
-            {Array.from({ length: 31 }, (_, i) => (
-              <option value={i + 1} key={i + 1}>
-                {i + 1}
+            {dayOptions.map((d) => (
+              <option value={d} key={d}>
+                {d}
               </option>
             ))}
           </select>
-          <select value={birthday.year} onChange={(e) => setBirthday({ ...birthday, year: e.currentTarget.value })}>
+          <select value={birthday.year} onChange={(e) => onYearChange(e.currentTarget.value)}>
             <option value="">{t.year}</option>
-            {Array.from({ length: 100 }, (_, i) => (
-              <option value={2026 - i} key={2026 - i}>
-                {2026 - i}
+            {years.map((y) => (
+              <option value={y} key={y}>
+                {y}
               </option>
             ))}
           </select>

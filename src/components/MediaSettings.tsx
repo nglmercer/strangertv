@@ -41,11 +41,12 @@ function useMicLevel(stream: MediaStream | null, enabled: boolean): number {
 }
 
 /**
- * Camera + microphone configuration: live preview, device pickers with a mic
- * level meter, the mute/camera toggles, and the recovery actions.
+ * Camera + microphone configuration: live preview, optional device pickers
+ * with a mic level meter, mute/camera toggles, and recovery actions.
  *
- * Shared by the start wizard and the preferences modal so both always agree on
- * what is selected and what state the hardware is in.
+ * By default the app uses the system camera/mic. Device pickers are shown only
+ * when there is a conflict (error, disconnected device, overconstrained id)
+ * unless `forceDevicePickers` is set (Preferences → Devices).
  */
 export function MediaSettings({
   t,
@@ -66,6 +67,7 @@ export function MediaSettings({
   onToggleCamera,
   onRetry,
   onRefresh,
+  forceDevicePickers = false,
 }: {
   t: Messages
   stream: MediaStream | null
@@ -85,6 +87,8 @@ export function MediaSettings({
   onToggleCamera: () => void
   onRetry: () => void
   onRefresh: () => void
+  /** Always show cam/mic selectors (Preferences). Default: only on conflict. */
+  forceDevicePickers?: boolean
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const level = useMicLevel(stream, !muted)
@@ -103,6 +107,10 @@ export function MediaSettings({
   const errText = errorCode ? mediaErrorMessage(t, errorCode) : ''
   const helpText = errorCode ? mediaErrorHelp(t, errorCode) : ''
   const hasVideo = Boolean(stream?.getVideoTracks().length)
+
+  // Conflict: permission/busy/missing/wrong-id, or a live track that dropped.
+  const hasConflict = Boolean(errorCode || deviceLost)
+  const showDevicePickers = forceDevicePickers || hasConflict
 
   const cameraOptions = [
     { value: '', label: t.deviceDefault, icon: icons.camOn },
@@ -163,34 +171,44 @@ export function MediaSettings({
         <p class="media-hint">{t.mediaHelpPermission}</p>
       )}
 
-      <label>
-        {t.deviceCam}
-        <Select
-          t={t}
-          label={t.deviceCam}
-          value={videoId}
-          options={cameraOptions}
-          onChange={setVideoId}
-          disabled={acquiring}
-          searchable={devices.video.length > 5}
-        />
-      </label>
+      {showDevicePickers && (
+        <>
+          <label>
+            {t.deviceCam}
+            <Select
+              t={t}
+              label={t.deviceCam}
+              value={videoId}
+              options={cameraOptions}
+              onChange={setVideoId}
+              disabled={acquiring}
+              searchable={devices.video.length > 5}
+            />
+          </label>
 
-      <label>
-        {t.deviceMic}
-        <Select
-          t={t}
-          label={t.deviceMic}
-          value={audioId}
-          options={micOptions}
-          onChange={setAudioId}
-          disabled={acquiring}
-          searchable={devices.audio.length > 5}
-        />
+          <label>
+            {t.deviceMic}
+            <Select
+              t={t}
+              label={t.deviceMic}
+              value={audioId}
+              options={micOptions}
+              onChange={setAudioId}
+              disabled={acquiring}
+              searchable={devices.audio.length > 5}
+            />
+            <span class="mic-meter" role="meter" aria-label={t.micLevel} aria-valuenow={Math.round(level * 100)}>
+              <i style={{ width: `${Math.min(100, Math.round(level * 130))}%` }} />
+            </span>
+          </label>
+        </>
+      )}
+
+      {!showDevicePickers && stream && !muted && (
         <span class="mic-meter" role="meter" aria-label={t.micLevel} aria-valuenow={Math.round(level * 100)}>
           <i style={{ width: `${Math.min(100, Math.round(level * 130))}%` }} />
         </span>
-      </label>
+      )}
 
       <div class="device-actions">
         <button type="button" class="device-btn" disabled={acquiring} onClick={onRetry}>

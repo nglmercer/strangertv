@@ -72,6 +72,7 @@ export function DevicesPrefsTab({
         onToggleCamera={onToggleCamera}
         onRetry={() => void ensureStream(true).catch(() => undefined)}
         onRefresh={() => void refreshDevices()}
+        forceDevicePickers
       />
     </div>
   )
