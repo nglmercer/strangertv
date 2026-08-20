@@ -4,6 +4,7 @@ local.db
 local.db-*
 itest.db
 itest.db-*
+**.db-journal
 .env
 .env.local
 backups/
