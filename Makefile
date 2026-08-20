@@ -5,15 +5,19 @@ dev:
 
 build:
 	npm run build
+	cd rust && cargo build --release
 
 start:
-	npm start
+	./rust/target/release/stranger-server
 
 check:
 	npm run check
+	npm run check:generated
+	cd rust && cargo clippy --all-targets -- -D warnings
 
 test:
 	npm test
+	cd rust && cargo test
 
 e2e:
 	npm run test:e2e

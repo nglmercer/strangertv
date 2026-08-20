@@ -2,6 +2,12 @@
 
 Branch: `rust-backend`
 
+> **Status: phases 0–8 complete.** The Rust server passes the full existing
+> suite — 58/58 vitest and 11/11 Playwright — and is what `npm start` and the
+> container now run. The Node server is untouched under `server/` and remains
+> the rollback path. What follows is the plan as written; the outcome of each
+> phase, and where reality differed, is recorded in §9.
+
 ## 1. Scope
 
 **Moves to Rust** — everything under `server/` (~4,600 LOC, 24 files):
@@ -234,3 +240,95 @@ Be honest about this before committing five weeks:
 
 It does **not** buy correctness for free, and it costs the compile-time
 client/server contract unless §2 Option A is implemented.
+
+## 9. Outcome
+
+### What shipped
+
+| Phase | Result |
+|---|---|
+| 0 — harness | `tests/helpers/server.ts`, `SERVER_CMD` selects the binary |
+| 1 — skeleton + contract | `rust/src/proto` → `shared/generated` via ts-rs; `tsc` validates it |
+| 2 — data + auth | Opens a Node-written database and authenticates a user it did not create |
+| 3 — stateless HTTP | health, misc, admin, auth, middleware, static |
+| 4 — domain services | friends, messages, groups + social/group routes; `api.integration` green |
+| 5 — matchmaking | queue, 1:1, group lobbies, merging, cooldown, purge |
+| 6 — WebSocket | full protocol + presence; all WS suites green |
+| 7 — parity | e2e green, clippy clean, Prometheus diff clean, load compared |
+| 8 — deploy | multi-stage image, systemd, k8s, scripts |
+
+Measured at 120 concurrent WebSocket clients (release build): identical
+behaviour — 20 pairs, 20 waiting, 80 errors, 1.60 matches/sec on both servers —
+at **13.8 MB RSS versus Node's 99.5 MB**. The estimate of ~25 working days was
+for a human; the phases themselves held up as written.
+
+### Where the plan was wrong
+
+**Phase 3's exit criterion was unreachable.** It named `api.integration.test.ts`,
+but that suite also drives friends, messages, follows and groups, so it could
+only go green at the end of Phase 4. The phase ordering was still right; only
+the gate was misplaced.
+
+**The `.db` files were already gitignored**, not committed as §7 claimed.
+
+**The e2e suite was broken before the migration started** and had to be repaired
+before it could gate anything — see below.
+
+### What the port exposed in the existing code
+
+None of these were caused by the migration; the port surfaced them.
+
+1. **Unversioned API paths, in three places.** Three vitest suites polled
+   `/api/health/live`, the Playwright `webServer` probe used the same path, and
+   8 of 11 e2e tests called `/api/*` routes. No handler serves those — they fall
+   through to the SPA handler and return `index.html` with a 200. The tests were
+   asserting on HTML; the readiness probes were confirming only that a socket
+   was listening.
+
+2. **The same bug in the Kubernetes manifest.** `readinessProbe` and
+   `livenessProbe` both used unversioned paths, so a pod with a dead API would
+   have reported healthy indefinitely. This one was live in production config.
+
+3. **A stale e2e assertion** on a `.brand` element deleted from the UI in
+   `7179f2d` (2026-07-16).
+
+4. **A flaky parity harness.** The integration suites each spawn a real server
+   on a fixed port; run in parallel they passed roughly 1 full run in 6. Pinned
+   to `fileParallelism: false`.
+
+5. **Two default sets that look interchangeable and are not.**
+   `shared/constants.ts` `DEFAULT_GENDER`/`COUNTRY`/`LANGUAGE` are all `"any"`
+   and are what the API returns; `DB_DEFAULTS` (`other`/`any`/`en`) are SQL
+   column defaults. Using one for the other changes the registration response.
+
+6. **Dead code carried in the TypeScript**: `getPendingFriendRequests` is
+   exported and never called.
+
+### The recurring hazard: strict parsing
+
+JavaScript ignores unexpected and missing fields; serde rejects the frame. Every
+field the server declares but does not read is a latent break. Three instances,
+each of which silently dropped messages until fixed:
+
+- `invitation:accept.roomId` and `group-match:invite.roomId` — declared
+  required, sent by the app, never read by the server. Now optional.
+- **`queue:join.preferences`** — the browser sends a *partial* object and lets
+  `normalizePreferences` fill the rest. A strictly-typed field meant the frame
+  was dropped and no match ever happened. The four preference-carrying variants
+  now take raw JSON and normalize it, with `#[ts(as = "MatchPreferences")]`
+  keeping the generated TypeScript precise.
+
+The general rule for the rest of the port: **be strict about what you read, and
+tolerant about what you accept**, exactly where the JavaScript was.
+
+### Notes for whoever runs this next
+
+- `npm start` and `npm run dev` now run the Rust binary. `npm run dev:node`
+  still runs the TypeScript server for comparison.
+- `npm run check:generated` fails if `shared/generated` is stale.
+- `SERVER_CMD` / `E2E_SERVER_CMD` point the suites at either server; keep
+  running both until the Node server is deleted.
+- `cargo watch -x run` gives hot reload (`npm run dev:watch`) if cargo-watch is
+  installed; plain `npm run dev` does not reload.
+- The container healthcheck is `stranger-server --healthcheck`, so the runtime
+  image needs neither curl nor node.

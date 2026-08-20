@@ -71,6 +71,13 @@ impl AppState {
 
 #[tokio::main]
 async fn main() {
+    // `--healthcheck` probes the local liveness endpoint and exits 0/1. Having
+    // it in the binary keeps the runtime image free of curl/wget, which a
+    // scratch or distroless base would not provide.
+    if std::env::args().any(|a| a == "--healthcheck") {
+        std::process::exit(healthcheck().await);
+    }
+
     let config = Arc::new(Config::from_env());
     infra::logger::init(&config.log_level);
     infra::metrics::init();
@@ -217,6 +224,21 @@ async fn spa_fallback(state: AppState, req: Request) -> Response {
             "Not found — run npm run build or use Vite dev server",
         )
             .into_response(),
+    }
+}
+
+/// Exit code for the container HEALTHCHECK: 0 when the API answers, 1 otherwise.
+async fn healthcheck() -> i32 {
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8787".into());
+    let url = format!("http://127.0.0.1:{port}/api/v1/health/live");
+    match reqwest::Client::new()
+        .get(&url)
+        .timeout(std::time::Duration::from_secs(4))
+        .send()
+        .await
+    {
+        Ok(res) if res.status().is_success() => 0,
+        _ => 1,
     }
 }
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=Stranger video chat (Hono)
+Description=Stranger video chat (Rust/axum)
 After=network.target
 
 [Service]
@@ -7,7 +7,7 @@ Type=simple
 User=www-data
 WorkingDirectory=/opt/stranger
 EnvironmentFile=/opt/stranger/.env
-ExecStart=/usr/bin/npm start
+ExecStart=/opt/stranger/bin/stranger-server
 Restart=on-failure
 RestartSec=3
 KillSignal=SIGTERM
@@ -15,6 +15,9 @@ TimeoutStopSec=20
 # Hardening
 NoNewPrivileges=true
 PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/stranger/data
 
 [Install]
 WantedBy=multi-user.target

@@ -1,27 +1,53 @@
-# Build stage
-FROM node:22-alpine AS build
+# ---------------------------------------------------------------------------
+# Web assets: the SPA is still TypeScript, so Node builds dist/.
+# ---------------------------------------------------------------------------
+FROM node:22-alpine AS web
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 RUN npm run build
 
+# ---------------------------------------------------------------------------
+# API server. libsql links against glibc, so this is a bookworm build, not musl.
+# ---------------------------------------------------------------------------
+FROM rust:1-bookworm AS api
+WORKDIR /build
+# Cache the dependency compile: it dominates the build and only changes when
+# the manifests do.
+COPY rust/Cargo.toml rust/Cargo.lock ./
+RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm -rf src
+COPY rust/src ./src
+COPY rust/.cargo ./.cargo
+COPY shared ../shared
+# Touch so cargo does not reuse the stub's fingerprint.
+RUN touch src/main.rs && cargo build --release
+
+# ---------------------------------------------------------------------------
 # Runtime
-FROM node:22-alpine
+# ---------------------------------------------------------------------------
+FROM debian:bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8787
 ENV STATIC_DIR=/app/dist
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/public ./public
-COPY server ./server
-COPY shared ./shared
-COPY tsconfig.json tsconfig.node.json ./
-# Alpine images may lack wget; use node for healthcheck
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8787)+'/api/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-EXPOSE 8787
 ENV APP_VERSION=1.0.0
-CMD ["npx", "tsx", "server/index.ts"]
+
+# ca-certificates for outbound TLS (email webhooks, alerts, remote Turso).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY --from=api /build/target/release/stranger-server /usr/local/bin/stranger-server
+COPY --from=web /app/dist ./dist
+COPY --from=web /app/public ./public
+
+# The binary probes itself, so the image needs no curl or node.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["/usr/local/bin/stranger-server", "--healthcheck"]
+
+RUN useradd --system --uid 10001 stranger
+USER stranger
+
+EXPOSE 8787
+CMD ["/usr/local/bin/stranger-server"]
