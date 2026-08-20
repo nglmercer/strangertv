@@ -1709,3 +1709,359 @@ mod engine_tests {
         assert!(!shared.contains(&"tech".to_string()));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Direct matching (invitation accept) and relays
+// ---------------------------------------------------------------------------
+
+impl Engine {
+    /// Builds a queue peer from the user's stored profile, for matches that do
+    /// not come from the queue (an accepted invitation).
+    async fn build_peer(&self, user_id: i64, socket: SocketId) -> Option<QueuePeer> {
+        if let Some(meta) = self.state.lock().await.peer_meta.get(&socket) {
+            return Some(meta.clone());
+        }
+        let mut rows = self
+            .db
+            .conn()
+            .query(
+                "SELECT email, gender, country, language, interests FROM users WHERE id = ?",
+                libsql::params![user_id],
+            )
+            .await
+            .ok()?;
+        let row = rows.next().await.ok()??;
+
+        let interests: Vec<String> = row
+            .get::<String>(4)
+            .ok()
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default();
+        let preferences = normalize_preferences(&serde_json::json!({
+            "gender": row.get::<String>(1).unwrap_or_default(),
+            "country": row.get::<String>(2).unwrap_or_default(),
+            "language": row.get::<String>(3).unwrap_or_default(),
+            "interests": interests,
+            "lookingFor": "any",
+            "mode": "solo",
+            "matchScope": "all",
+        }))?;
+
+        let now = now_ms();
+        Some(QueuePeer {
+            socket,
+            preferences,
+            user_id: Some(user_id),
+            email: row.get::<String>(0).ok(),
+            session_key: String::new(),
+            joined_at: now,
+            last_beat: now,
+        })
+    }
+
+    /// Pairs two signed-in users directly, bypassing the queue. Used when an
+    /// invitation is accepted. Delivers to every socket each user has open so
+    /// the match appears in all their tabs.
+    pub async fn match_users(&self, a_user_id: i64, b_user_id: i64) -> bool {
+        let a_sockets: Vec<SocketId> = self
+            .hub
+            .sockets_for_user(a_user_id)
+            .into_iter()
+            .map(|h| h.id)
+            .collect();
+        let b_sockets: Vec<SocketId> = self
+            .hub
+            .sockets_for_user(b_user_id)
+            .into_iter()
+            .map(|h| h.id)
+            .collect();
+        let (Some(&a_socket), Some(&b_socket)) = (a_sockets.first(), b_sockets.first()) else {
+            return false;
+        };
+
+        let (Some(a_meta), Some(b_meta)) = (
+            self.build_peer(a_user_id, a_socket).await,
+            self.build_peer(b_user_id, b_socket).await,
+        ) else {
+            return false;
+        };
+
+        let room_id = {
+            let mut st = self.state.lock().await;
+            for s in a_sockets.iter().chain(b_sockets.iter()) {
+                self.leave_room_locked(&mut st, *s, false, Some(PEER_LEFT_LEAVE));
+            }
+            let room = Room {
+                id: st.new_room_id(),
+                a: a_socket,
+                b: b_socket,
+                a_user_id: Some(a_user_id),
+                b_user_id: Some(b_user_id),
+                created_at: now_ms(),
+            };
+            st.partners.insert(a_socket, b_socket);
+            st.partners.insert(b_socket, a_socket);
+            st.rooms_by_socket.insert(a_socket, room.clone());
+            st.rooms_by_socket.insert(b_socket, room.clone());
+            room.id
+        };
+
+        let shared: Vec<String> = a_meta
+            .preferences
+            .interests
+            .iter()
+            .filter(|x| b_meta.preferences.interests.contains(x))
+            .cloned()
+            .collect();
+        let (rel_a, rel_b) = self.relationship_pair(Some(a_user_id), Some(b_user_id)).await;
+
+        let payload_a = ServerMessage::RoomMatched {
+            room_id: room_id.clone(),
+            role: Role::Offerer,
+            peer_country: Some(b_meta.preferences.country.clone()),
+            peer_email: b_meta.email.clone(),
+            peer_user_id: Some(b_user_id),
+            shared_interests: Some(shared.clone()),
+            relationship: Some(rel_a),
+        };
+        let payload_b = ServerMessage::RoomMatched {
+            room_id,
+            role: Role::Answerer,
+            peer_country: Some(a_meta.preferences.country.clone()),
+            peer_email: a_meta.email.clone(),
+            peer_user_id: Some(a_user_id),
+            shared_interests: Some(shared),
+            relationship: Some(rel_b),
+        };
+        for s in &a_sockets {
+            self.send(*s, &payload_a);
+        }
+        for s in &b_sockets {
+            self.send(*s, &payload_b);
+        }
+
+        let st = self.state.lock().await;
+        self.broadcast_stats(&st);
+        true
+    }
+
+    /// Resolves who a report or block is aimed at.
+    ///
+    /// A requested id is honoured only when it really is someone the caller
+    /// shares a room with, so a client cannot report or block an arbitrary
+    /// account. With no request, the single other participant is used.
+    pub async fn resolve_target_user(
+        &self,
+        socket: SocketId,
+        requested: Option<i64>,
+    ) -> Option<i64> {
+        let st = self.state.lock().await;
+        let partner_id = st.rooms_by_socket.get(&socket).and_then(|room| {
+            if room.a == socket {
+                room.b_user_id
+            } else if room.b == socket {
+                room.a_user_id
+            } else {
+                None
+            }
+        });
+        let group_user_ids: Vec<i64> = st
+            .group_room_of_socket
+            .get(&socket)
+            .and_then(|id| st.group_rooms.get(id))
+            .map(|g| {
+                g.participants
+                    .iter()
+                    .filter(|p| p.socket != socket)
+                    .filter_map(|p| p.user_id.filter(|id| *id != 0))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        match requested.filter(|id| *id != 0) {
+            Some(req) => {
+                if Some(req) == partner_id || group_user_ids.contains(&req) {
+                    Some(req)
+                } else {
+                    None
+                }
+            }
+            None => partner_id.or_else(|| {
+                (group_user_ids.len() == 1).then(|| group_user_ids[0])
+            }),
+        }
+    }
+
+    /// Relays a WebRTC signal. In a group room it routes by `peer_id` first
+    /// (unique even when several guests share `user_id` 0), then `user_id`,
+    /// then broadcasts to the rest of the mesh.
+    pub async fn relay_signal(
+        &self,
+        socket: SocketId,
+        payload: crate::proto::SignalPayload,
+        target_user_id: Option<i64>,
+        target_peer_id: Option<i64>,
+    ) {
+        let st = self.state.lock().await;
+
+        if let Some(group) = st
+            .group_room_of_socket
+            .get(&socket)
+            .and_then(|id| st.group_rooms.get(id))
+        {
+            let sender = group.participant(socket);
+            let sender_user_id = sender
+                .and_then(|p| p.user_id)
+                .or_else(|| self.hub.user_of(socket))
+                .unwrap_or(0);
+            let sender_peer_id = sender.and_then(|p| p.peer_id);
+
+            let targets: Vec<SocketId> = if let Some(peer_id) = target_peer_id {
+                group
+                    .participants
+                    .iter()
+                    .filter(|p| p.peer_id == Some(peer_id) && p.socket != socket)
+                    .map(|p| p.socket)
+                    .take(1)
+                    .collect()
+            } else if let Some(user_id) = target_user_id {
+                group
+                    .participants
+                    .iter()
+                    .filter(|p| p.user_id == Some(user_id) && p.socket != socket)
+                    .map(|p| p.socket)
+                    .take(1)
+                    .collect()
+            } else {
+                group
+                    .participants
+                    .iter()
+                    .filter(|p| p.socket != socket)
+                    .map(|p| p.socket)
+                    .collect()
+            };
+
+            for target in &targets {
+                self.send(
+                    *target,
+                    &ServerMessage::Signal {
+                        payload: payload.clone(),
+                        target_user_id: Some(sender_user_id),
+                        from_peer_id: sender_peer_id,
+                    },
+                );
+            }
+            if !targets.is_empty() {
+                inc("signals_relayed", 1);
+            }
+            return;
+        }
+
+        if let Some(partner) = st.partners.get(&socket).copied() {
+            self.send(
+                partner,
+                &ServerMessage::Signal {
+                    payload,
+                    target_user_id: None,
+                    from_peer_id: None,
+                },
+            );
+            inc("signals_relayed", 1);
+        }
+    }
+
+    /// Relays chat to the 1:1 partner, or to the rest of a group room.
+    /// Returns the partner's user id when the message went to a 1:1 partner,
+    /// so the caller can persist it if the two have a relationship.
+    pub async fn relay_chat(&self, socket: SocketId, text: &str, time: &str) -> Option<i64> {
+        let st = self.state.lock().await;
+        let payload = crate::proto::ChatPayload {
+            text: text.to_string(),
+            time: time.to_string(),
+        };
+
+        if let Some(partner) = st.partners.get(&socket).copied() {
+            self.send(
+                partner,
+                &ServerMessage::Chat {
+                    payload: payload.clone(),
+                },
+            );
+            inc("chats_relayed", 1);
+            return st.rooms_by_socket.get(&socket).and_then(|room| {
+                if room.a == socket {
+                    room.b_user_id
+                } else {
+                    room.a_user_id
+                }
+            });
+        }
+
+        if let Some(group) = st
+            .group_room_of_socket
+            .get(&socket)
+            .and_then(|id| st.group_rooms.get(id))
+        {
+            let targets: Vec<SocketId> = group
+                .participants
+                .iter()
+                .filter(|p| p.socket != socket)
+                .map(|p| p.socket)
+                .collect();
+            for target in targets {
+                self.send(
+                    target,
+                    &ServerMessage::Chat {
+                        payload: payload.clone(),
+                    },
+                );
+            }
+            inc("chats_relayed", 1);
+        }
+        None
+    }
+
+    /// Sockets of every other participant in the caller's group room.
+    pub async fn group_peers_of(&self, socket: SocketId) -> Vec<SocketId> {
+        let st = self.state.lock().await;
+        st.group_room_of_socket
+            .get(&socket)
+            .and_then(|id| st.group_rooms.get(id))
+            .map(|g| {
+                g.participants
+                    .iter()
+                    .filter(|p| p.socket != socket)
+                    .map(|p| p.socket)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub async fn is_group_participant(&self, room_id: &str, socket: SocketId) -> bool {
+        self.state
+            .lock()
+            .await
+            .group_rooms
+            .get(room_id)
+            .is_some_and(|g| g.participant(socket).is_some())
+    }
+
+    pub async fn group_host_socket(&self, room_id: &str) -> Option<SocketId> {
+        self.state
+            .lock()
+            .await
+            .group_rooms
+            .get(room_id)
+            .map(|g| g.host_socket)
+    }
+
+    pub async fn group_participant_count(&self, room_id: &str) -> usize {
+        self.state
+            .lock()
+            .await
+            .group_rooms
+            .get(room_id)
+            .map(|g| g.participants.len())
+            .unwrap_or(0)
+    }
+}

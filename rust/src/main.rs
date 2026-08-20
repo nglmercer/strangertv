@@ -21,10 +21,12 @@ mod email;
 mod error;
 mod infra;
 mod matchmaking;
+mod presence;
 mod proto;
 mod routes;
 mod static_files;
 mod turn;
+mod ws;
 
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -140,7 +142,12 @@ async fn main() {
     });
 
     let shutdown_state = state.clone();
-    axum::serve(listener, app)
+    // `into_make_service_with_connect_info` so the WebSocket upgrade can read
+    // the peer address when no proxy header is present.
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
         .with_graceful_shutdown(shutdown_signal(shutdown_state))
         .await
         .unwrap_or_else(|err| {
@@ -183,6 +190,7 @@ fn build_router(state: AppState) -> Router {
         .merge(routes::misc::router(state.clone()))
         .merge(routes::social::router(state.clone()))
         .merge(routes::groups::router(state.clone()))
+        .merge(ws::route::router(state.clone()))
         .merge(routes::admin::router(state.clone()))
         // The merged routers already carry their state, so this router is
         // `Router<()>`; the fallback captures what it needs instead.
@@ -254,7 +262,12 @@ async fn shutdown_signal(state: AppState) {
         _ = terminate => "SIGTERM",
     };
 
+    // Flip readiness first so load balancers stop sending new traffic, then
+    // tell live sockets to reconnect elsewhere, then give them the drain window
+    // before the listener closes.
     state.set_draining(true);
     log_info!("server.draining", { "signal": signal, "drainMs": state.config.drain_ms });
+    ws::route::broadcast_drain(&state).await;
+    tokio::time::sleep(std::time::Duration::from_millis(state.config.drain_ms)).await;
     log_info!("server.shutdown", { "signal": signal });
 }

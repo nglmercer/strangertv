@@ -120,11 +120,17 @@ pub enum ClientMessage {
         user_id: i64,
         room_id: String,
     },
+    /// `room_id` is declared on the TS type and sent by the app, but the server
+    /// resolves the room from the stored invitation and never reads it. Kept
+    /// optional so a client that omits it is not silently dropped — serde is
+    /// strict where the JS handler simply ignored the field.
     #[serde(rename = "invitation:accept")]
     InvitationAccept {
         #[ts(type = "number")]
         invitation_id: i64,
-        room_id: String,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        #[ts(optional)]
+        room_id: Option<String>,
     },
     #[serde(rename = "invitation:decline")]
     InvitationDecline {
@@ -193,9 +199,13 @@ pub enum ClientMessage {
         #[ts(optional)]
         token: Option<String>,
     },
+    /// Same as `invitation:accept`: the handler uses the socket's current group
+    /// room, not this field.
     #[serde(rename = "group-match:invite")]
     GroupMatchInvite {
-        room_id: String,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        #[ts(optional)]
+        room_id: Option<String>,
         #[ts(type = "number")]
         user_id: i64,
         #[serde(skip_serializing_if = "Option::is_none", default)]
