@@ -22,8 +22,8 @@
   transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
 }
 
-.video.local:hover .call-bar,
-.video.local:focus-within .call-bar {
+.video:hover .call-bar,
+.video:focus-within .call-bar {
   opacity: 0.72;
   transform: translateX(-50%) translateY(0);
   pointer-events: auto;
@@ -46,8 +46,8 @@
 
 /* The bar lives inside the local tile, which clips its content. Let an open
    device/more menu escape the tile instead of being cut off. */
-.video.local:has(.call-split.open),
-.video.local:has(.call-more.open) {
+.video:has(.call-split.open),
+.video:has(.call-more.open) {
   overflow: visible;
   z-index: 7;
 }
@@ -300,4 +300,32 @@
 
 .call-menu-item.danger:hover:not(:disabled) {
   background: #5a2a2244;
+}
+
+/* Peer-tile variant of the bar: same shell, fewer inline buttons. It sits on
+   the remote/group tiles, where the tile label occupies the bottom-left. */
+.tile-bar {
+  bottom: 12px;
+}
+
+/* `relative` (not the badge's own absolute corner placement) keeps the quality
+   badge in the bar's row while still anchoring its tooltip to itself. */
+.tile-bar .quality-badge {
+  position: relative;
+  right: auto;
+  top: auto;
+  flex-shrink: 0;
+}
+
+/* Group tiles are small: shrink the bar so it does not swallow the video. */
+.tile-compact .tile-bar {
+  bottom: 8px;
+  padding: 5px 6px;
+  gap: 4px;
+  border-radius: 16px;
+}
+
+.tile-compact .tile-bar .call-btn.icon {
+  width: 30px;
+  height: 30px;
 }

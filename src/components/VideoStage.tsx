@@ -65,7 +65,6 @@ function GroupTile({
   speaking,
   compact,
   pinned,
-  muted,
   onSelect,
   localVideo,
   renderActions,
@@ -76,7 +75,6 @@ function GroupTile({
   speaking: boolean
   compact: boolean
   pinned: boolean
-  muted?: boolean
   onSelect?: () => void
   localVideo?: RefObject<HTMLVideoElement>
   renderActions?: (ctx: { open: boolean; close: () => void; toggle: () => void }) => ComponentChildren
@@ -130,11 +128,6 @@ function GroupTile({
       )}
       <span class="label">{tile.name}</span>
       {tile.country && <span class="peer-country">{countryLabel(t, tile.country)}</span>}
-      {muted && (
-        <span class="peer-muted-badge" title={t.mute} aria-label={t.mute}>
-          <Icon d={icons.micOff} size={compact ? 12 : 14} />
-        </span>
-      )}
       {speaking && <span class="talk-flag">{t.speaking}</span>}
       <span class="talk-meter" aria-hidden="true">
         <i style={{ width: `${Math.min(100, Math.round(level * 130))}%` }} />
@@ -319,7 +312,6 @@ export function VideoStage({
     )
   }
 
-  const tileMuted = (tile: Tile) => tile.peerId != null && Boolean(mutedPeers[tile.peerId])
 
   const spotlight = isGroupMatch && groupLayout === 'spotlight'
   const { activeId, levels } = useSpeakerFocus(
@@ -354,7 +346,6 @@ export function VideoStage({
                     pinned={pinnedId === mainTile.id}
                     onSelect={pinnedId === mainTile.id ? () => setPinnedId(null) : undefined}
                     localVideo={localVideo}
-                    muted={tileMuted(mainTile)}
                     renderActions={tileActions(mainTile)}
                   />
                 </div>
@@ -370,7 +361,6 @@ export function VideoStage({
                       pinned={pinnedId === tile.id}
                       onSelect={() => setPinnedId(pinnedId === tile.id ? null : tile.id)}
                       localVideo={localVideo}
-                      muted={tileMuted(tile)}
                       renderActions={tileActions(tile)}
                     />
                   ))}
@@ -396,7 +386,6 @@ export function VideoStage({
                             compact={remoteTiles.length > 2}
                             pinned={false}
                             localVideo={localVideo}
-                            muted={tileMuted(tile)}
                             renderActions={tileActions(tile)}
                           />
                         ))
@@ -416,7 +405,6 @@ export function VideoStage({
                           compact={false}
                           pinned={false}
                           localVideo={localVideo}
-                          muted={tileMuted(youTile)}
                           renderActions={tileActions(youTile)}
                         />
                       </div>
@@ -432,7 +420,6 @@ export function VideoStage({
                               compact
                               pinned={false}
                               localVideo={localVideo}
-                              muted={tileMuted(tile)}
                               renderActions={tileActions(tile)}
                             />
                           ))}
@@ -454,7 +441,6 @@ export function VideoStage({
                       compact={false}
                       pinned={false}
                       localVideo={localVideo}
-                      muted={tileMuted(tile)}
                       renderActions={tileActions(tile)}
                     />
                   ))}
@@ -501,11 +487,6 @@ export function VideoStage({
               {strangerMeta && <span class="label">{strangerMeta}</span>}
               {relationshipLabel && matched && (
                 <span class="relationship-badge">{relationshipLabel}</span>
-              )}
-              {soloMuted && matched && (
-                <span class="peer-muted-badge" title={t.mute} aria-label={t.mute}>
-                  <Icon d={icons.micOff} size={14} />
-                </span>
               )}
               {matched && (
                 <PeerTileActions
