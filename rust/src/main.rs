@@ -16,6 +16,7 @@ mod auth;
 mod config;
 mod constants;
 mod db;
+mod domain;
 mod email;
 mod error;
 mod infra;
@@ -48,6 +49,7 @@ const WS_PATH: &str = "/ws";
 pub struct AppState {
     pub config: Arc<Config>,
     pub db: Arc<Db>,
+    pub hub: Arc<matchmaking::Hub>,
     draining: Arc<AtomicBool>,
     db_ok: Arc<AtomicBool>,
     r#static: Arc<StaticHandler>,
@@ -99,6 +101,7 @@ async fn main() {
     let state = AppState {
         config: Arc::clone(&config),
         db: Arc::clone(&db),
+        hub: Arc::new(matchmaking::Hub::new()),
         draining: Arc::new(AtomicBool::new(false)),
         db_ok: Arc::new(AtomicBool::new(true)),
         r#static: Arc::new(StaticHandler::new(&dist_dir, Some("dist"))),
@@ -174,6 +177,8 @@ fn build_router(state: AppState) -> Router {
         .merge(routes::health::router(state.clone()))
         .merge(routes::auth::router(state.clone()))
         .merge(routes::misc::router(state.clone()))
+        .merge(routes::social::router(state.clone()))
+        .merge(routes::groups::router(state.clone()))
         .merge(routes::admin::router(state.clone()))
         // The merged routers already carry their state, so this router is
         // `Router<()>`; the fallback captures what it needs instead.

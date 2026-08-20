@@ -38,10 +38,18 @@ impl Db {
         let url = url.to_string();
         let auth_token = std::env::var("TURSO_AUTH_TOKEN").unwrap_or_default();
 
-        let database = if let Some(path) = url.strip_prefix("file:") {
-            Builder::new_local(path).build().await?
-        } else {
+        // Remote only for a real remote scheme; everything else is a local
+        // path. `file:local.db` is what deployments use, and `:memory:` is what
+        // the tests use — both must stay off the Hrana client.
+        let is_remote = ["libsql://", "http://", "https://", "ws://", "wss://"]
+            .iter()
+            .any(|scheme| url.starts_with(scheme));
+        let database = if is_remote {
             Builder::new_remote(url.clone(), auth_token).build().await?
+        } else {
+            Builder::new_local(url.strip_prefix("file:").unwrap_or(&url))
+                .build()
+                .await?
         };
         let conn = database.connect()?;
         Ok(Self {
