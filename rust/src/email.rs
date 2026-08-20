@@ -18,6 +18,9 @@ pub struct Mail {
 pub struct MailBody {
     pub text: String,
     pub html: String,
+    /// Returned for parity with the TypeScript helper; no caller reads it,
+    /// since the link is already embedded in `text` and `html`.
+    #[allow(dead_code)]
     pub link: String,
 }
 

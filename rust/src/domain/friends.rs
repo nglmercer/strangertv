@@ -89,6 +89,10 @@ pub async fn get_friends(db: &Db, user_id: i64) -> anyhow::Result<Vec<FriendRow>
     Ok(out)
 }
 
+/// Unused by any route — `getPendingFriendRequests` is exported but never
+/// called in the TypeScript either. Kept for parity (and exercised by the
+/// tests below) rather than silently dropped from the port.
+#[allow(dead_code)]
 pub struct PendingRequest {
     pub id: i64,
     pub requester_id: i64,
@@ -97,6 +101,7 @@ pub struct PendingRequest {
     pub requester: PublicUser,
 }
 
+#[allow(dead_code)]
 pub async fn get_pending_friend_requests(
     db: &Db,
     user_id: i64,

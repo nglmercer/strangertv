@@ -46,6 +46,8 @@ pub struct Room {
     pub b: SocketId,
     pub a_user_id: Option<i64>,
     pub b_user_id: Option<i64>,
+    /// Recorded like the TypeScript `Room.createdAt`; nothing reads it yet.
+    #[allow(dead_code)]
     pub created_at: u64,
 }
 

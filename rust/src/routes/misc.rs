@@ -168,7 +168,7 @@ async fn create_rating(
 
     // `Number.isInteger(score)` — a fractional score is rejected, not rounded.
     let raw = body.get("score").and_then(Value::as_f64).unwrap_or(f64::NAN);
-    if !raw.is_finite() || raw.fract() != 0.0 || raw < 1.0 || raw > 5.0 {
+    if !raw.is_finite() || raw.fract() != 0.0 || !(1.0..=5.0).contains(&raw) {
         return Err(ApiError::bad_request("Score must be 1–5."));
     }
     let score = raw as i64;

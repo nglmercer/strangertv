@@ -21,9 +21,14 @@ pub enum ClientMessage {
         token: Option<String>,
     },
 
+    /// `preferences` is accepted as raw JSON and run through
+    /// `normalize_preferences`, exactly as the Node handler does. Clients send
+    /// partial objects (the e2e suite omits mode/matchScope entirely), so a
+    /// strictly-typed field would make serde drop the frame.
     #[serde(rename = "queue:join")]
     QueueJoin {
-        preferences: MatchPreferences,
+        #[ts(as = "MatchPreferences")]
+        preferences: serde_json::Value,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         #[ts(optional)]
         token: Option<String>,
@@ -37,7 +42,8 @@ pub enum ClientMessage {
 
     #[serde(rename = "room:next")]
     RoomNext {
-        preferences: MatchPreferences,
+        #[ts(as = "MatchPreferences")]
+        preferences: serde_json::Value,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         #[ts(optional)]
         token: Option<String>,
@@ -183,7 +189,8 @@ pub enum ClientMessage {
     #[serde(rename = "group-match:create")]
     GroupMatchCreate {
         visibility: GroupVisibility,
-        preferences: MatchPreferences,
+        #[ts(as = "MatchPreferences")]
+        preferences: serde_json::Value,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         #[ts(optional)]
         token: Option<String>,
@@ -191,7 +198,8 @@ pub enum ClientMessage {
     #[serde(rename = "group-match:create-and-invite")]
     GroupMatchCreateAndInvite {
         visibility: GroupVisibility,
-        preferences: MatchPreferences,
+        #[ts(as = "MatchPreferences")]
+        preferences: serde_json::Value,
         #[serde(skip_serializing_if = "Option::is_none", default)]
         #[ts(optional, type = "number")]
         user_id: Option<i64>,

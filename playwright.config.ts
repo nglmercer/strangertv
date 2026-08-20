@@ -13,8 +13,12 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'npm run build && npx tsx server/index.ts',
-    url: `${base}/api/health`,
+    // E2E_SERVER_CMD selects which server to exercise, mirroring SERVER_CMD in
+    // the vitest suites (see docs/rust-migration-plan.md).
+    command: `npm run build && ${process.env.E2E_SERVER_CMD ?? 'npx tsx server/index.ts'}`,
+    // Must be a real route: /api/health (unversioned) falls through to the SPA
+    // handler and returns index.html with a 200, so it never proves the API is up.
+    url: `${base}/api/v1/health/live`,
     // Dedicated E2E port avoids clashes with dev servers on 8787
     reuseExistingServer: false,
     timeout: 120_000,

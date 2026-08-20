@@ -18,6 +18,7 @@ use crate::AppState;
 
 pub fn router(state: AppState) -> Router {
     Router::new()
+        .route("/api/v1/docs", get(docs))
         .route("/api/v1/health", get(health))
         .route("/api/v1/health/live", get(live))
         .route("/api/v1/health/ready", get(ready))
@@ -26,6 +27,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/config/public", get(config_public))
         .route("/api/v1/ice", get(ice))
         .with_state(state)
+}
+
+async fn docs(State(state): State<AppState>) -> Json<Value> {
+    Json(crate::openapi::open_api_document(&state.config.app_url))
 }
 
 async fn live() -> Json<Value> {

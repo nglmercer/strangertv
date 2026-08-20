@@ -5,7 +5,7 @@ pub mod sockets;
 pub mod state;
 
 pub use core::Engine;
-pub use sockets::{Hub, SocketHandle, SocketId};
+pub use sockets::{Hub, SocketId};
 
 /// Queue counters reported by `/api/v1/health` and the admin overview.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

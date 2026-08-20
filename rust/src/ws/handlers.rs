@@ -15,7 +15,7 @@ use crate::domain::groups as groups_svc;
 use crate::domain::messages as messages_svc;
 use crate::matchmaking::{Engine, Hub, SocketId};
 use crate::proto::{
-    ClientMessage, GroupVisibility, MatchMode, MatchPreferences, PublicUser, ServerMessage,
+    ClientMessage, GroupVisibility, MatchMode, PublicUser, ServerMessage,
 };
 use crate::AppState;
 
@@ -124,10 +124,10 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::QueueJoin { preferences, token } => {
-            join(state, ctx, preferences, token, false).await;
+            join(state, ctx, &preferences, token, false).await;
         }
         ClientMessage::RoomNext { preferences, token } => {
-            join(state, ctx, preferences, token, true).await;
+            join(state, ctx, &preferences, token, true).await;
         }
 
         ClientMessage::QueueLeave | ClientMessage::RoomLeave => {
@@ -142,6 +142,11 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         } => {
             let Some(user) = require_token(state, socket, token.as_deref(), "Sign in to create group matches.").await
             else {
+                return;
+            };
+            let Some(preferences) = crate::matchmaking::core::normalize_preferences(&preferences)
+            else {
+                send(hub, socket, &err("bad_prefs", "Invalid preferences."));
                 return;
             };
             engine
@@ -164,7 +169,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
             token,
             ..
         } => {
-            create_and_invite(state, ctx, preferences, user_id, token).await;
+            create_and_invite(state, ctx, &preferences, user_id, token).await;
         }
 
         ClientMessage::GroupMatchInvite { room_id: _, user_id, token } => {
@@ -615,7 +620,7 @@ async fn require_token(
 async fn join(
     state: &AppState,
     ctx: &WsContext,
-    preferences: MatchPreferences,
+    raw_preferences: &serde_json::Value,
     token: Option<String>,
     is_next: bool,
 ) {
@@ -647,6 +652,10 @@ async fn join(
         send(hub, socket, &err("auth_required", "Sign in to match."));
         return;
     }
+    let Some(preferences) = crate::matchmaking::core::normalize_preferences(raw_preferences) else {
+        send(hub, socket, &err("bad_prefs", "Invalid preferences."));
+        return;
+    };
     // Group mode has its own entry point; taking it here would put a group
     // lobby into the solo queue.
     if preferences.mode == MatchMode::Group {
@@ -691,7 +700,7 @@ async fn join(
 async fn create_and_invite(
     state: &AppState,
     ctx: &WsContext,
-    preferences: MatchPreferences,
+    raw_preferences: &serde_json::Value,
     target_user_id: Option<i64>,
     token: Option<String>,
 ) {
@@ -718,7 +727,13 @@ async fn create_and_invite(
         }
     }
 
-    let mut prefs = preferences;
+    // An unparseable object still yields the documented all-defaults set here,
+    // matching the Node fallback for this message.
+    let mut prefs = crate::matchmaking::core::normalize_preferences(raw_preferences)
+        .unwrap_or_else(|| {
+            crate::matchmaking::core::normalize_preferences(&serde_json::json!({}))
+                .expect("an empty object always normalizes")
+        });
     prefs.mode = MatchMode::Group;
 
     let room_id = state

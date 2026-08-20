@@ -5,11 +5,6 @@
 //! auth layer, and the HTTP routes. Matchmaking and the WebSocket protocol
 //! arrive in phases 5 and 6.
 
-// Each module lands a phase ahead of the handlers that call it, so items are
-// legitimately unused until their route or engine arrives. Phase 7 (parity and
-// hardening) removes this and treats what remains as genuinely dead.
-#![allow(dead_code)]
-
 mod age;
 mod alerts;
 mod auth;
@@ -21,6 +16,7 @@ mod email;
 mod error;
 mod infra;
 mod matchmaking;
+mod openapi;
 mod presence;
 mod proto;
 mod routes;

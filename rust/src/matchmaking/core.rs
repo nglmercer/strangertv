@@ -786,6 +786,11 @@ impl Engine {
 
 impl Engine {
     /// Creates a pre-match lobby hosted by `socket`.
+    ///
+    /// The argument list mirrors the TypeScript signature (socket, visibility,
+    /// preferences, then the opts bag) so the two can be diffed side by side;
+    /// bundling them into a struct here would obscure that.
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_group_match_room(
         &self,
         socket: SocketId,
@@ -1183,7 +1188,6 @@ impl Engine {
             .flatten()
             .cloned()
             .enumerate()
-            .map(|(i, p)| (i, p))
             .collect();
         if participants.len() < 2 {
             return;
@@ -1423,10 +1427,6 @@ mod engine_tests {
             }
         }
         out
-    }
-
-    fn frame_of<'a>(raw: &'a [String], _t: &str) -> Option<&'a String> {
-        raw.first()
     }
 
     #[tokio::test]

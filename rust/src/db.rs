@@ -10,13 +10,20 @@
 
 use libsql::{Builder, Connection, Database};
 
+/// The DDL above inlines these values as SQL literals (SQLite needs them
+/// inline); the constants name them so the schema and the queries that filter
+/// on them cannot drift apart unnoticed.
+#[allow(dead_code)]
 pub const REPORT_STATUS_OPEN: &str = "open";
 
 /// SQL column defaults, matching `DB_DEFAULTS` in shared/constants.ts. These
 /// apply only to rows inserted without the column — they are NOT the values the
 /// API falls back to, which live in `constants.rs` and are all `"any"`.
+#[allow(dead_code)]
 pub const DB_DEFAULT_GENDER: &str = "other";
+#[allow(dead_code)]
 pub const DB_DEFAULT_COUNTRY: &str = "any";
+#[allow(dead_code)]
 pub const DB_DEFAULT_LANGUAGE: &str = "en";
 
 pub struct Db {
