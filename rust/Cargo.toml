@@ -1,0 +1,32 @@
+[package]
+name = "stranger-server"
+version = "1.0.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws", "macros"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "compression-full", "fs", "set-header"] }
+serde = { version = "1", features = ["derive"] }
+# `preserve_order`: log lines must come out as {"ts","level","msg",...} like the
+# Node logger. serde_json sorts keys alphabetically without it.
+serde_json = { version = "1", features = ["preserve_order"] }
+# `no-serde-warnings`: ts-rs cannot parse the combined
+# `skip_serializing_if = "..." , default` attribute and warns on every build.
+# Field optionality is declared explicitly with `#[ts(optional)]` instead.
+ts-rs = { version = "10", features = ["no-serde-warnings"] }
+libsql = "0.9"
+scrypt = "0.11"
+sha2 = "0.10"
+sha1 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+rand = "0.8"
+hex = "0.4"
+time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
+anyhow = "1"
+thiserror = "2"
+
+[dev-dependencies]
+tokio-test = "0.4"
