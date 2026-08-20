@@ -430,49 +430,51 @@ export function App(_props: AppProps) {
               localGroupIds={[...(user ? [user.id] : []), ...session.groupParticipants.map((p) => p.userId)]}
               soloLayout={uiSettings.soloLayout}
               groupLayout={uiSettings.groupLayout}
-            />
-            <CallBar
-              t={tr}
-              finding={session.finding}
-              matched={session.matched}
-              muted={session.media.muted}
-              cameraOn={session.media.cameraOn}
-              quality={session.webrtc.quality}
-              devices={session.media.devices}
-              videoId={session.media.videoId}
-              audioId={session.media.audioId}
-              user={user}
-              fullscreen={fullscreen}
-              sharedPrefs={sharedPrefs}
-              showSharedPrefs={showSharedPrefs}
-              onStart={onStartClick}
-              onMute={() => session.media.setMutedTrack(!session.media.muted)}
-              onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
-              onRetryIce={() => void session.webrtc.restartIce()}
-              onOpenSocial={() => {
-                route('/social')
-              }}
-              onApplySharedPrefs={handleApplySharedPrefs}
-              onDismissSharedPrefs={() => setShowSharedPrefs(false)}
-              onDeviceChange={onDeviceChange}
-              onOpenDeviceSettings={() => {
-                setPrefsTab(PREFS_TAB.devices)
-                setPreferences(true)
-              }}
-              onRefreshDevices={() => void session.media.refreshDevices()}
-              onFullscreen={handleFullscreen}
-              onStop={session.stop}
-              onNext={session.next}
-              onPreferences={() => {
-                setPrefsTab(PREFS_TAB.match)
-                setPreferences(true)
-              }}
-              onSettings={() => setSettings(true)}
-              onAuthClick={onAuthClick}
-              onInvite={() => {
-                console.debug('[app] invite clicked, opening friend manager')
-                setFriendManager({ open: true, inviteMode: true })
-              }}
+              callBar={
+                <CallBar
+                  t={tr}
+                  finding={session.finding}
+                  matched={session.matched}
+                  muted={session.media.muted}
+                  cameraOn={session.media.cameraOn}
+                  quality={session.webrtc.quality}
+                  devices={session.media.devices}
+                  videoId={session.media.videoId}
+                  audioId={session.media.audioId}
+                  user={user}
+                  fullscreen={fullscreen}
+                  sharedPrefs={sharedPrefs}
+                  showSharedPrefs={showSharedPrefs}
+                  onStart={onStartClick}
+                  onMute={() => session.media.setMutedTrack(!session.media.muted)}
+                  onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
+                  onRetryIce={() => void session.webrtc.restartIce()}
+                  onOpenSocial={() => {
+                    route('/social')
+                  }}
+                  onApplySharedPrefs={handleApplySharedPrefs}
+                  onDismissSharedPrefs={() => setShowSharedPrefs(false)}
+                  onDeviceChange={onDeviceChange}
+                  onOpenDeviceSettings={() => {
+                    setPrefsTab(PREFS_TAB.devices)
+                    setPreferences(true)
+                  }}
+                  onRefreshDevices={() => void session.media.refreshDevices()}
+                  onFullscreen={handleFullscreen}
+                  onStop={session.stop}
+                  onNext={session.next}
+                  onPreferences={() => {
+                    setPrefsTab(PREFS_TAB.match)
+                    setPreferences(true)
+                  }}
+                  onSettings={() => setSettings(true)}
+                  onAuthClick={onAuthClick}
+                  onInvite={() => {
+                    console.debug('[app] invite clicked, opening friend manager')
+                    setFriendManager({ open: true, inviteMode: true })
+                  }}
+                />
+              }
             />
           </div>
           {friendManager.open && (

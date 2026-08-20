@@ -4,7 +4,6 @@
   z-index: 6;
   left: 50%;
   bottom: 18px;
-  transform: translateX(-50%);
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -17,23 +16,40 @@
   box-shadow: 0 8px 28px var(--shadow-lg);
   max-width: calc(100% - 24px);
   backdrop-filter: blur(10px);
-  opacity: 0.4;
+  opacity: 0;
+  transform: translateX(-50%) translateY(12px);
+  pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
 }
 
-.call-bar:hover,
-.call-bar:focus-within {
-  opacity: 1;
-  background: var(--call-bg-hover);
+.video.local:hover .call-bar,
+.video.local:focus-within .call-bar {
+  opacity: 0.72;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
 }
 
-.stage-wrap .call-bar {
-  bottom: 18px;
+.call-bar:hover,
+.call-bar:focus-within,
+.call-bar:has(.call-split.open),
+.call-bar:has(.call-more.open) {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+  background: var(--call-bg-hover);
 }
 
 .stage-wrap:fullscreen .call-bar,
 .stage-wrap:-webkit-full-screen .call-bar {
   bottom: 24px;
+}
+
+/* The bar lives inside the local tile, which clips its content. Let an open
+   device/more menu escape the tile instead of being cut off. */
+.video.local:has(.call-split.open),
+.video.local:has(.call-more.open) {
+  overflow: visible;
+  z-index: 7;
 }
 
 .call-btn {

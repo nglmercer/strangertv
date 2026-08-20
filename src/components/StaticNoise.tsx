@@ -89,15 +89,15 @@ export function StaticNoise({
       const rect = parent
         ? { width: parent.clientWidth, height: parent.clientHeight }
         : canvas.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
+      // The bitmap is kept at CSS-pixel size on purpose: putImageData ignores
+      // the canvas transform, so a devicePixelRatio-scaled bitmap would leave
+      // the noise stranded in the top-left corner. The noise is blocky by
+      // design, so there is nothing to gain from a higher-resolution buffer.
       width = Math.max(1, Math.floor(rect.width));
       height = Math.max(1, Math.floor(rect.height));
 
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      canvas.width = width;
+      canvas.height = height;
     };
 
     const loop = (timestamp: number) => {

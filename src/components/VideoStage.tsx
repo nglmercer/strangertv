@@ -209,6 +209,7 @@ export function VideoStage({
   localGroupIds,
   soloLayout,
   groupLayout,
+  callBar,
 }: {
   t: Messages
   finding: boolean
@@ -247,6 +248,7 @@ export function VideoStage({
   localGroupIds: number[]
   soloLayout: SoloLayout
   groupLayout: GroupLayout
+  callBar?: ComponentChildren
 }) {
   const emptyTitle = finding ? status || t.searchingTitle : t.idleTitle
   const emptyBody = finding
@@ -566,6 +568,7 @@ export function VideoStage({
                 </div>
               )}
               <span class="label">{t.labelYou}</span>
+              {callBar}
             </article>
           </>
         )}

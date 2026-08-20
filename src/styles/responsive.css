@@ -216,17 +216,6 @@
     border-radius: 16px;
     padding: 6px 8px;
     gap: 4px;
-    opacity: 0;
-    transform: translateX(-50%) translateY(12px);
-    pointer-events: none;
-  }
-
-  .stage-wrap:hover .call-bar,
-  .stage-wrap:focus-within .call-bar,
-  .call-bar:focus-within {
-    opacity: 0.72;
-    transform: translateX(-50%) translateY(0);
-    pointer-events: auto;
   }
 
   .call-btn {
