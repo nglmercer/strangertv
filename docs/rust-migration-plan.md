@@ -212,9 +212,10 @@ anything else in Phase 2.
   client that positional args need care; no automatic `undefined` → `NULL`.
 - **CORS credentials** — the current origin callback echoes the request origin. The
   `tower-http` equivalent must preserve that exactly or cookies break.
-- **Stray `.db` files** — the repo root has ~40 committed test databases
-  (`group_invite_*.db`, `invitation_*.db`, …). Worth a `.gitignore` + cleanup while
-  touching test infrastructure.
+- **Flaky parity harness** — the integration suites each spawn a real server on a
+  fixed port, and running the files in parallel made them contend badly (~1 in 6
+  full runs green). Fixed in Phase 0 by `fileParallelism: false`. Keep watching
+  this: a flaky gate cannot validate a port.
 
 ## 8. What the migration buys
 

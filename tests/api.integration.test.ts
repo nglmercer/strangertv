@@ -1,51 +1,28 @@
 import { afterAll, beforeAll, describe, it, expect } from 'vitest'
-import { spawn, type ChildProcess } from 'node:child_process'
+import { spawnServer, waitHealthy, stopServer } from './helpers/server'
+import { type ChildProcess } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { API_ROUTES } from '../shared/constants'
 
 const PORT = 8799
 const BASE = `http://127.0.0.1:${PORT}`
 
-async function waitHealthy(ms = 15_000) {
-  const start = Date.now()
-  while (Date.now() - start < ms) {
-    try {
-      const res = await fetch(`${BASE}${API_ROUTES.healthLive}`)
-      if (res.ok) return
-    } catch {
-      /* retry */
-    }
-    await sleep(200)
-  }
-  throw new Error('server did not become healthy')
-}
 
 describe('API integration', () => {
   let child: ChildProcess
 
   beforeAll(async () => {
-    child = spawn('npx', ['tsx', 'server/index.ts'], {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        PORT: String(PORT),
-        ADMIN_KEY: 'itest-admin',
-        NODE_ENV: 'test',
-        TURSO_DATABASE_URL: 'file:itest.db',
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
+    child = spawnServer({
+      PORT: String(PORT),
+      ADMIN_KEY: 'itest-admin',
+      NODE_ENV: 'test',
+      TURSO_DATABASE_URL: 'file:itest.db',
     })
-    await waitHealthy()
+    await waitHealthy(BASE)
   })
 
   afterAll(async () => {
-    child.kill('SIGTERM')
-    await sleep(300)
-    try {
-      child.kill('SIGKILL')
-    } catch {
-      /* ignore */
-    }
+    await stopServer(child)
   })
 
   it('health ready', async () => {
