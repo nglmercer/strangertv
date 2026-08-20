@@ -11,9 +11,13 @@
 use libsql::{Builder, Connection, Database};
 
 pub const REPORT_STATUS_OPEN: &str = "open";
-pub const DEFAULT_GENDER: &str = "other";
-pub const DEFAULT_COUNTRY: &str = "any";
-pub const DEFAULT_LANGUAGE: &str = "en";
+
+/// SQL column defaults, matching `DB_DEFAULTS` in shared/constants.ts. These
+/// apply only to rows inserted without the column — they are NOT the values the
+/// API falls back to, which live in `constants.rs` and are all `"any"`.
+pub const DB_DEFAULT_GENDER: &str = "other";
+pub const DB_DEFAULT_COUNTRY: &str = "any";
+pub const DB_DEFAULT_LANGUAGE: &str = "en";
 
 pub struct Db {
     _database: Database,

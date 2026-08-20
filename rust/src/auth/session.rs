@@ -4,7 +4,8 @@
 use libsql::params;
 
 use crate::auth::password::{hash_token, random_token};
-use crate::db::{Db, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE};
+use crate::constants::{DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE};
+use crate::db::Db;
 use crate::proto::{Gender, PublicUser};
 
 const SESSION_DAYS: i64 = 14;
@@ -186,9 +187,11 @@ mod tests {
             email_verified: 0,
         };
         let pu = public_user(&row);
-        assert_eq!(pu.gender, Some(Gender::Other));
+        // All three application defaults are "any" — deliberately NOT the SQL
+        // column defaults (other/any/en), which never reach the API.
+        assert_eq!(pu.gender, Some(Gender::Any));
         assert_eq!(pu.country.as_deref(), Some("any"));
-        assert_eq!(pu.language.as_deref(), Some("en"));
+        assert_eq!(pu.language.as_deref(), Some("any"));
         assert_eq!(pu.interests, Some(vec![]));
         assert_eq!(pu.email_verified, Some(false));
         assert_eq!(pu.birth_date, None);

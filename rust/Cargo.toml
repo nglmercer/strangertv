@@ -25,6 +25,7 @@ base64 = "0.22"
 rand = "0.8"
 hex = "0.4"
 time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 anyhow = "1"
 thiserror = "2"
 
