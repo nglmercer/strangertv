@@ -4,7 +4,15 @@
 //! stands up the process skeleton and the wire contract; routes and the
 //! matchmaking engine land in later phases.
 
+// Each module lands a phase ahead of the handlers that call it, so items are
+// legitimately unused until their route or engine arrives. Phase 7 (parity and
+// hardening) removes this and treats what remains as genuinely dead.
+#![allow(dead_code)]
+
+mod age;
+mod auth;
 mod config;
+mod db;
 mod infra;
 mod proto;
 mod routes;
@@ -15,21 +23,41 @@ use std::sync::Arc;
 use axum::Router;
 
 use crate::config::Config;
+use crate::db::Db;
 
 /// Everything a handler may need, cloned per request.
 #[derive(Clone)]
 pub struct AppState {
     pub config: Arc<Config>,
+    pub db: Arc<Db>,
 }
 
 #[tokio::main]
 async fn main() {
     let config = Arc::new(Config::from_env());
     infra::logger::init(&config.log_level);
+    infra::metrics::init();
+
+    let db = match Db::connect().await {
+        Ok(db) => Arc::new(db),
+        Err(err) => {
+            log_error!("db.connect_failed", { "message": err.to_string() });
+            std::process::exit(1);
+        }
+    };
+    if let Err(err) = db.migrate().await {
+        log_error!("db.migrate_failed", { "message": err.to_string() });
+        std::process::exit(1);
+    }
+    log_info!("db.migrated", {
+        "url": if db.url.starts_with("file:") { "local" } else { "remote" },
+        "blocks": count_blocks(&db).await
+    });
 
     let port = config.port;
     let state = AppState {
         config: Arc::clone(&config),
+        db: Arc::clone(&db),
     };
 
     let app: Router = Router::new().merge(routes::health::router(state.clone()));
@@ -66,6 +94,18 @@ async fn main() {
             log_error!("server.serve_error", { "message": err.to_string() });
             std::process::exit(1);
         });
+}
+
+/// Reported at startup like the Node server. Hydrating these into the
+/// in-memory blocked-pair set arrives with matchmaking in Phase 5.
+async fn count_blocks(db: &Db) -> i64 {
+    let Ok(mut rows) = db.conn().query("SELECT COUNT(*) FROM blocks", ()).await else {
+        return 0;
+    };
+    match rows.next().await {
+        Ok(Some(row)) => row.get(0).unwrap_or(0),
+        _ => 0,
+    }
 }
 
 /// SIGTERM/SIGINT. The drain broadcast to live sockets arrives with the
