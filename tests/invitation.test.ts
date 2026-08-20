@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, it, expect } from 'vitest'
-import { spawnServer, waitHealthy, stopServer } from './helpers/server'
+import { spawnServer, waitHealthy, stopServer, testDbUrl } from './helpers/server'
 import { type ChildProcess } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 
@@ -95,7 +95,7 @@ describe('invitation flow', () => {
       PORT: String(PORT),
       ADMIN_KEY: 'itest-admin',
       NODE_ENV: 'test',
-      TURSO_DATABASE_URL: `file:invitation_${Date.now()}.db`,
+      TURSO_DATABASE_URL: testDbUrl('invitation'),
     })
     await waitHealthy(BASE)
   })

@@ -36,28 +36,6 @@ export async function getFriends(userId: number) {
   }))
 }
 
-export async function getPendingFriendRequests(userId: number) {
-  const result = await db.execute({
-    sql: `SELECT f.id, f.user_a_id AS requesterId, f.status, f.created_at AS createdAt,
-                 u.id AS requester_id, u.email AS requester_email, u.birth_date AS requester_birth_date,
-                 u.gender AS requester_gender, u.country AS requester_country,
-                 u.language AS requester_language, u.interests AS requester_interests,
-                 u.email_verified AS requester_email_verified
-          FROM friends f
-          JOIN users u ON u.id = f.user_a_id
-           WHERE f.user_b_id = ? AND f.status = 'pending'
-           ORDER BY f.created_at DESC`,
-    args: [userId],
-  })
-  return result.rows.map((row) => ({
-    id: Number(row.id),
-    requesterId: Number(row.requesterId),
-    status: row.status as string,
-    createdAt: row.createdAt as string,
-    requester: publicUserFromRow(row as DbRow, 'requester_'),
-  }))
-}
-
 export async function sendFriendRequest(userId: number, targetUserId: number) {
   if (userId === targetUserId) {
     throw new Error('Cannot send friend request to yourself')

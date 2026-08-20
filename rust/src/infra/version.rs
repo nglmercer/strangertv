@@ -18,10 +18,26 @@ pub fn app_version() -> &'static str {
                 return v;
             }
         }
-        std::fs::read_to_string("package.json")
-            .ok()
-            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
-            .and_then(|pkg| pkg.get("version")?.as_str().map(str::to_owned))
-            .unwrap_or_else(|| "0.0.0".into())
+        // The Node version read package.json relative to the working
+        // directory, which reports 0.0.0 whenever the process is started from
+        // anywhere else (the dev loop runs from rust/). Baking the version in
+        // at compile time removes that dependency; the test below keeps
+        // Cargo.toml and package.json from drifting apart.
+        env!("CARGO_PKG_VERSION").to_string()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn cargo_and_npm_versions_agree() {
+        let pkg: serde_json::Value =
+            serde_json::from_str(include_str!("../../../package.json")).expect("package.json parses");
+        assert_eq!(
+            pkg["version"].as_str(),
+            Some(env!("CARGO_PKG_VERSION")),
+            "rust/Cargo.toml and package.json must declare the same version — \
+             the API reports it as the app version"
+        );
+    }
 }

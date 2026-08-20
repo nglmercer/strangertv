@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, it, expect } from 'vitest'
-import { spawnServer, waitHealthy, stopServer } from './helpers/server'
+import { spawnServer, waitHealthy, stopServer, testDbUrl } from './helpers/server'
 import { type ChildProcess } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 
@@ -131,7 +131,7 @@ describe('group invite from match', () => {
       // The suite registers many users against one shared server; lift the
       // default 10/15min cap so later tests don't hit the rate limit.
       REGISTER_RATE_LIMIT: '1000',
-      TURSO_DATABASE_URL: `file:group_invite_${Date.now()}.db`,
+      TURSO_DATABASE_URL: testDbUrl('group-invite'),
     })
     await waitHealthy(BASE)
   })

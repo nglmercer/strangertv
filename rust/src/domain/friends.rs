@@ -89,9 +89,10 @@ pub async fn get_friends(db: &Db, user_id: i64) -> anyhow::Result<Vec<FriendRow>
     Ok(out)
 }
 
-/// Unused by any route — `getPendingFriendRequests` is exported but never
-/// called in the TypeScript either. Kept for parity (and exercised by the
-/// tests below) rather than silently dropped from the port.
+/// Not reachable from any route: the pending-request list is delivered over
+/// the WebSocket instead. The TypeScript had the same dead export, which has
+/// now been removed there; this one is kept because the tests below use it to
+/// assert the requester/recipient asymmetry.
 #[allow(dead_code)]
 pub struct PendingRequest {
     pub id: i64,

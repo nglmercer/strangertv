@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { API_ROUTES } from '../../shared/constants'
 
 /**
@@ -47,4 +49,15 @@ export async function stopServer(child: ChildProcess): Promise<void> {
   } catch {
     /* already gone */
   }
+}
+
+/**
+ * A per-run database path under the OS temp directory.
+ *
+ * These used to land in the repo root, where each run left another file behind
+ * (they are gitignored, so they simply accumulated — 141 of them by the time
+ * this was noticed). Temp files get cleaned up by the OS instead.
+ */
+export function testDbUrl(prefix: string): string {
+  return `file:${join(tmpdir(), `stranger-${prefix}-${Date.now()}-${process.pid}.db`)}`
 }

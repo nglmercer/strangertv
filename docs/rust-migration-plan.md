@@ -301,8 +301,18 @@ None of these were caused by the migration; the port surfaced them.
    and are what the API returns; `DB_DEFAULTS` (`other`/`any`/`en`) are SQL
    column defaults. Using one for the other changes the registration response.
 
-6. **Dead code carried in the TypeScript**: `getPendingFriendRequests` is
-   exported and never called.
+6. **Dead code carried in the TypeScript**: `getPendingFriendRequests` was
+   exported and never called. Removed.
+
+7. **Test databases accumulating in the repo root.** The suites wrote
+   `invitation_*.db` and friends next to the source; being gitignored, they just
+   piled up (141 of them). They now go to the OS temp directory.
+
+8. **The app version depended on the working directory.** `resolveVersion()`
+   read `package.json` relative to `process.cwd()`, so the API reported `0.0.0`
+   whenever it was started from anywhere but the repo root — which the Rust dev
+   loop does. The Rust build bakes the version in at compile time, with a test
+   asserting `Cargo.toml` and `package.json` still agree.
 
 ### The recurring hazard: strict parsing
 
@@ -328,7 +338,7 @@ tolerant about what you accept**, exactly where the JavaScript was.
 - `npm run check:generated` fails if `shared/generated` is stale.
 - `SERVER_CMD` / `E2E_SERVER_CMD` point the suites at either server; keep
   running both until the Node server is deleted.
-- `cargo watch -x run` gives hot reload (`npm run dev:watch`) if cargo-watch is
-  installed; plain `npm run dev` does not reload.
+- `npm run dev` hot-reloads via cargo-watch (`cargo install cargo-watch` if it
+  is missing); `npm run dev:once` skips the watcher.
 - The container healthcheck is `stranger-server --healthcheck`, so the runtime
   image needs neither curl nor node.
