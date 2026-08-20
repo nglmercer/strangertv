@@ -2,11 +2,14 @@
 
 Branch: `rust-backend`
 
-> **Status: phases 0–8 complete.** The Rust server passes the full existing
-> suite — 58/58 vitest and 11/11 Playwright — and is what `npm start` and the
-> container now run. The Node server is untouched under `server/` and remains
-> the rollback path. What follows is the plan as written; the outcome of each
-> phase, and where reality differed, is recorded in §9.
+> **Status: migration complete, `server/` deleted.** The Rust server passes the
+> whole suite (22 vitest across 4 black-box files, 11 Playwright, 118 Rust) and
+> is the only server. The TypeScript implementation was removed once parity had
+> been demonstrated on both; it remains in git history — `git show 80b97a6^:server/index.ts`
+> and siblings — if anything needs to be checked against it.
+>
+> What follows is the plan as written; the outcome of each phase, and where
+> reality differed, is recorded in §9.
 
 ## 1. Scope
 
@@ -333,11 +336,10 @@ tolerant about what you accept**, exactly where the JavaScript was.
 
 ### Notes for whoever runs this next
 
-- `npm start` and `npm run dev` now run the Rust binary. `npm run dev:node`
-  still runs the TypeScript server for comparison.
+- `npm start` and `npm run dev` run the Rust binary; there is no other server.
 - `npm run check:generated` fails if `shared/generated` is stale.
-- `SERVER_CMD` / `E2E_SERVER_CMD` point the suites at either server; keep
-  running both until the Node server is deleted.
+- `SERVER_CMD` / `E2E_SERVER_CMD` override which binary the suites spawn
+  (default: the release build). Useful for testing a debug build.
 - `npm run dev` hot-reloads via cargo-watch (`cargo install cargo-watch` if it
   is missing); `npm run dev:once` skips the watcher.
 - The container healthcheck is `stranger-server --healthcheck`, so the runtime

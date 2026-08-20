@@ -2,7 +2,7 @@ import type { Gender, Locale, ReportReason } from './types'
 
 /**
  * Centralized constants for string/value literals that were previously
- * hardcoded inline across server/ and src/. Keeping them here prevents drift
+ * hardcoded inline across the server and src/. Keeping them here prevents drift
  * between the client and server (and tests), and removes magic values.
  */
 
@@ -435,7 +435,7 @@ export const STORAGE_BOOL = {
 } as const
 
 // ---------------------------------------------------------------------------
-// Database column defaults (keep in sync with server/db.ts schema)
+// Database column defaults (keep in sync with rust/src/db.rs schema)
 //
 // SQL-level only: these fill a column when a row is inserted without it. They
 // deliberately differ from DEFAULT_GENDER/COUNTRY/LANGUAGE above, which are the

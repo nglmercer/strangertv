@@ -8,15 +8,15 @@ import { API_ROUTES } from '../../shared/constants'
  * Spawns the API server for black-box tests.
  *
  * These suites drive the server over HTTP/WS only, so they are
- * implementation-language agnostic. `SERVER_CMD` selects which binary to run
- * during the Rust migration — the default keeps the TypeScript server:
+ * implementation-language agnostic. `SERVER_CMD` overrides which binary to run
+ * — useful for pointing at a debug build:
  *
  *   SERVER_CMD="./rust/target/debug/stranger-server" npm run test:integration
  *
  * The command is split on whitespace; the first word is the executable.
  */
 export function spawnServer(env: Record<string, string>): ChildProcess {
-  const cmd = process.env.SERVER_CMD ?? 'npx tsx server/index.ts'
+  const cmd = process.env.SERVER_CMD ?? './rust/target/release/stranger-server'
   const [bin, ...args] = cmd.split(/\s+/).filter(Boolean)
   return spawn(bin!, args, {
     cwd: process.cwd(),

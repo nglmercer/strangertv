@@ -19,7 +19,6 @@ COPY rust/Cargo.toml rust/Cargo.lock ./
 RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm -rf src
 COPY rust/src ./src
 COPY rust/.cargo ./.cargo
-COPY shared ../shared
 # Touch so cargo does not reuse the stub's fingerprint.
 RUN touch src/main.rs && cargo build --release
 

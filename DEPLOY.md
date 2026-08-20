@@ -3,12 +3,12 @@
 ## Quick local production mode
 
 ```bash
-npm run build
+npm run build:all   # SPA (vite) + server binary (cargo --release)
 NODE_ENV=production ADMIN_KEY=secret CORS_ORIGINS=http://localhost:8787 APP_URL=http://localhost:8787 npm start
 # open http://localhost:8787  and  http://localhost:8787/admin
 ```
 
-The Hono server serves the Vite `dist/` SPA, `/api/*`, and `/ws`.
+The Rust server serves the Vite `dist/` SPA, `/api/v1/*`, and `/ws`.
 
 ## Docker
 
