@@ -97,6 +97,15 @@ impl Hub {
         user_id
     }
 
+    pub fn socket_by_id(&self, socket_id: SocketId) -> Option<SocketHandle> {
+        self.inner
+            .read()
+            .expect("hub lock")
+            .sockets
+            .get(&socket_id)
+            .cloned()
+    }
+
     pub fn user_of(&self, socket_id: SocketId) -> Option<i64> {
         self.inner.read().expect("hub lock").user_of.get(&socket_id).copied()
     }

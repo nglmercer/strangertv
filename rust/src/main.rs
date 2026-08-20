@@ -50,6 +50,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub db: Arc<Db>,
     pub hub: Arc<matchmaking::Hub>,
+    pub engine: Arc<matchmaking::Engine>,
     draining: Arc<AtomicBool>,
     db_ok: Arc<AtomicBool>,
     r#static: Arc<StaticHandler>,
@@ -93,6 +94,8 @@ async fn main() {
         "blocks": count_blocks(&db).await
     });
 
+    let hub = Arc::new(matchmaking::Hub::new());
+
     let dist_dir = if config.static_dir.is_empty() {
         "dist".to_string()
     } else {
@@ -101,7 +104,8 @@ async fn main() {
     let state = AppState {
         config: Arc::clone(&config),
         db: Arc::clone(&db),
-        hub: Arc::new(matchmaking::Hub::new()),
+        hub: Arc::clone(&hub),
+        engine: Arc::new(matchmaking::Engine::new(Arc::clone(&hub), Arc::clone(&db))),
         draining: Arc::new(AtomicBool::new(false)),
         db_ok: Arc::new(AtomicBool::new(true)),
         r#static: Arc::new(StaticHandler::new(&dist_dir, Some("dist"))),

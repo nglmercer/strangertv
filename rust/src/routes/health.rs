@@ -13,7 +13,6 @@ use crate::infra::metrics::{prometheus_text, snapshot, uptime_sec};
 use crate::infra::rate_limit::rate_limit;
 use crate::infra::security::require_admin;
 use crate::infra::version::app_version;
-use crate::matchmaking::queue_stats;
 use crate::turn::{ice_servers, turn_configured};
 use crate::AppState;
 
@@ -34,7 +33,7 @@ async fn live() -> Json<Value> {
 }
 
 async fn health(State(state): State<AppState>) -> Json<Value> {
-    let stats = queue_stats();
+    let stats = state.engine.queue_stats().await;
     let draining = state.is_draining();
     Json(json!({
         "ok": !draining && state.db_ok(),
@@ -84,7 +83,7 @@ async fn metrics(State(state): State<AppState>, headers: HeaderMap) -> ApiResult
     if !state.config.metrics_public && !require_admin(&headers) {
         return Err(ApiError::forbidden("Forbidden"));
     }
-    let stats = queue_stats();
+    let stats = state.engine.queue_stats().await;
     let mut out = snapshot();
     out["queue"] = json!({ "waiting": stats.waiting, "online": stats.online });
     out["draining"] = json!(state.is_draining());
@@ -95,7 +94,7 @@ async fn metrics_prometheus(State(state): State<AppState>, headers: HeaderMap) -
     if !state.config.metrics_public && !require_admin(&headers) {
         return (StatusCode::FORBIDDEN, "Forbidden").into_response();
     }
-    let stats = queue_stats();
+    let stats = state.engine.queue_stats().await;
     let body = prometheus_text(&[
         ("queue_waiting", stats.waiting as f64),
         ("queue_online", stats.online as f64),

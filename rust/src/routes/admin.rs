@@ -16,7 +16,6 @@ use crate::db::Db;
 use crate::error::{ApiError, ApiResult};
 use crate::infra::metrics::snapshot;
 use crate::infra::security::require_admin;
-use crate::matchmaking::queue_stats;
 use crate::AppState;
 
 const REPORT_CSV_HEADERS: &[&str] = &[
@@ -66,7 +65,7 @@ async fn count(db: &Db, sql: &str) -> i64 {
 async fn overview(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Value>> {
     gate(&headers)?;
     let db = &state.db;
-    let stats = queue_stats();
+    let stats = state.engine.queue_stats().await;
 
     let users = count(db, "SELECT COUNT(*) FROM users").await;
     let reports_total = count(db, "SELECT COUNT(*) FROM reports").await;
