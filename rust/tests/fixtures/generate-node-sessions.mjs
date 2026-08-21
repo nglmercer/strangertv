@@ -14,9 +14,9 @@ import { writeFileSync } from 'node:fs'
 const hashToken = (token) => createHash('sha256').update(token).digest('hex')
 // server/auth.ts randomToken() is 32 random bytes base64url-encoded. The tokens
 // here are derived deterministically from a label instead so re-running this
-// script is idempotent (same token -> same token_hash -> INSERT OR REPLACE is a
-// no-op rather than accumulating rows). Only the hash computation needs to be
-// Node's; the token value itself is arbitrary.
+// script is idempotent (same token -> same token_hash -> the upsert matches the
+// existing row rather than accumulating rows). Only the hash computation needs
+// to be Node's; the token value itself is arbitrary.
 const nodeToken = (label) =>
   createHash('sha256').update(`stranger-fixture-session:${label}`).digest('base64url')
 
@@ -48,10 +48,22 @@ const rows = [
   [tokens.expired, '2000-01-01T00:00:00.000Z', 0],
 ]
 
-const insert = db.prepare(
-  'INSERT OR REPLACE INTO sessions (user_id, token_hash, expires_at, revoked) VALUES (1, ?, ?, ?)'
+// ON CONFLICT ... DO UPDATE (not INSERT OR REPLACE): the sessions table is
+// AUTOINCREMENT, and INSERT OR REPLACE would delete+reinsert on a rerun,
+// changing the row id and advancing sqlite_sequence. An upsert keyed on
+// token_hash preserves row identity, so the tracked fixture is reproducible.
+const upsert = db.prepare(
+  `INSERT INTO sessions (user_id, token_hash, expires_at, revoked) VALUES (1, ?, ?, ?)
+   ON CONFLICT(token_hash) DO UPDATE SET expires_at = excluded.expires_at, revoked = excluded.revoked`
 )
-for (const [token, expires, revoked] of rows) insert.run(hashToken(token), expires, revoked)
+for (const [token, expires, revoked] of rows) upsert.run(hashToken(token), expires, revoked)
+
+// An upsert on an AUTOINCREMENT table still pre-allocates a rowid and advances
+// sqlite_sequence, even when it resolves to an update. Renormalise it to the
+// real max id so re-running does not change the tracked fixture's bytes.
+db.prepare(
+  "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM sessions) WHERE name = 'sessions'"
+).run()
 
 // Verify the write landed and did not disturb the seed data before persisting
 // the token manifest (the Rust tests consume both together).

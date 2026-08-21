@@ -366,9 +366,15 @@ oracle and cannot be regenerated now that the Node server is deleted), and the
 stale unversioned `/api/*` paths in this document's sibling `DEPLOY.md`.
 
 A rehearsal script (`scripts/rehearse-migration.sh`) starts the release binary
-over a copy of a database, migrates it, logs in as an existing Node-created
-user, and re-checks integrity — the recommended pre-cutover step against a copy
-of production.
+over a copy of a database and asserts, rather than prints, the outcome: the
+schema migrates; an existing Node-issued session token still resolves (with
+`REHEARSE_EXISTING_TOKEN`, auto-read from the fixture manifest in the default
+run); a Node-created user can log in; `/auth/me` returns the expected email;
+and `users`/`messages`/`groups` counts are unchanged afterwards (`sessions`
+grows by exactly the one rehearsal login). It also documents making a safe copy
+of a live `file:` DB (stop the server, or use SQLite online backup — a plain
+`cp` while WAL is active can drop uncheckpointed data). This is the
+recommended pre-cutover step against a copy of production.
 
 ### Notes for whoever runs this next
 

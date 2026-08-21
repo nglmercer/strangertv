@@ -63,20 +63,34 @@ For `file:` SQLite, copy the db file while the process is stopped or use SQLite 
 ## Migration rehearsal (Node -> Rust)
 
 Before pointing the Rust server at a real database, rehearse on a copy. The
-script starts the release binary over a private copy of the DB, verifies the
-schema migrates, logs in as an existing Node-created user (proving the scrypt
-password-hash and session-token compatibility end to end), and re-checks the
-data is intact afterwards:
+script starts the release binary over a private copy of the DB and asserts:
+the schema migrates; an existing Node-issued session token still resolves (if
+you supply one); a Node-created user can log in (scrypt password-hash
+compatibility); and `users`/`messages`/`groups` counts are unchanged afterwards
+(`sessions` grows by exactly one, from the rehearsal login).
+
+First make a safe copy. For a `file:` SQLite DB, stop the old server first, or
+use SQLite's online backup — a plain `cp` while WAL is active can omit
+uncheckpointed data:
 
 ```bash
 npm run build:server
+
+# with the old server stopped:
 cp production.db /tmp/migration-test.db
+# or, safe without stopping it:
+sqlite3 production.db ".backup /tmp/migration-test.db"
+
 REHEARSE_EMAIL=you@example.com REHEARSE_PASS='...' \
+REHEARSE_EXISTING_TOKEN='<a live session token from the old server>' \
   scripts/rehearse-migration.sh /tmp/migration-test.db
 ```
 
-With no argument it rehearses against the committed Node-compatibility fixture.
-The source file you pass is only ever read; the script works on a temp copy.
+`REHEARSE_EXISTING_TOKEN` is optional; without it the session-continuity check
+is skipped and the rehearsal proves password compatibility only. With no
+argument the script rehearses against the committed Node-compatibility fixture
+and reads a Node-issued live token from it, so both checks run by default. The
+source file you pass is only ever read; the script works on a temp copy.
 
 ## Ops endpoints
 
