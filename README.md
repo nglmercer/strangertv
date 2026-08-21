@@ -2,7 +2,7 @@
 
 Anonymous 1:1 **live video chat** with random matching, text chat, preferences, optional accounts, and a moderation console.
 
-**Stack:** Preact + Vite · Hono + `ws` · libSQL / Turso · TypeScript · WebRTC
+**Stack:** Preact + Vite (TypeScript) · axum + tokio (Rust) · libSQL / Turso · WebRTC
 
 | | |
 |---|---|
@@ -29,16 +29,16 @@ npm run free-ports   # or: npm run dev:fresh
 
 Open the SPA; it proxies API/WS to the backend in dev.
 
-**Runtime:** use **Node.js** for this project (`tsx`, `@hono/node-server`, `ws`).  
-`bun run dev` / `bun install` as a package runner is fine, but do **not** switch the server runtime to Bun — the stack targets Node.  
-`EADDRINUSE` means a leftover process still owns the port, not a Bun vs npm bug.
+**Runtime:** the API server is a Rust binary (`rust/`, built with cargo); the
+client toolchain is **Node.js**. `bun` as a package runner for the frontend is
+fine. `EADDRINUSE` means a leftover process still owns the port — `npm run free-ports`.
 
 ### Production (single process)
 
 API, WebSocket, and the built SPA share one port:
 
 ```bash
-npm run build
+npm run build:all
 ADMIN_KEY=secret \
   CORS_ORIGINS=http://localhost:8787 \
   APP_URL=http://localhost:8787 \
@@ -77,13 +77,15 @@ docker compose up --build
 
 | Command | Purpose |
 |---------|---------|
-| `npm run dev` | Vite + API watch |
-| `npm run build` / `npm start` | Production SPA + server |
+| `npm run dev` | Vite + API (cargo watch) |
+| `npm run build:all` / `npm start` | Production SPA + server binary |
 | `npm run check` | TypeScript project build |
-| `npm test` | Unit tests |
-| `npm run test:integration` | Live HTTP API tests |
+| `npm run check:generated` | Fail if `shared/generated` is stale vs `rust/src/proto` |
+| `npm run rust:test` | Rust unit + integration tests |
+| `npm test` | Black-box HTTP/WS suites against the built binary |
+| `npm run test:integration` | Live HTTP API tests only |
 | `npm run test:e2e` | Playwright end-to-end |
-| `npm run test:all` | check + unit + integration + build + e2e |
+| `npm run test:all` | check + generated + rust + build + suites + e2e |
 | `npm run loadtest` | WebSocket matchmaking stress |
 | `npm run smoke` | Post-deploy HTTP smoke |
 | `npm run backup` | Local SQLite backup |
@@ -96,8 +98,8 @@ Make targets: `make dev`, `make build`, `make ci`, `make docker`, `make docker-t
 
 ```
 src/           Preact UI (components, hooks, i18n)
-server/        Hono API, WebSocket matchmaking, auth, admin
-shared/        Shared types & preference codes
+rust/          axum API, WebSocket matchmaking, auth, admin
+shared/        Shared types & preference codes (generated/ comes from rust/src/proto)
 deploy/        Caddy, nginx, systemd, k8s, coturn example
 e2e/           Playwright specs
 scripts/       backup, load-test, smoke

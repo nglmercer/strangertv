@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Free common local dev ports (API 8787, Vite 5173) and leftover tsx/vite trees.
+# Free common local dev ports (API 8787, Vite 5173) and leftover cargo/vite trees.
 set -euo pipefail
 
 PORTS=(${FREE_PORTS:-8787 5173})
@@ -40,13 +40,17 @@ for p in "${PORTS[@]}"; do
 done
 
 # Orphaned watchers sometimes hold no listen socket after EADDRINUSE.
-if pgrep -f 'tsx watch server/index.ts' >/dev/null 2>&1; then
-  echo "Stopping leftover: tsx watch server/index.ts"
-  pkill -f 'tsx watch server/index.ts' 2>/dev/null || true
+if pgrep -f 'cargo watch -x run' >/dev/null 2>&1; then
+  echo "Stopping leftover: cargo watch"
+  pkill -f 'cargo watch -x run' 2>/dev/null || true
 fi
-if pgrep -f 'concurrently -k .*vite.*tsx watch server/index' >/dev/null 2>&1; then
+if pgrep -f 'stranger-server' >/dev/null 2>&1; then
+  echo "Stopping leftover: stranger-server"
+  pkill -f 'stranger-server' 2>/dev/null || true
+fi
+if pgrep -f 'concurrently -k .*vite.*cargo' >/dev/null 2>&1; then
   echo "Stopping leftover: concurrently dev"
-  pkill -f 'concurrently -k .*vite.*tsx watch server/index' 2>/dev/null || true
+  pkill -f 'concurrently -k .*vite.*cargo' 2>/dev/null || true
 fi
 
 echo "Done. Start again with: npm run dev"

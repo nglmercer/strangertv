@@ -1,24 +1,12 @@
 import { afterAll, beforeAll, describe, it, expect } from 'vitest'
-import { spawn, type ChildProcess } from 'node:child_process'
+import { spawnServer, waitHealthy, stopServer, testDbUrl } from './helpers/server'
+import { type ChildProcess } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 
 const PORT = 8798
 const BASE = `http://127.0.0.1:${PORT}`
 const WS_URL = `ws://127.0.0.1:${PORT}/ws`
 
-async function waitHealthy(ms = 15_000) {
-  const start = Date.now()
-  while (Date.now() - start < ms) {
-    try {
-      const res = await fetch(`${BASE}/api/health/live`)
-      if (res.ok) return
-    } catch {
-      /* retry */
-    }
-    await sleep(200)
-  }
-  throw new Error('server did not become healthy')
-}
 
 async function createUser(email: string, password: string) {
   const reg = await fetch(`${BASE}/api/v1/auth/register`, {
@@ -103,28 +91,17 @@ describe('invitation flow', () => {
   let child: ChildProcess
 
   beforeAll(async () => {
-    child = spawn('npx', ['tsx', 'server/index.ts'], {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        PORT: String(PORT),
-        ADMIN_KEY: 'itest-admin',
-        NODE_ENV: 'test',
-        TURSO_DATABASE_URL: `file:invitation_${Date.now()}.db`,
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
+    child = spawnServer({
+      PORT: String(PORT),
+      ADMIN_KEY: 'itest-admin',
+      NODE_ENV: 'test',
+      TURSO_DATABASE_URL: testDbUrl('invitation'),
     })
-    await waitHealthy()
+    await waitHealthy(BASE)
   })
 
   afterAll(async () => {
-    child.kill('SIGTERM')
-    await sleep(300)
-    try {
-      child.kill('SIGKILL')
-    } catch {
-      /* ignore */
-    }
+    await stopServer(child)
   })
 
   it('full invitation flow: send → receive → accept → matched', async () => {

@@ -2,7 +2,7 @@ import type { Gender, Locale, ReportReason } from './types'
 
 /**
  * Centralized constants for string/value literals that were previously
- * hardcoded inline across server/ and src/. Keeping them here prevents drift
+ * hardcoded inline across the server and src/. Keeping them here prevents drift
  * between the client and server (and tests), and removes magic values.
  */
 
@@ -369,6 +369,16 @@ export const REPORT_REASONS = [
   'other',
 ] as const satisfies readonly ReportReason[]
 
+/**
+ * APPLICATION defaults: what a request that omits a profile field is stored
+ * with, and what `publicUser()` substitutes for a null column. All three are
+ * 'any'.
+ *
+ * Do not confuse these with `DB_DEFAULTS` further down, which are the SQL
+ * column defaults (other/any/en) and only ever apply to rows inserted without
+ * those columns. The two sets are NOT interchangeable: using the DB values
+ * here changes what the API returns for a newly registered user.
+ */
 export const DEFAULT_COUNTRY = 'any'
 export const DEFAULT_LANGUAGE = 'any'
 export const DEFAULT_GENDER = 'any'
@@ -425,7 +435,12 @@ export const STORAGE_BOOL = {
 } as const
 
 // ---------------------------------------------------------------------------
-// Database column defaults (keep in sync with server/db.ts schema)
+// Database column defaults (keep in sync with rust/src/db.rs schema)
+//
+// SQL-level only: these fill a column when a row is inserted without it. They
+// deliberately differ from DEFAULT_GENDER/COUNTRY/LANGUAGE above, which are the
+// application defaults the API reads and writes. Reaching for the wrong set is
+// an easy and silent mistake.
 // ---------------------------------------------------------------------------
 export const DB_DEFAULTS = {
   gender: 'other',

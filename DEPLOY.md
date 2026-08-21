@@ -3,12 +3,12 @@
 ## Quick local production mode
 
 ```bash
-npm run build
+npm run build:all   # SPA (vite) + server binary (cargo --release)
 NODE_ENV=production ADMIN_KEY=secret CORS_ORIGINS=http://localhost:8787 APP_URL=http://localhost:8787 npm start
 # open http://localhost:8787  and  http://localhost:8787/admin
 ```
 
-The Hono server serves the Vite `dist/` SPA, `/api/*`, and `/ws`.
+The Rust server serves the Vite `dist/` SPA, `/api/v1/*`, and `/ws`.
 
 ## Docker
 
@@ -17,11 +17,17 @@ export ADMIN_KEY=your-long-secret
 docker compose up --build -d
 ```
 
+By default the compose file keeps a local SQLite at `file:/data/local.db` on the
+named volume `stranger-data`. The image runs as a non-root user (uid 10001) and
+pre-creates/chowns `/data`, so the container can create the database on a fresh
+volume at first start. Point `TURSO_DATABASE_URL` at a hosted Turso DB instead
+for anything beyond a single node.
+
 ## Required env (production)
 
 | Variable | Purpose |
 |----------|---------|
-| `ADMIN_KEY` | Moderation console + `/api/metrics` |
+| `ADMIN_KEY` | Moderation console + `/api/v1/metrics` |
 | `CORS_ORIGINS` | Comma-separated browser origins |
 | `APP_URL` | Public URL (password-reset links) |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Hosted DB (preferred over file) |
@@ -54,15 +60,47 @@ turso db shell your-db ".backup /tmp/backup.db"
 
 For `file:` SQLite, copy the db file while the process is stopped or use SQLite online backup.
 
+## Migration rehearsal (Node -> Rust)
+
+Before pointing the Rust server at a real database, rehearse on a copy. The
+script starts the release binary over a private copy of the DB and asserts:
+the schema migrates; an existing Node-issued session token still resolves (if
+you supply one); a Node-created user can log in (scrypt password-hash
+compatibility); and `users`/`messages`/`groups` counts are unchanged afterwards
+(`sessions` grows by exactly one, from the rehearsal login).
+
+First make a safe copy. For a `file:` SQLite DB, stop the old server first, or
+use SQLite's online backup — a plain `cp` while WAL is active can omit
+uncheckpointed data:
+
+```bash
+npm run build:server
+
+# with the old server stopped:
+cp production.db /tmp/migration-test.db
+# or, safe without stopping it:
+sqlite3 production.db ".backup /tmp/migration-test.db"
+
+REHEARSE_EMAIL=you@example.com REHEARSE_PASS='...' \
+REHEARSE_EXISTING_TOKEN='<a live session token from the old server>' \
+  scripts/rehearse-migration.sh /tmp/migration-test.db
+```
+
+`REHEARSE_EXISTING_TOKEN` is optional; without it the session-continuity check
+is skipped and the rehearsal proves password compatibility only. With no
+argument the script rehearses against the committed Node-compatibility fixture
+and reads a Node-issued live token from it, so both checks run by default. The
+source file you pass is only ever read; the script works on a temp copy.
+
 ## Ops endpoints
 
-- `GET /api/health` — summary + queue sizes  
-- `GET /api/health/live` — process up (k8s liveness)  
-- `GET /api/health/ready` — DB + not draining (k8s readiness)  
-- `GET /api/metrics` — JSON counters (`x-admin-key` unless `METRICS_PUBLIC=1`)  
-- `GET /api/metrics/prometheus` — Prometheus text format  
+- `GET /api/v1/health` — summary + queue sizes  
+- `GET /api/v1/health/live` — process up (k8s liveness)  
+- `GET /api/v1/health/ready` — DB + not draining (k8s readiness)  
+- `GET /api/v1/metrics` — JSON counters (`x-admin-key` unless `METRICS_PUBLIC=1`)  
+- `GET /api/v1/metrics/prometheus` — Prometheus text format  
 - `GET /admin` — moderation UI  
-- Admin API: `/api/admin/overview`, `reports`, `bans`, `users`, `ban`  
+- Admin API: `/api/v1/admin/overview`, `reports`, `bans`, `users`, `ban`  
 - Graceful shutdown: `SIGTERM`/`SIGINT` drain WS for `SHUTDOWN_DRAIN_MS` then exit  
 
 ## Example configs
@@ -70,7 +108,11 @@ For `file:` SQLite, copy the db file while the process is stopped or use SQLite 
 - `deploy/Caddyfile` — TLS reverse proxy  
 - `deploy/nginx.conf` — nginx + WebSocket upgrade  
 - `deploy/turnserver.conf.example` — coturn  
-- `deploy/systemd/stranger.service` — systemd unit  
+- `deploy/systemd/stranger.service` — systemd unit. `ProtectSystem=strict` leaves
+  only `/opt/stranger/data` writable, so the unit defaults `TURSO_DATABASE_URL` to
+  `file:/opt/stranger/data/local.db`. An explicit value in `/opt/stranger/.env`
+  overrides that default (EnvironmentFile wins over Environment). Create
+  `/opt/stranger/data` and chown it to the service user before first start.
 
 ## Load test & smoke
 

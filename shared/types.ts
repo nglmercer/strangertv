@@ -1,65 +1,45 @@
+/**
+ * Client/server contract.
+ *
+ * The wire types are GENERATED FROM RUST (`rust/src/proto/`) by ts-rs and
+ * re-exported here so existing imports keep working. Do not edit them by hand:
+ * change the Rust definition and run `cargo test` in `rust/`, which rewrites
+ * `shared/generated/`. A Rust-side change that breaks the client then shows up
+ * as a `tsc` error rather than a runtime surprise.
+ *
+ * See docs/rust-migration-plan.md §2.
+ */
 import type { MatchMode, GroupVisibility, MatchScope } from './constants'
 
 export type { MatchMode, GroupVisibility, MatchScope }
 
-export type Gender = 'any' | 'male' | 'female' | 'other'
-export type Locale = 'en' | 'es' | 'pt'
+// --- Generated wire contract (rust/src/proto) ------------------------------
+export type { Gender } from './generated/Gender'
+export type { Locale } from './generated/Locale'
+export type { Role } from './generated/Role'
+export type { FriendStatus } from './generated/FriendStatus'
+export type { InvitationStatus } from './generated/InvitationStatus'
+export type { RelationshipStatus } from './generated/RelationshipStatus'
+export type { GroupRole } from './generated/GroupRole'
+export type { ReportReason } from './generated/ReportReason'
+export type { PublicUser } from './generated/PublicUser'
+export type { MatchPreferences } from './generated/MatchPreferences'
+export type { GroupMatchPeer } from './generated/GroupMatchPeer'
+export type { Message } from './generated/Message'
+export type { GroupMessage } from './generated/GroupMessage'
+export type { ClientMessage } from './generated/ClientMessage'
+export type { ServerMessage } from './generated/ServerMessage'
 
-/** WebRTC matchmaking role assigned to each peer in a room. */
-export type Role = 'offerer' | 'answerer'
+// Re-imported locally because the DTOs below reference them.
+import type { FriendStatus } from './generated/FriendStatus'
+import type { InvitationStatus } from './generated/InvitationStatus'
+import type { GroupRole } from './generated/GroupRole'
+import type { PublicUser } from './generated/PublicUser'
+import type { GroupMessage } from './generated/GroupMessage'
 
-export type FriendStatus = 'pending' | 'accepted' | 'declined'
-export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired'
-export type RelationshipStatus = 'none' | 'friend' | 'following' | 'follower'
-export type GroupRole = 'admin' | 'member'
-
-/** Participant info in a group match room. */
-export type GroupMatchPeer = {
-  /**
-   * Unique identifier for this participant within the match, assigned by the
-   * server. Used to key WebRTC mesh peers and route signals. Unlike `userId`,
-   * it is unique even when several guests (userId 0) share a match.
-   */
-  peerId: number
-  userId: number
-  email?: string
-  country?: string
-  role: Role
-  /** Same pre-match group as the receiver ('local') or the opposing party ('remote'). */
-  side?: 'local' | 'remote'
-}
-
-/** Minimal public user profile shared between client and server. */
-export type PublicUser = {
-  id: number
-  email: string
-  birthDate?: string
-  gender?: Gender
-  country?: string
-  language?: string
-  interests?: string[]
-  emailVerified?: boolean
-}
-
-export type MatchPreferences = {
-  country: string
-  language: string
-  gender: Gender
-  lookingFor: Gender
-  interests: string[]
-  allowMatchWithSameUsers: boolean
-  mode: MatchMode
-  matchScope: MatchScope
-}
-
-export type ReportReason =
-  | 'nudity'
-  | 'harassment'
-  | 'hate'
-  | 'spam'
-  | 'underage'
-  | 'violence'
-  | 'other'
+// --- HTTP response DTOs ----------------------------------------------------
+// Not carried by the WebSocket protocol, so not part of the generated contract
+// yet; these move to Rust with their routes.
 
 export type Friend = {
   id: number
@@ -90,14 +70,6 @@ export type Invitation = {
   inviterUser: PublicUser
 }
 
-export type Message = {
-  id: number
-  senderId: number
-  recipientId: number
-  text: string
-  createdAt: string
-}
-
 export type Group = {
   id: number
   name: string
@@ -119,15 +91,6 @@ export type GroupMember = {
   user: PublicUser
 }
 
-export type GroupMessage = {
-  id: number
-  groupId: number
-  senderId: number
-  text: string
-  createdAt: string
-  sender?: PublicUser
-}
-
 export type GroupInvite = {
   id: number
   groupId: number
@@ -138,112 +101,6 @@ export type GroupInvite = {
   groupName: string
   inviterUser?: PublicUser
 }
-
-export type ClientMessage =
-  | { type: 'ws:auth'; token?: string }
-  | { type: 'queue:join'; preferences: MatchPreferences; token?: string }
-  | { type: 'queue:leave' }
-  | { type: 'queue:heartbeat' }
-  | { type: 'room:next'; preferences: MatchPreferences; token?: string }
-  | { type: 'room:leave' }
-  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number; targetPeerId?: number }
-  | { type: 'chat'; payload: { text: string; time: string } }
-  /** `userId` names the reported/blocked participant; required to target one person in a group match. */
-  | { type: 'report'; reason: ReportReason; detail?: string; userId?: number }
-  | { type: 'block'; userId?: number }
-  | { type: 'friend:request'; userId: number }
-  | { type: 'friend:accept'; friendId: number }
-  | { type: 'friend:decline'; friendId: number }
-  | { type: 'friend:remove'; friendId: number }
-  | { type: 'follow'; userId: number }
-  | { type: 'unfollow'; userId: number }
-  | { type: 'invitation:send'; userId: number; roomId: string }
-  | { type: 'invitation:accept'; invitationId: number; roomId: string }
-  | { type: 'invitation:decline'; invitationId: number }
-  | { type: 'message:send'; friendId: number; text: string }
-  | { type: 'message:history'; friendId: number; limit?: number; beforeId?: number }
-  | { type: 'group:message:send'; groupId: number; text: string }
-  | { type: 'group:invite:send'; groupId: number; userId: number }
-  | { type: 'group:invite:accept'; inviteId: number }
-  | { type: 'group:invite:decline'; inviteId: number }
-  | { type: 'group-match:create'; visibility: GroupVisibility; preferences: MatchPreferences; token?: string }
-  | { type: 'group-match:create-and-invite'; visibility: GroupVisibility; preferences: MatchPreferences; userId?: number; token?: string }
-  | { type: 'group-match:invite'; roomId: string; userId: number; token?: string }
-  | { type: 'group-match:join'; roomId: string; token?: string }
-  | { type: 'group-match:invite-decline'; roomId: string }
-  | { type: 'group-match:leave' }
-  | { type: 'group-match:start'; roomId: string }
-  | {
-      type: 'telemetry:quality'
-      roomId?: string
-      quality: 'connecting' | 'good' | 'poor' | 'failed'
-      iceState?: string
-      connectionState?: string
-    }
-
-export type ServerMessage =
-  | { type: 'queue:waiting'; position?: number; online?: number }
-  | {
-      type: 'room:matched'
-      roomId: string
-      role: Role
-      peerCountry?: string
-      peerEmail?: string
-      peerUserId?: number
-      sharedInterests?: string[]
-      relationship?: RelationshipStatus
-    }
-  | { type: 'room:peer-left'; reason?: string }
-  | { type: 'signal'; payload: { kind: 'offer' | 'answer' | 'candidate'; data: unknown }; targetUserId?: number; fromPeerId?: number }
-  | { type: 'chat'; payload: { text: string; time: string } }
-  | { type: 'stats'; online: number; waiting: number }
-  | { type: 'error'; code: string; message: string }
-  | { type: 'report:ack' }
-  | { type: 'block:ack' }
-  | { type: 'server:draining'; message?: string }
-  | { type: 'friend:request'; friendId: number; from: PublicUser }
-  | { type: 'friend:accepted'; friendId: number; from: PublicUser }
-  | { type: 'friend:declined'; friendId: number }
-  | { type: 'friend:removed'; friendId: number }
-  | { type: 'friend:list'; friends: Array<{ id: number; user: PublicUser; status: FriendStatus }> }
-  /** Which of my friends are connected right now, and live changes to that. */
-  | { type: 'presence:list'; userIds: number[] }
-  | { type: 'presence:online'; userId: number }
-  | { type: 'presence:offline'; userId: number }
-  | { type: 'follow:confirm'; followed: PublicUser }
-  | { type: 'follow:removed'; followedId: number }
-  | { type: 'follow:list'; followers: Array<{ id: number; user: PublicUser }>; following: Array<{ id: number; user: PublicUser }> }
-  | { type: 'invitation:send'; invitationId: number; roomId: string; inviter: PublicUser }
-  | { type: 'invitation:accepted'; invitationId: number; roomId: string }
-  | { type: 'invitation:declined'; invitationId: number }
-  | { type: 'invitation:list'; invitations: Array<{ id: number; inviter: PublicUser; roomId: string; status: InvitationStatus; expiresAt: string }> }
-  | { type: 'message:new'; message: Message }
-  | { type: 'message:history'; friendId: number; messages: Message[] }
-  | { type: 'group:message:new'; message: GroupMessage }
-  | {
-      type: 'group:invite'
-      inviteId: number
-      groupId: number
-      groupName: string
-      inviter: PublicUser
-    }
-  | { type: 'group:invite:accepted'; inviteId: number; groupId: number; userId: number }
-  | { type: 'group:invite:declined'; inviteId: number; groupId: number; userId: number }
-  | { type: 'group-match:created'; roomId: string; visibility: GroupVisibility }
-  | { type: 'group-match:participant-joined'; roomId: string; userId: number; email?: string }
-  | { type: 'group-match:participant-left'; roomId: string; userId: number; peerId?: number }
-  | { type: 'group-match:invite-received'; roomId: string; host: PublicUser }
-  | { type: 'group-match:invite-sent'; userId: number }
-  | { type: 'group-match:invite-declined'; roomId: string }
-  | {
-      type: 'group-match:matched'
-      roomId: string
-      role: Role
-      /** The receiver's own unique participant id within this match. */
-      peerId: number
-      peers: GroupMatchPeer[]
-      sharedInterests: string[]
-    }
 
 /** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [

@@ -26,8 +26,8 @@ npm run test:e2e   # needs Playwright browsers once: npx playwright install chro
 | Path | Role |
 |------|------|
 | `src/` | Preact client |
-| `server/` | Hono + WS + libSQL |
-| `shared/` | Types shared by client and server |
+| `rust/` | axum + WS + libSQL (the API server) |
+| `shared/` | Types shared by client and server; `shared/generated/` is emitted from `rust/src/proto` by ts-rs — edit the Rust, not the output |
 | `e2e/` | Playwright |
 | `deploy/` | Caddy, nginx, k8s, coturn, systemd |
 

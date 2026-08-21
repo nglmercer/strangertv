@@ -4,6 +4,7 @@ local.db
 local.db-*
 itest.db
 itest.db-*
+**.db-journal
 .env
 .env.local
 backups/
@@ -15,3 +16,7 @@ blob-report/
 invitation_**.db
 presence_**.db
 group_**.db
+# NOTE: rust/tests/fixtures/node-users.db is deliberately TRACKED. It is the
+# Node->Rust compatibility oracle (Node scrypt hash + schema) consumed by
+# `cargo test` and cannot be regenerated now that the Node server is gone.
+rust/target/
