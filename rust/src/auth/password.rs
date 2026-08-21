@@ -1,6 +1,8 @@
 //! Password and token hashing, byte-compatible with `server/auth.ts`.
 
 use base64::Engine;
+use better_auth::core::AuthError;
+use better_auth::{PasswordProvider, PasswordVerification};
 use rand::RngCore;
 use scrypt::{scrypt, Params};
 use sha2::{Digest, Sha256};
@@ -22,8 +24,13 @@ fn derive(password: &str, salt_str: &str) -> [u8; KEY_LEN] {
     // `crypto.scrypt(password, salt, 64)` in Node takes `salt` as a string and
     // converts it with utf8 — decoding the hex here would derive a different
     // key and lock out every existing account.
-    scrypt(password.as_bytes(), salt_str.as_bytes(), &params(), &mut out)
-        .expect("output length matches params");
+    scrypt(
+        password.as_bytes(),
+        salt_str.as_bytes(),
+        &params(),
+        &mut out,
+    )
+    .expect("output length matches params");
     out
 }
 
@@ -51,6 +58,62 @@ pub fn verify_password(password: &str, stored: &str) -> bool {
         return false;
     }
     constant_time_eq(&derived, &expected)
+}
+
+/// Better Auth adapter for StrangerTV's deployed Node-compatible format.
+///
+/// This provider only verifies the legacy representation. New hashes always
+/// come from Better Auth's primary PHC provider, and successful legacy checks
+/// are marked for rehash by `CompositePasswordProvider`.
+#[derive(Clone, Debug, Default)]
+pub struct StrangerTvLegacyPasswordProvider;
+
+#[async_trait::async_trait]
+impl PasswordProvider for StrangerTvLegacyPasswordProvider {
+    async fn hash(&self, _password: &str) -> better_auth::core::Result<String> {
+        Err(AuthError::InvalidConfiguration(
+            "the StrangerTV legacy password provider cannot create new hashes".into(),
+        ))
+    }
+
+    async fn verify(
+        &self,
+        password: &str,
+        encoded: &str,
+    ) -> better_auth::core::Result<PasswordVerification> {
+        if !is_legacy_hash_format(encoded) {
+            return Ok(PasswordVerification {
+                valid: false,
+                needs_rehash: false,
+            });
+        }
+
+        let password = password.to_owned();
+        let encoded = encoded.to_owned();
+        let valid = tokio::task::spawn_blocking(move || verify_password(&password, &encoded))
+            .await
+            .map_err(|error| {
+                AuthError::Crypto(format!("legacy password worker failed: {error}"))
+            })?;
+
+        Ok(PasswordVerification {
+            valid,
+            needs_rehash: valid,
+        })
+    }
+}
+
+/// The on-disk legacy grammar is exactly 16 random bytes as hex, followed by
+/// a 64-byte derived key as hex. Rejecting other colon-separated values before
+/// invoking scrypt keeps malformed PHC/legacy input from being misclassified.
+pub fn is_legacy_hash_format(encoded: &str) -> bool {
+    let Some((salt, key)) = encoded.split_once(':') else {
+        return false;
+    };
+    salt.len() == 32
+        && key.len() == 128
+        && salt.chars().all(|ch| ch.is_ascii_hexdigit())
+        && key.chars().all(|ch| ch.is_ascii_hexdigit())
 }
 
 /// Stand-in for `crypto.timingSafeEqual`.
@@ -105,6 +168,9 @@ fn valid_email(email: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use better_auth::core::PasswordHashOptions;
+    use better_auth::{CompositePasswordProvider, ScryptPhcPasswordProvider};
+    use std::sync::Arc;
 
     #[test]
     fn hashes_round_trip() {
@@ -158,6 +224,69 @@ mod tests {
     }
 
     #[test]
+    fn legacy_format_requires_the_full_node_shape() {
+        let valid = include_str!("../../tests/fixtures/node-password-hash.txt").trim();
+        assert!(is_legacy_hash_format(valid));
+        assert!(!is_legacy_hash_format("salt:key"));
+        assert!(!is_legacy_hash_format(&format!("{valid}0")));
+        assert!(!is_legacy_hash_format(&valid.replace(':', "-")));
+    }
+
+    #[tokio::test]
+    async fn better_auth_provider_verifies_legacy_and_marks_rehash() {
+        let provider = StrangerTvLegacyPasswordProvider;
+        let stored = include_str!("../../tests/fixtures/node-password-hash.txt");
+        let verified = provider
+            .verify("password12", stored.trim())
+            .await
+            .expect("legacy verification should not error");
+        assert_eq!(
+            verified,
+            PasswordVerification {
+                valid: true,
+                needs_rehash: true,
+            }
+        );
+        let rejected = provider
+            .verify("wrong-password", stored.trim())
+            .await
+            .expect("wrong password should be a normal rejection");
+        assert_eq!(
+            rejected,
+            PasswordVerification {
+                valid: false,
+                needs_rehash: false,
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn composite_provider_keeps_phc_as_primary_and_legacy_as_fallback() {
+        let primary = Arc::new(ScryptPhcPasswordProvider::new(
+            PasswordHashOptions::default(),
+        ));
+        let composite = CompositePasswordProvider::new(
+            primary.clone(),
+            [Arc::new(StrangerTvLegacyPasswordProvider) as Arc<dyn PasswordProvider>],
+        );
+        let phc = primary.hash("password12").await.expect("PHC hash");
+        let phc_result = composite
+            .verify("password12", &phc)
+            .await
+            .expect("PHC verification");
+        assert_eq!(phc_result.valid, true);
+        assert_eq!(phc_result.needs_rehash, false);
+
+        let legacy = include_str!("../../tests/fixtures/node-password-hash.txt");
+        let legacy_result = composite
+            .verify("password12", legacy.trim())
+            .await
+            .expect("legacy verification");
+        assert_eq!(legacy_result.valid, true);
+        assert_eq!(legacy_result.needs_rehash, true);
+    }
+
+    #[test]
     fn token_hash_matches_sha256_hex() {
         // echo -n "abc" | sha256sum
         assert_eq!(
@@ -182,7 +311,10 @@ mod tests {
         assert!(!valid_credentials("nodomain", "password12"));
         assert!(!valid_credentials("no@dot", "password12"));
         assert!(!valid_credentials("@b.co", "password12"));
-        assert!(!valid_credentials("a b@c.co", "password12"), "no whitespace");
+        assert!(
+            !valid_credentials("a b@c.co", "password12"),
+            "no whitespace"
+        );
         assert!(!valid_credentials("a@b@c.co", "password12"), "one @ only");
         assert!(!valid_credentials("a@b.", "password12"));
     }

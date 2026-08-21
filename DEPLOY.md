@@ -4,7 +4,9 @@
 
 ```bash
 npm run build:all   # SPA (vite) + server binary (cargo --release)
-NODE_ENV=production ADMIN_KEY=secret CORS_ORIGINS=http://localhost:8787 APP_URL=http://localhost:8787 npm start
+NODE_ENV=production ADMIN_KEY=secret \
+  BETTER_AUTH_SECRET='replace-with-at-least-32-random-bytes' \
+  CORS_ORIGINS=http://localhost:8787 APP_URL=http://localhost:8787 npm start
 # open http://localhost:8787  and  http://localhost:8787/admin
 ```
 
@@ -14,6 +16,7 @@ The Rust server serves the Vite `dist/` SPA, `/api/v1/*`, and `/ws`.
 
 ```bash
 export ADMIN_KEY=your-long-secret
+export BETTER_AUTH_SECRET=your-at-least-32-byte-auth-secret
 docker compose up --build -d
 ```
 
@@ -30,6 +33,7 @@ for anything beyond a single node.
 | `ADMIN_KEY` | Moderation console + `/api/v1/metrics` |
 | `CORS_ORIGINS` | Comma-separated browser origins |
 | `APP_URL` | Public URL (password-reset links) |
+| `BETTER_AUTH_SECRET` | Secret used to sign Better Auth cookies; at least 32 bytes |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Hosted DB (preferred over file) |
 | `TURN_SECRET` / `TURN_URLS` | Coturn-style REST credentials |
 | `EMAIL_WEBHOOK_URL` | POST JSON mailer for password reset |
@@ -44,6 +48,58 @@ chat.example.com {
 ```
 
 Terminate TLS at the proxy; set `APP_URL=https://chat.example.com` and include that origin in `CORS_ORIGINS`.
+
+## Better Auth schema migration
+
+The server connects Better Auth during startup but never applies its schema.
+Run the explicit migration command once against the deployment database before
+starting the new server, and repeat it safely when needed:
+
+```bash
+BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
+  TURSO_DATABASE_URL="$TURSO_DATABASE_URL" \
+  TURSO_AUTH_TOKEN="$TURSO_AUTH_TOKEN" \
+  npm run migrate:auth
+```
+
+For the Docker image, run the schema command and then the restartable user
+import command explicitly:
+
+```bash
+docker compose run --rm stranger migrate-auth
+docker compose run --rm stranger migrate-auth-users --dry-run
+docker compose run --rm stranger migrate-auth-users
+```
+
+The last command preserves numeric StrangerTV IDs and is safe to repeat.
+
+The migration bridge keeps the legacy bearer session available for rollback and
+older clients. A successful Better Auth login/registration also sets the
+HttpOnly `better-auth.session_token` cookie; browser requests must send
+`credentials: include`. The public API still returns a temporary legacy token
+until the cutover gate in `docs/migration-plan.md` is satisfied.
+
+For a large database, review a bounded import before applying it and continue
+with numeric ID checkpoints:
+
+```bash
+npm run migrate:auth-users -- --dry-run --limit 1000
+npm run migrate:auth-users -- --after-id 999 --limit 1000
+```
+
+Rollback during the bridge is a server/application rollback: stop the new
+binary, point the old release at the same database, and leave both Better Auth
+tables and legacy hashes/sessions intact. Do not drop Better Auth tables or
+clear `users.password_hash` until the production gate has passed.
+
+For the cutover decision, monitor the private /api/v1/metrics endpoint (or
+the Prometheus endpoint) for legacy_session_fallback,
+auth_session_legacy_fallback, auth_password_legacy_verified, and
+auth_password_legacy_rehashed. Keep the legacy bridge enabled until
+legacy_session_fallback is effectively zero for longer than the complete
+14-day legacy session lifetime, and review importer conflicts before stopping
+legacy-session issuance. Phase 17/18 cleanup remains a separate,
+post-rollback operation.
 
 ## TURN (coturn)
 

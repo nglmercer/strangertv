@@ -46,6 +46,7 @@ const WS_PATH: &str = "/ws";
 pub struct AppState {
     pub config: Arc<Config>,
     pub db: Arc<Db>,
+    pub better_auth: Arc<auth::better_auth::BetterAuthState>,
     pub hub: Arc<matchmaking::Hub>,
     pub engine: Arc<matchmaking::Engine>,
     draining: Arc<AtomicBool>,
@@ -106,6 +107,18 @@ async fn main() {
         "blocks": count_blocks(&db).await
     });
 
+    let better_auth = match auth::better_auth::BetterAuthState::connect(&config, &db.url).await {
+        Ok(state) => Arc::new(state),
+        Err(err) => {
+            log_error!("better_auth.connect_failed", { "message": err.to_string() });
+            std::process::exit(1);
+        }
+    };
+    log_info!("better_auth.ready", {
+        "schemaMigration": "explicit",
+        "sessionDays": 14
+    });
+
     let hub = Arc::new(matchmaking::Hub::new());
 
     let dist_dir = if config.static_dir.is_empty() {
@@ -116,6 +129,7 @@ async fn main() {
     let state = AppState {
         config: Arc::clone(&config),
         db: Arc::clone(&db),
+        better_auth,
         hub: Arc::clone(&hub),
         engine: Arc::new(matchmaking::Engine::new(Arc::clone(&hub), Arc::clone(&db))),
         draining: Arc::new(AtomicBool::new(false)),

@@ -17,6 +17,8 @@
     "check:generated": "bash scripts/check-generated.sh",
     "rust:build": "cd rust && cargo build",
     "rust:test": "cd rust && cargo test",
+    "migrate:auth": "cd rust && cargo run --bin migrate-auth",
+    "migrate:auth-users": "cd rust && cargo run --bin migrate-auth-users",
     "test": "npm run build:server && vitest run",
     "test:integration": "npm run build:server && vitest run tests/api.integration.test.ts",
     "test:e2e": "playwright test",

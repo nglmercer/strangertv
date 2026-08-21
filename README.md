@@ -52,6 +52,7 @@ ADMIN_KEY=secret \
 
 ```bash
 export ADMIN_KEY=your-long-secret
+export BETTER_AUTH_SECRET=your-at-least-32-byte-auth-secret
 docker compose up --build
 # with optional coturn profile:
 # docker compose --profile turn up --build
@@ -65,7 +66,9 @@ docker compose up --build
 - **Call controls** — next stranger, mute/camera, device pickers, fullscreen, connection quality  
 - **Auto find-next** after peer disconnect  
 - **Ephemeral chat** (not stored server-side)  
-- **Auth** — register / login, email verify, password reset, account delete  
+- **Auth** — register / login with an HttpOnly Better Auth cookie, temporary
+  legacy bearer compatibility, email verify, dual-session password reset, and
+  account delete
 - **Safety** — report, block, age gate (18+), rules / privacy / terms  
 - **WebRTC** — TURN credentials API + STUN fallback  
 - **Ops** — health live/ready, JSON + Prometheus metrics, graceful drain, admin CSV export  
@@ -82,6 +85,7 @@ docker compose up --build
 | `npm run check` | TypeScript project build |
 | `npm run check:generated` | Fail if `shared/generated` is stale vs `rust/src/proto` |
 | `npm run rust:test` | Rust unit + integration tests |
+| `npm run migrate:auth` / `npm run migrate:auth-users` | Explicit Better Auth schema/user migration |
 | `npm test` | Black-box HTTP/WS suites against the built binary |
 | `npm run test:integration` | Live HTTP API tests only |
 | `npm run test:e2e` | Playwright end-to-end |
@@ -128,6 +132,7 @@ See [`.env.example`](./.env.example) and [DEPLOY.md](./DEPLOY.md).
 | `ADMIN_KEY` | Moderation console + private metrics |
 | `CORS_ORIGINS` | Allowed browser origins (comma-separated) |
 | `APP_URL` | Public URL (reset / verify links) |
+| `BETTER_AUTH_SECRET` | Secret used to sign Better Auth cookies (at least 32 bytes) |
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Hosted libSQL (preferred in prod) |
 | `TURN_SECRET` / `TURN_URLS` | TURN REST credentials |
 | `EMAIL_WEBHOOK_URL` | Password-reset / verify email delivery |

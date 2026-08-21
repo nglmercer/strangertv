@@ -8,9 +8,10 @@ use libsql::params;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::auth::session::{public_user, user_from_token, UserRow};
+use crate::auth::resolver::resolve_authenticated_user_row;
+use crate::auth::session::{public_user, UserRow};
 use crate::error::{ApiError, ApiResult};
-use crate::infra::http::{client_ip, get_bearer};
+use crate::infra::http::client_ip;
 use crate::infra::metrics::inc;
 use crate::infra::rate_limit::rate_limit;
 use crate::AppState;
@@ -36,7 +37,7 @@ pub fn router(state: AppState) -> Router {
 }
 
 async fn require_user(state: &AppState, headers: &HeaderMap) -> ApiResult<UserRow> {
-    user_from_token(&state.db, get_bearer(headers).as_deref())
+    resolve_authenticated_user_row(headers, state)
         .await
         .map_err(ApiError::from)?
         .ok_or_else(ApiError::unauthorized)
@@ -120,11 +121,14 @@ async fn create_report(
         return Err(ApiError::too_many("Too many reports"));
     }
     // Reports are accepted from guests too, so the user lookup is optional.
-    let user = user_from_token(&state.db, get_bearer(&headers).as_deref())
+    let user = resolve_authenticated_user_row(&headers, &state)
         .await
         .map_err(ApiError::from)?;
 
-    let reason = body.get("reason").and_then(Value::as_str).unwrap_or_default();
+    let reason = body
+        .get("reason")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if !REPORT_REASONS.contains(&reason) {
         return Err(ApiError::bad_request("Invalid reason"));
     }
@@ -162,12 +166,15 @@ async fn create_rating(
     if !rate_limit(&format!("rating:{ip}"), 40, 60_000) {
         return Err(ApiError::too_many("Too many requests"));
     }
-    let user = user_from_token(&state.db, get_bearer(&headers).as_deref())
+    let user = resolve_authenticated_user_row(&headers, &state)
         .await
         .map_err(ApiError::from)?;
 
     // `Number.isInteger(score)` — a fractional score is rejected, not rounded.
-    let raw = body.get("score").and_then(Value::as_f64).unwrap_or(f64::NAN);
+    let raw = body
+        .get("score")
+        .and_then(Value::as_f64)
+        .unwrap_or(f64::NAN);
     if !raw.is_finite() || raw.fract() != 0.0 || !(1.0..=5.0).contains(&raw) {
         return Err(ApiError::bad_request("Score must be 1–5."));
     }

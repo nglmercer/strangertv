@@ -1,8 +1,10 @@
 import { afterAll, beforeAll, describe, it, expect } from 'vitest'
 import { spawnServer, waitHealthy, stopServer, testDbUrl } from './helpers/server'
 import { type ChildProcess } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { API_ROUTES } from '../shared/constants'
+import WebSocket from 'ws'
 
 const PORT = 8799
 const BASE = `http://127.0.0.1:${PORT}`
@@ -12,11 +14,24 @@ describe('API integration', () => {
   let child: ChildProcess
 
   beforeAll(async () => {
+    const databaseUrl = testDbUrl('itest')
+    execFileSync('cargo', ['run', '--quiet', '--bin', 'migrate-auth'], {
+      cwd: 'rust',
+      env: {
+        ...process.env,
+        NODE_ENV: 'test',
+        TURSO_DATABASE_URL: databaseUrl,
+        BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-32-bytes-long',
+      },
+      stdio: 'ignore',
+    })
     child = spawnServer({
       PORT: String(PORT),
       ADMIN_KEY: 'itest-admin',
       NODE_ENV: 'test',
-      TURSO_DATABASE_URL: testDbUrl('itest'),
+      REGISTER_RATE_LIMIT: '1000',
+      BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-32-bytes-long',
+      TURSO_DATABASE_URL: databaseUrl,
     })
     await waitHealthy(BASE)
   })
@@ -42,11 +57,26 @@ describe('API integration', () => {
     expect(reg.status).toBe(201)
     const regBody = (await reg.json()) as { token: string; user: { email: string } }
     expect(regBody.user.email).toBe(email)
+    const registrationCookie = reg.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(registrationCookie).toContain('better-auth.session_token=')
+
+    const cookieMe = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { cookie: registrationCookie! },
+    })
+    expect(cookieMe.status).toBe(200)
 
     const me = await fetch(`${BASE}${API_ROUTES.authMe}`, {
       headers: { authorization: `Bearer ${regBody.token}` },
     })
     expect(me.status).toBe(200)
+    const migrationMetrics = await fetch(BASE + API_ROUTES.metrics, {
+      headers: { 'x-admin-key': 'itest-admin' },
+    })
+    expect(migrationMetrics.status).toBe(200)
+    const metricsBody = (await migrationMetrics.json()) as {
+      counters?: Record<string, number>
+    }
+    expect(metricsBody.counters?.legacy_session_fallback).toBeGreaterThan(0)
 
     const login = await fetch(`${BASE}${API_ROUTES.authLogin}`, {
       method: 'POST',
@@ -54,12 +84,62 @@ describe('API integration', () => {
       body: JSON.stringify({ email, password: 'password12' }),
     })
     expect(login.status).toBe(200)
+    const loginCookie = login.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(loginCookie).toContain('better-auth.session_token=')
+
+    const cookieLoginMe = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { cookie: loginCookie! },
+    })
+    expect(cookieLoginMe.status).toBe(200)
+
+    const resetRequest = await fetch(`${BASE}${API_ROUTES.authPasswordResetRequest}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    expect(resetRequest.status).toBe(200)
+    const resetBody = (await resetRequest.json()) as { devResetToken?: string }
+    expect(resetBody.devResetToken).toBeTruthy()
+    const resetConfirm = await fetch(`${BASE}${API_ROUTES.authPasswordResetConfirm}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: resetBody.devResetToken, password: 'newpassword12' }),
+    })
+    expect(resetConfirm.status).toBe(200)
+    const revokedLegacy = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { authorization: `Bearer ${regBody.token}` },
+    })
+    expect(revokedLegacy.status).toBe(401)
+    const revokedCookie = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { cookie: loginCookie! },
+    })
+    expect(revokedCookie.status).toBe(401)
+
+    const postResetLogin = await fetch(BASE + API_ROUTES.authLogin, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'newpassword12' }),
+    })
+    expect(postResetLogin.status).toBe(200)
+    const postResetCookie = postResetLogin.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(postResetCookie).toContain('better-auth.session_token=')
 
     const out = await fetch(`${BASE}${API_ROUTES.authLogout}`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${regBody.token}` },
+      headers: { authorization: `Bearer ${regBody.token}`, cookie: loginCookie! },
     })
     expect(out.status).toBe(200)
+
+    const postResetOut = await fetch(BASE + API_ROUTES.authLogout, {
+      method: 'POST',
+      headers: { cookie: postResetCookie! },
+    })
+    expect(postResetOut.status).toBe(200)
+    expect(postResetOut.headers.get('set-cookie')).toContain('Max-Age=0')
+    const loggedOut = await fetch(BASE + API_ROUTES.authMe, {
+      headers: { cookie: postResetCookie! },
+    })
+    expect(loggedOut.status).toBe(401)
   })
 
   it('admin requires key', async () => {
@@ -69,6 +149,89 @@ describe('API integration', () => {
       headers: { 'x-admin-key': 'itest-admin' },
     })
     expect(ok.status).toBe(200)
+  })
+
+  it('deletes both Better Auth and legacy identities through cookie auth', async () => {
+    const email = `delete_${Date.now()}@example.com`
+    const reg = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12', birthDate: '1990-02-02' }),
+    })
+    expect(reg.status).toBe(201)
+    const regBody = (await reg.json()) as { token: string }
+    const cookie = reg.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(cookie).toContain('better-auth.session_token=')
+
+    const deleted = await fetch(`${BASE}${API_ROUTES.authAccount}`, {
+      method: 'DELETE',
+      headers: { cookie: cookie! },
+    })
+    expect(deleted.status).toBe(200)
+
+    const me = await fetch(`${BASE}${API_ROUTES.authMe}`, { headers: { cookie: cookie! } })
+    expect(me.status).toBe(401)
+    const legacyMe = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { authorization: `Bearer ${regBody.token}` },
+    })
+    expect(legacyMe.status).toBe(401)
+    const login = await fetch(`${BASE}${API_ROUTES.authLogin}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12' }),
+    })
+    expect(login.status).toBe(401)
+  })
+
+  it('authenticates a WebSocket upgrade with the Better Auth cookie', async () => {
+    const email = 'ws_cookie_' + Date.now() + '@example.com'
+    const reg = await fetch(BASE + API_ROUTES.authRegister, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12', birthDate: '1990-02-02' }),
+    })
+    expect(reg.status).toBe(201)
+    const cookie = reg.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(cookie).toContain('better-auth.session_token=')
+
+    const message = await new Promise<Record<string, unknown>>((resolve, reject) => {
+      const ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws', {
+        headers: { Cookie: cookie! },
+      })
+      const timer = setTimeout(() => {
+        ws.close()
+        reject(new Error('timed out waiting for cookie-authenticated WebSocket'))
+      }, 5000)
+      ws.on('open', () => {
+        ws.send(JSON.stringify({
+          type: 'group-match:create',
+          visibility: 'public',
+          preferences: {
+            country: 'any',
+            language: 'any',
+            gender: 'any',
+            lookingFor: 'any',
+            interests: [],
+            allowMatchWithSameUsers: true,
+            mode: 'group',
+            matchScope: 'all',
+          },
+        }))
+      })
+      ws.on('message', (data) => {
+        const next = JSON.parse(String(data)) as Record<string, unknown>
+        if (next.type !== 'group-match:created') return
+        clearTimeout(timer)
+        ws.close()
+        resolve(next)
+      })
+      ws.on('error', (error) => {
+        clearTimeout(timer)
+        ws.close()
+        reject(error)
+      })
+    })
+    expect(message.type).toBe('group-match:created')
   })
 
   it('friend messaging: send and fetch conversation', async () => {

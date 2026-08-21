@@ -16,6 +16,7 @@ use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
 use tokio::sync::mpsc::unbounded_channel;
 
+use crate::auth::resolver::{resolve_authenticated_user, AuthenticatedUser};
 use crate::infra::http::client_ip;
 use crate::proto::ServerMessage;
 use crate::ws::handlers::{handle_message, WsContext};
@@ -41,7 +42,14 @@ async fn upgrade(
     if ip == "unknown" {
         ip = peer.ip().to_string();
     }
-    ws.on_upgrade(move |socket| connection(state, socket, ip))
+    let authenticated_user = match resolve_authenticated_user(&headers, &state).await {
+        Ok(user) => user,
+        Err(error) => {
+            crate::log_error!("ws.auth_resolve_failed", { "message": error.to_string() });
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+    ws.on_upgrade(move |socket| connection(state, socket, ip, authenticated_user))
 }
 
 /// Opaque per-connection key used for rate limiting and guest report
@@ -60,13 +68,23 @@ fn session_key(ip: &str) -> String {
     hex::encode(hasher.finalize())[..16].to_string()
 }
 
-async fn connection(state: AppState, socket: WebSocket, ip: String) {
+async fn connection(
+    state: AppState,
+    socket: WebSocket,
+    ip: String,
+    authenticated_user: Option<AuthenticatedUser>,
+) {
     use futures_util::{SinkExt, StreamExt};
 
     let (mut sink, mut stream) = socket.split();
     let (tx, mut rx) = unbounded_channel::<String>();
     let handle = state.hub.connect(tx);
     let socket_id = handle.id;
+
+    if let Some(user) = &authenticated_user {
+        state.hub.register_user(socket_id, user.user_id);
+        crate::presence::announce_online(&state.db, &state.hub, user.user_id, socket_id).await;
+    }
 
     crate::infra::metrics::inc("ws_connections", 1);
 
@@ -84,6 +102,7 @@ async fn connection(state: AppState, socket: WebSocket, ip: String) {
         socket: socket_id,
         ip: ip.clone(),
         session_key: session_key(&ip),
+        authenticated_user,
     };
 
     while let Some(Ok(msg)) = stream.next().await {

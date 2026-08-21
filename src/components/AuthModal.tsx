@@ -1,8 +1,7 @@
 import { useState } from 'preact/hooks'
-import { authApi, type PublicUser } from '../api'
+import { authApi, setAuthenticatedUser, setSession, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
 import { isAdult, maxAdultBirthDate } from '../utils/age'
-import { setSession } from '../utils/storage'
 import { get, storageKeys, applyUserToClient } from '../utils/clientStorage'
 import { Modal } from './Modal'
 
@@ -59,7 +58,8 @@ export function AuthModal({
       const res = registering
         ? await authApi.register({ email, password, birthDate })
         : await authApi.login({ email, password })
-      setSession(res.token, res.user)
+      if (res.session === 'better-auth') setAuthenticatedUser(res.user)
+      else setSession(res.token, res.user)
       applyUserToClient(res.user)
       onAuth(res.user)
       onClose()

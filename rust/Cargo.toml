@@ -5,6 +5,11 @@ edition = "2021"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws", "macros"] }
+better-auth = {
+    path = "vendor/better-auth-rs/crates/better-auth",
+    default-features = false,
+    features = ["axum", "libsql"],
+}
 tokio = { version = "1", features = ["full"] }
 tower = "0.5"
 futures-util = "0.3"
@@ -28,6 +33,7 @@ hex = "0.4"
 time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 anyhow = "1"
+async-trait = "0.1"
 thiserror = "2"
 
 [dev-dependencies]

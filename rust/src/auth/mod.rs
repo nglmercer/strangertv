@@ -5,7 +5,9 @@
 //! exactly as the Node implementation wrote them, or existing users silently
 //! fail to log in. See `password::hash_password` for the specifics.
 
+pub mod better_auth;
 pub mod password;
+pub mod resolver;
 pub mod session;
 
 // Re-exported for the auth routes arriving in Phase 3.

@@ -59,6 +59,32 @@ pub async fn refresh_session(db: &Db, token: &str) -> anyhow::Result<Option<Stri
     Ok(Some(create_session(db, user.id).await?))
 }
 
+/// Load an application user by the canonical numeric StrangerTV ID.
+pub async fn user_from_id(db: &Db, user_id: i64) -> anyhow::Result<Option<UserRow>> {
+    let mut rows = db
+        .conn()
+        .query(
+            "SELECT id, email, birth_date, gender, country, language, interests, email_verified
+             FROM users
+             WHERE id = ?",
+            params![user_id],
+        )
+        .await?;
+    let Some(row) = rows.next().await? else {
+        return Ok(None);
+    };
+    Ok(Some(UserRow {
+        id: row.get(0)?,
+        email: row.get(1)?,
+        birth_date: row.get(2).ok(),
+        gender: row.get(3).ok(),
+        country: row.get(4).ok(),
+        language: row.get(5).ok(),
+        interests: row.get(6).ok(),
+        email_verified: row.get(7).unwrap_or(0),
+    }))
+}
+
 pub async fn user_from_token(db: &Db, token: Option<&str>) -> anyhow::Result<Option<UserRow>> {
     let Some(token) = token.filter(|t| !t.is_empty()) else {
         return Ok(None);
