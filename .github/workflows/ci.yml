@@ -14,8 +14,21 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      # The server is Rust; both `npm test` (build:server) and the generated
+      # contract checks need the toolchain.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
       - run: npm ci
+      # TypeScript type-check of the SPA + tests.
       - run: npm run check
+      # Wire contract: shared/generated must match the Rust source of truth.
+      - run: npm run check:generated
+      # Rust suite, including the Node-database compatibility tests
+      # (scrypt hash, session token, idempotent migrate over the old schema).
+      - run: npm run rust:test
+      # Release build + black-box behavioural parity suite.
       - run: npm test
       - run: npm run build
 
@@ -28,6 +41,11 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      # Playwright's webServer builds the release binary (npm run build:all).
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
       - run: npm ci
       - run: npx playwright install chromium --with-deps
       - run: npm run test:e2e
@@ -41,3 +59,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker build -t stranger-chat:ci .
+      # Regression guard for the /data volume: reproduce docker-compose's
+      # default local deployment (file:/data/local.db on a fresh named volume).
+      # The container runs as a non-root user, so it must be able to create
+      # the database file on a root-owned fresh volume at first start.
+      - name: Start with the default local database and probe health
+        run: |
+          docker volume rm stranger-ci-data >/dev/null 2>&1 || true
+          docker run -d --name stranger-ci -p 8787:8787 \
+            -e TURSO_DATABASE_URL=file:/data/local.db \
+            -v stranger-ci-data:/data stranger-chat:ci
+          for i in $(seq 1 30); do
+            if docker exec stranger-ci /usr/local/bin/stranger-server --healthcheck; then
+              echo "healthy"
+              # The DB must have been created by the non-root user in /data.
+              docker exec stranger-ci ls -la /data
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "server never became healthy"
+          docker logs stranger-ci
+          exit 1

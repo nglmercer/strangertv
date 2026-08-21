@@ -266,21 +266,34 @@ mod node_compat {
         db.migrate().await.expect("and stays idempotent on a re-run");
     }
 
-    /// Session lookup joins `sessions` to `users` and honours revoked/expired
-    /// rows; the register call above left a live session behind.
+    /// The Node-issued session tokens in `node-session-tokens.json` were hashed
+    /// by Node's `createHash('sha256')` (server/auth.ts `hashToken`). Resolving
+    /// one through `user_from_token` proves the full chain -- Node token ->
+    /// Rust `hash_token()` -> session row -> user -- not just that rows exist.
     #[tokio::test]
-    async fn resolves_a_session_token_hash_written_by_the_node_server() {
+    async fn resolves_a_session_token_issued_by_the_node_server() {
+        let tokens: serde_json::Value =
+            serde_json::from_str(include_str!("../../tests/fixtures/node-session-tokens.json"))
+                .expect("fixture token manifest parses");
+        let token = |name: &str| tokens[name].as_str().expect("token present").to_string();
         let db = fixture_db().await;
-        let mut rows = db
-            .conn()
-            .query("SELECT COUNT(*) FROM sessions WHERE revoked = 0", ())
+
+        let user = user_from_token(&db, Some(&token("live")))
             .await
-            .expect("query runs");
-        let row = rows.next().await.expect("query ok").expect("one row");
-        assert!(
-            row.get::<i64>(0).unwrap() >= 1,
-            "fixture should carry the session created at registration"
-        );
+            .expect("lookup runs")
+            .expect("a token Node issued must resolve to its user");
+        assert_eq!(user.id, 1);
+        assert_eq!(user.email, EMAIL);
+
+        // The same lookup still honours the two exclusion filters.
+        assert!(user_from_token(&db, Some(&token("revoked")))
+            .await
+            .unwrap()
+            .is_none(), "revoked = 1 must not authenticate");
+        assert!(user_from_token(&db, Some(&token("expired")))
+            .await
+            .unwrap()
+            .is_none(), "an expired session must not authenticate");
 
         // An unknown token resolves to nobody rather than erroring.
         assert!(user_from_token(&db, Some("not-a-real-token"))

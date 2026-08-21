@@ -334,6 +334,42 @@ each of which silently dropped messages until fixed:
 The general rule for the rest of the port: **be strict about what you read, and
 tolerant about what you accept**, exactly where the JavaScript was.
 
+### Post-review hardening
+
+A review of the migration PR raised four blockers; each is now addressed:
+
+- **CI must gate the compatibility suites.** `check:generated`, `rust:test`
+  (which contains the Node-database tests) and a Docker local-DB smoke run are
+  now explicit jobs/steps in `.github/workflows/ci.yml`, and both Node jobs
+  install the Rust toolchain (the black-box suites build the release binary).
+- **Docker local DB under a non-root user.** The runtime image now
+  `mkdir -p /data && chown`s it to uid 10001 *before* `USER stranger`, so the
+  container can create `file:/data/local.db` on a fresh (root-owned) named
+  volume. Verified end to end: fresh volume -> non-root user creates the DB ->
+  healthcheck reports healthy.
+- **systemd local-DB hazard.** `ProtectSystem=strict` leaves only
+  `/opt/stranger/data` writable, so the unit now carries
+  `Environment=TURSO_DATABASE_URL=file:/opt/stranger/data/local.db` as a
+  fallback. `EnvironmentFile=` wins over `Environment=` (verified against a
+  live systemd), so an explicit value in `.env` still overrides it.
+- **Session-token compatibility test overstated itself.** The fixture now
+  carries three Node-hashed session rows (live / revoked / expired) whose raw
+  tokens are recorded in `node-session-tokens.json`; the test resolves the live
+  one through `user_from_token`, proving Node token -> Rust `hash_token()` ->
+  session -> user, and that revoked/expired rows are still excluded. The
+  generator (`rust/tests/fixtures/generate-node-sessions.mjs`) is deterministic
+  and idempotent, and refuses to run on a fixture that fails `integrity_check`.
+
+Also fixed along the way: a staged `.gitignore` entry that would have
+untracked the `node-users.db` fixture (it is the Node->Rust compatibility
+oracle and cannot be regenerated now that the Node server is deleted), and the
+stale unversioned `/api/*` paths in this document's sibling `DEPLOY.md`.
+
+A rehearsal script (`scripts/rehearse-migration.sh`) starts the release binary
+over a copy of a database, migrates it, logs in as an existing Node-created
+user, and re-checks integrity — the recommended pre-cutover step against a copy
+of production.
+
 ### Notes for whoever runs this next
 
 - `npm start` and `npm run dev` run the Rust binary; there is no other server.

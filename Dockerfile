@@ -45,7 +45,13 @@ COPY --from=web /app/public ./public
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["/usr/local/bin/stranger-server", "--healthcheck"]
 
-RUN useradd --system --uid 10001 stranger
+# The default local deployment keeps the database under /data (see
+# docker-compose.yml). A fresh named volume is root-owned, so create the
+# mountpoint and hand it to the runtime user BEFORE dropping privileges --
+# otherwise the container can't create file:/data/local.db on first start.
+RUN useradd --system --uid 10001 stranger \
+ && mkdir -p /data \
+ && chown -R stranger:stranger /data
 USER stranger
 
 EXPOSE 8787

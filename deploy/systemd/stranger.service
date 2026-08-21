@@ -7,6 +7,12 @@ Type=simple
 User=www-data
 WorkingDirectory=/opt/stranger
 EnvironmentFile=/opt/stranger/.env
+# Fallback DB path in case .env does not set TURSO_DATABASE_URL. Pointed into
+# /opt/stranger/data because ProtectSystem=strict leaves only that path writable
+# (see ReadWritePaths below); the app's built-in default of file:local.db is a
+# relative path and would land in /opt/stranger, which migrate() cannot write.
+# EnvironmentFile= overrides Environment=, so an explicit value in .env still wins.
+Environment=TURSO_DATABASE_URL=file:/opt/stranger/data/local.db
 ExecStart=/opt/stranger/bin/stranger-server
 Restart=on-failure
 RestartSec=3
