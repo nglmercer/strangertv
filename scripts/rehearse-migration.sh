@@ -46,6 +46,11 @@ PASSWORD="${REHEARSE_PASS:-password12}"
 EXISTING_TOKEN="${REHEARSE_EXISTING_TOKEN:-}"
 MANIFEST="$ROOT/rust/tests/fixtures/node-session-tokens.json"
 
+# The values are now in shell variables; drop them from the environment so the
+# spawned server (and any other child process) does not inherit the production
+# credentials/token.
+unset REHEARSE_EMAIL REHEARSE_PASS REHEARSE_EXISTING_TOKEN
+
 if [[ ! -f "$BIN" ]]; then
   echo "server binary not found at $BIN (run: npm run build:server)" >&2
   exit 1
@@ -141,7 +146,17 @@ fi
 
 # 2) Password compatibility: log in as the Node-created user.
 echo "==> logging in as existing Node-created user ($EMAIL)"
-LOGIN_BODY=$(printf '{"email":"%s","password":"%s"}' "$EMAIL" "$PASSWORD")
+# Encode the body with a real JSON encoder: passwords may legally contain
+# quotes, backslashes or newlines, which a printf-interpolated string would
+# corrupt into invalid JSON and turn into a false migration failure. Values are
+# handed to Python via the environment, never interpolated into its source.
+LOGIN_BODY="$(
+  REHEARSE_EMAIL_VALUE="$EMAIL" REHEARSE_PASS_VALUE="$PASSWORD" \
+    python3 -c 'import json, os; print(json.dumps({
+      "email": os.environ["REHEARSE_EMAIL_VALUE"],
+      "password": os.environ["REHEARSE_PASS_VALUE"],
+    }))'
+)"
 RESP="$(curl -fsS -X POST "$BASE/api/v1/auth/login" -H 'content-type: application/json' -d "$LOGIN_BODY")" \
   || { echo "login FAILED (Node password hash not accepted by Rust)" >&2; exit 1; }
 TOKEN="$(python3 -c 'import json,sys;print(json.load(sys.stdin)["token"])' <<<"$RESP")"

@@ -14,9 +14,11 @@ import { writeFileSync } from 'node:fs'
 const hashToken = (token) => createHash('sha256').update(token).digest('hex')
 // server/auth.ts randomToken() is 32 random bytes base64url-encoded. The tokens
 // here are derived deterministically from a label instead so re-running this
-// script is idempotent (same token -> same token_hash -> the upsert matches the
-// existing row rather than accumulating rows). Only the hash computation needs
-// to be Node's; the token value itself is arbitrary.
+// script is idempotent: the same label yields the same token/token_hash, and the
+// writer below only touches rows that are missing or wrong, so a rerun against an
+// already-correct fixture performs zero SQL writes and leaves the file's bytes
+// unchanged. Only the hash computation needs to be Node's; the token value
+// itself is arbitrary.
 const nodeToken = (label) =>
   createHash('sha256').update(`stranger-fixture-session:${label}`).digest('base64url')
 
@@ -48,22 +50,36 @@ const rows = [
   [tokens.expired, '2000-01-01T00:00:00.000Z', 0],
 ]
 
-// ON CONFLICT ... DO UPDATE (not INSERT OR REPLACE): the sessions table is
-// AUTOINCREMENT, and INSERT OR REPLACE would delete+reinsert on a rerun,
-// changing the row id and advancing sqlite_sequence. An upsert keyed on
-// token_hash preserves row identity, so the tracked fixture is reproducible.
+// Write only what is actually missing or different. Any SQL write -- even an
+// UPDATE that sets identical values -- bumps SQLite's file change counter, so a
+// "just upsert everything" approach would change the fixture's bytes on every
+// run. Checking first makes a rerun against an already-correct fixture perform
+// zero writes and leave the file byte-identical. When a row must change, an
+// ON CONFLICT ... DO UPDATE upsert (not INSERT OR REPLACE) preserves its row id
+// on the AUTOINCREMENT table instead of deleting+reinserting it.
+const find = db.prepare('SELECT expires_at, revoked FROM sessions WHERE token_hash = ?')
 const upsert = db.prepare(
   `INSERT INTO sessions (user_id, token_hash, expires_at, revoked) VALUES (1, ?, ?, ?)
    ON CONFLICT(token_hash) DO UPDATE SET expires_at = excluded.expires_at, revoked = excluded.revoked`
 )
-for (const [token, expires, revoked] of rows) upsert.run(hashToken(token), expires, revoked)
+let writes = 0
+for (const [token, expires, revoked] of rows) {
+  const hash = hashToken(token)
+  const existing = find.get(hash)
+  if (!existing || existing.expires_at !== expires || existing.revoked !== revoked) {
+    upsert.run(hash, expires, revoked)
+    writes++
+  }
+}
 
-// An upsert on an AUTOINCREMENT table still pre-allocates a rowid and advances
-// sqlite_sequence, even when it resolves to an update. Renormalise it to the
-// real max id so re-running does not change the tracked fixture's bytes.
-db.prepare(
-  "UPDATE sqlite_sequence SET seq = (SELECT MAX(id) FROM sessions) WHERE name = 'sessions'"
-).run()
+// sqlite_sequence can be left inflated (e.g. by earlier INSERT OR REPLACE runs).
+// Renormalise it to the real max id, but only when needed, for the same reason.
+const maxId = db.prepare('SELECT MAX(id) AS m FROM sessions').get().m
+const seq = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'sessions'").get()
+if (!seq || seq.seq !== maxId) {
+  db.prepare("UPDATE sqlite_sequence SET seq = ? WHERE name = 'sessions'").run(maxId)
+  writes++
+}
 
 // Verify the write landed and did not disturb the seed data before persisting
 // the token manifest (the Rust tests consume both together).
@@ -78,4 +94,8 @@ if (usersAfter !== userCount || sessionCount < rows.length) {
 
 db.close()
 writeFileSync(here + 'node-session-tokens.json', JSON.stringify(tokens, null, 2) + '\n')
-console.log(`wrote ${rows.length} Node-hashed sessions and node-session-tokens.json (users intact: ${usersAfter})`)
+console.log(
+  writes === 0
+    ? `fixture already up to date; no SQL writes performed (users intact: ${usersAfter})`
+    : `performed ${writes} write(s) across ${rows.length} Node-hashed sessions (users intact: ${usersAfter})`
+)
