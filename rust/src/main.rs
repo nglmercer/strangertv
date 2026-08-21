@@ -83,6 +83,14 @@ async fn main() {
     infra::metrics::init();
     infra::rate_limit::spawn_cleanup();
 
+    // Sanitized startup config for debugging deployments. DB "local"/"remote"
+    // kind and whether it came from a dev default are logged at connect/migrate;
+    // never log TURSO_AUTH_TOKEN.
+    log_info!("startup.config", {
+        "env": config.node_env,
+        "port": config.port
+    });
+
     let db = match Db::connect().await {
         Ok(db) => Arc::new(db),
         Err(err) => {

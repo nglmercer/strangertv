@@ -33,8 +33,33 @@ pub struct Db {
 }
 
 impl Db {
+    /// Environment-driven connection from `TURSO_DATABASE_URL`. Development
+    /// falls back to a local `file:local.db` so `cargo run` "just works";
+    /// production refuses to guess and fails with a clear message if the URL is
+    /// missing, so a misconfigured deploy can never silently start against the
+    /// wrong database and surface as a mysterious 502.
     pub async fn connect() -> anyhow::Result<Self> {
-        let url = std::env::var("TURSO_DATABASE_URL").unwrap_or_else(|_| "file:local.db".into());
+        let is_prod = std::env::var("NODE_ENV")
+            .map(|v| v == "production")
+            .unwrap_or(false);
+
+        let url = match std::env::var("TURSO_DATABASE_URL") {
+            Ok(url) if !url.trim().is_empty() => url,
+            _ if !is_prod => {
+                crate::log_warn!("db.default_url", {
+                    "reason": "TURSO_DATABASE_URL not set; using development database file:local.db"
+                });
+                "file:local.db".to_string()
+            }
+            _ => {
+                anyhow::bail!(
+                    "TURSO_DATABASE_URL is required in production. For a persistent \
+                     local database set TURSO_DATABASE_URL=file:/data/local.db, or \
+                     configure your Turso database URL."
+                );
+            }
+        };
+
         Self::open(&url).await
     }
 
@@ -42,6 +67,20 @@ impl Db {
     /// this exists so tests can point at a fixture without touching the process
     /// environment (which is global and races across parallel tests).
     pub async fn open(url: &str) -> anyhow::Result<Self> {
+        // Local file preflight: fail with a useful message before libSQL does.
+        // Relative dev paths (`file:local.db`) and `:memory:` have no parent
+        // directory to check, so those are skipped.
+        if let Some(path) = url.strip_prefix("file:") {
+            if let Some(parent) = std::path::Path::new(path).parent() {
+                if !parent.as_os_str().is_empty() && !parent.exists() {
+                    anyhow::bail!(
+                        "database directory does not exist: {}",
+                        parent.display()
+                    );
+                }
+            }
+        }
+
         let url = url.to_string();
         let auth_token = std::env::var("TURSO_AUTH_TOKEN").unwrap_or_default();
 
@@ -51,6 +90,13 @@ impl Db {
         let is_remote = ["libsql://", "http://", "https://", "ws://", "wss://"]
             .iter()
             .any(|scheme| url.starts_with(scheme));
+
+        if is_remote && auth_token.trim().is_empty() {
+            anyhow::bail!(
+                "TURSO_AUTH_TOKEN is required when TURSO_DATABASE_URL is remote"
+            );
+        }
+
         let database = if is_remote {
             Builder::new_remote(url.clone(), auth_token).build().await?
         } else {
