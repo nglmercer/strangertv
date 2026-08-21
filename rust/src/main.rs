@@ -1,6 +1,5 @@
 //! Stranger-chat API server.
 //!
-//! Rust port of `server/index.ts` — see `docs/rust-migration-plan.md`.
 //! Phases 1–3 cover the process skeleton, the wire contract, the database and
 //! auth layer, and the HTTP routes. Matchmaking and the WebSocket protocol
 //! arrive in phases 5 and 6.
@@ -159,12 +158,12 @@ async fn main() {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
-        .with_graceful_shutdown(shutdown_signal(shutdown_state))
-        .await
-        .unwrap_or_else(|err| {
-            log_error!("server.serve_error", { "message": err.to_string() });
-            std::process::exit(1);
-        });
+    .with_graceful_shutdown(shutdown_signal(shutdown_state))
+    .await
+    .unwrap_or_else(|err| {
+        log_error!("server.serve_error", { "message": err.to_string() });
+        std::process::exit(1);
+    });
 }
 
 /// Middleware order mirrors the Hono chain: request id, security headers and

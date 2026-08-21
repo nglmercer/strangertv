@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Fails if shared/generated/ is out of date with rust/src/proto/.
 #
-# The wire contract is generated from Rust (docs/rust-migration-plan.md §2). If
 # this check fails, run `cargo test` in rust/ and commit the result.
 set -euo pipefail
 

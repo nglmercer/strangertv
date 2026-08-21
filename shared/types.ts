@@ -7,7 +7,6 @@
  * `shared/generated/`. A Rust-side change that breaks the client then shows up
  * as a `tsc` error rather than a runtime surprise.
  *
- * See docs/rust-migration-plan.md §2.
  */
 import type { MatchMode, GroupVisibility, MatchScope } from './constants'
 

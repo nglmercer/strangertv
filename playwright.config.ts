@@ -14,7 +14,6 @@ export default defineConfig({
   },
   webServer: {
     // E2E_SERVER_CMD overrides the binary, mirroring SERVER_CMD in the vitest
-    // suites (see docs/rust-migration-plan.md).
     command: `npm run build:all && ${process.env.E2E_SERVER_CMD ?? './rust/target/release/stranger-server'}`,
     // Must be a real route: /api/health (unversioned) falls through to the SPA
     // handler and returns index.html with a 200, so it never proves the API is up.

@@ -89,11 +89,7 @@ pub async fn user_from_token(db: &Db, token: Option<&str>) -> anyhow::Result<Opt
     }))
 }
 
-pub async fn is_banned(
-    db: &Db,
-    user_id: Option<i64>,
-    ip: Option<&str>,
-) -> anyhow::Result<bool> {
+pub async fn is_banned(db: &Db, user_id: Option<i64>, ip: Option<&str>) -> anyhow::Result<bool> {
     if let Some(user_id) = user_id.filter(|id| *id != 0) {
         let mut rows = db
             .conn()
@@ -140,7 +136,11 @@ pub fn public_user(u: &UserRow) -> PublicUser {
                 .unwrap_or_else(|| gender_from_str(DEFAULT_GENDER).expect("valid default")),
         ),
         country: Some(u.country.clone().unwrap_or_else(|| DEFAULT_COUNTRY.into())),
-        language: Some(u.language.clone().unwrap_or_else(|| DEFAULT_LANGUAGE.into())),
+        language: Some(
+            u.language
+                .clone()
+                .unwrap_or_else(|| DEFAULT_LANGUAGE.into()),
+        ),
         interests: Some(parse_interests(u.interests.as_deref())),
         email_verified: Some(u.email_verified != 0),
     }
@@ -202,7 +202,6 @@ mod tests {
 ///
 /// `node-users.db` was produced by running `server/index.ts` and registering
 /// `compat@example.com` over the real HTTP API. These tests are the Phase 2
-/// gate from docs/rust-migration-plan.md: the Rust build must read an existing
 /// production-shaped database and authenticate a user it did not create.
 #[cfg(test)]
 mod node_compat {
@@ -244,7 +243,10 @@ mod node_compat {
         let db = fixture_db().await;
         let mut rows = db
             .conn()
-            .query("SELECT password_hash FROM users WHERE email = ?", params![EMAIL])
+            .query(
+                "SELECT password_hash FROM users WHERE email = ?",
+                params![EMAIL],
+            )
             .await
             .expect("query runs");
         let row = rows.next().await.expect("query ok").expect("user exists");
@@ -263,7 +265,9 @@ mod node_compat {
     async fn migrate_is_idempotent_over_the_node_schema() {
         let db = fixture_db().await;
         db.migrate().await.expect("migrate is idempotent");
-        db.migrate().await.expect("and stays idempotent on a re-run");
+        db.migrate()
+            .await
+            .expect("and stays idempotent on a re-run");
     }
 
     /// The Node-issued session tokens in `node-session-tokens.json` were hashed
@@ -272,9 +276,10 @@ mod node_compat {
     /// Rust `hash_token()` -> session row -> user -- not just that rows exist.
     #[tokio::test]
     async fn resolves_a_session_token_issued_by_the_node_server() {
-        let tokens: serde_json::Value =
-            serde_json::from_str(include_str!("../../tests/fixtures/node-session-tokens.json"))
-                .expect("fixture token manifest parses");
+        let tokens: serde_json::Value = serde_json::from_str(include_str!(
+            "../../tests/fixtures/node-session-tokens.json"
+        ))
+        .expect("fixture token manifest parses");
         let token = |name: &str| tokens[name].as_str().expect("token present").to_string();
         let db = fixture_db().await;
 
@@ -286,14 +291,20 @@ mod node_compat {
         assert_eq!(user.email, EMAIL);
 
         // The same lookup still honours the two exclusion filters.
-        assert!(user_from_token(&db, Some(&token("revoked")))
-            .await
-            .unwrap()
-            .is_none(), "revoked = 1 must not authenticate");
-        assert!(user_from_token(&db, Some(&token("expired")))
-            .await
-            .unwrap()
-            .is_none(), "an expired session must not authenticate");
+        assert!(
+            user_from_token(&db, Some(&token("revoked")))
+                .await
+                .unwrap()
+                .is_none(),
+            "revoked = 1 must not authenticate"
+        );
+        assert!(
+            user_from_token(&db, Some(&token("expired")))
+                .await
+                .unwrap()
+                .is_none(),
+            "an expired session must not authenticate"
+        );
 
         // An unknown token resolves to nobody rather than erroring.
         assert!(user_from_token(&db, Some("not-a-real-token"))
