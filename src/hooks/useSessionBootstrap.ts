@@ -5,6 +5,7 @@ import {
   fetchHealth,
   fetchIceServers,
   getToken,
+  setAuthenticatedUser,
   setSession,
   type PublicUser,
 } from '../api'
@@ -65,23 +66,28 @@ export function useSessionBootstrap({
       history.replaceState({}, '', location.pathname)
     }
 
-    if (getToken()) {
-      void authApi
-        .refresh()
-        .then((r) => {
-          setSession(r.token, r.user)
-          setUser(r.user)
-        })
-        .catch(() =>
-          authApi
-            .me()
-            .then((r) => setUser(r.user))
-            .catch(() => {
-              clearSession()
-              setUser(null)
-            }),
-        )
-    }
+    void authApi
+      .me()
+      .then((r) => {
+        if (!getToken()) setAuthenticatedUser(r.user)
+        setUser(r.user)
+      })
+      .catch(() => {
+        if (!getToken()) {
+          setUser(null)
+          return
+        }
+        void authApi
+          .refresh()
+          .then((r) => {
+            setSession(r.token, r.user)
+            setUser(r.user)
+          })
+          .catch(() => {
+            clearSession()
+            setUser(null)
+          })
+      })
 
     void fetchHealth().then((h) => {
       if (h.ok) {

@@ -12,15 +12,15 @@ use libsql::params;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::auth::session::{public_user, user_from_token, UserRow};
+use crate::auth::resolver::resolve_authenticated_user_row;
+use crate::auth::session::{public_user, UserRow};
 use crate::domain::friends::{
     cancel_invitation, follow_user, get_follows, get_friends, get_invitations, remove_friend,
-    respond_friend_request, respond_invitation, send_friend_request, send_invitation, unfollow_user,
-    FriendError,
+    respond_friend_request, respond_invitation, send_friend_request, send_invitation,
+    unfollow_user, FriendError,
 };
 use crate::domain::messages::{get_conversation, has_relationship, send_message, SendError};
 use crate::error::{ApiError, ApiResult};
-use crate::infra::http::get_bearer;
 use crate::infra::rate_limit::rate_limit;
 use crate::proto::{FollowEntry, InvitationEntry, InvitationStatus, ServerMessage};
 use crate::AppState;
@@ -35,15 +35,21 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/messages", get(list_messages).post(post_message))
         .route("/api/v1/follows", get(list_follows).post(create_follow))
         .route("/api/v1/follows/{id}", delete(delete_follow))
-        .route("/api/v1/invitations", get(list_invitations).post(create_invitation))
+        .route(
+            "/api/v1/invitations",
+            get(list_invitations).post(create_invitation),
+        )
         .route("/api/v1/invitations/{id}/accept", patch(accept_invitation))
-        .route("/api/v1/invitations/{id}/decline", patch(decline_invitation))
+        .route(
+            "/api/v1/invitations/{id}/decline",
+            patch(decline_invitation),
+        )
         .route("/api/v1/invitations/{id}", delete(delete_invitation))
         .with_state(state)
 }
 
 async fn require_user(state: &AppState, headers: &HeaderMap) -> ApiResult<UserRow> {
-    user_from_token(&state.db, get_bearer(headers).as_deref())
+    resolve_authenticated_user_row(headers, state)
         .await
         .map_err(ApiError::from)?
         .ok_or_else(ApiError::unauthorized)
@@ -246,9 +252,12 @@ async fn post_message(
         Err(SendError::Db(err)) => return Err(err.into()),
     };
 
-    state
-        .hub
-        .send_to_user(friend_id, &ServerMessage::MessageNew { message: message.clone() });
+    state.hub.send_to_user(
+        friend_id,
+        &ServerMessage::MessageNew {
+            message: message.clone(),
+        },
+    );
     Ok(Json(json!({ "message": message })))
 }
 
@@ -300,7 +309,9 @@ async fn delete_follow(
 
 async fn list_follows(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Value>> {
     let user = require_user(&state, &headers).await?;
-    let follows = get_follows(&state.db, user.id).await.map_err(ApiError::from)?;
+    let follows = get_follows(&state.db, user.id)
+        .await
+        .map_err(ApiError::from)?;
 
     // Both arrays use `followedId`/`followedUser` keys, even the followers one —
     // matching the shape the client already reads.
@@ -319,7 +330,10 @@ async fn list_follows(State(state): State<AppState>, headers: HeaderMap) -> ApiR
 // Invitations
 // ---------------------------------------------------------------------------
 
-async fn list_invitations(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Value>> {
+async fn list_invitations(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
     let user = require_user(&state, &headers).await?;
     let invitations: Vec<Value> = get_invitations(&state.db, user.id)
         .await
@@ -347,7 +361,10 @@ async fn create_invitation(
 ) -> ApiResult<Json<Value>> {
     let user = require_user(&state, &headers).await?;
     let target_id = body.get("userId").and_then(Value::as_i64).unwrap_or(0);
-    let room_id = body.get("roomId").and_then(Value::as_str).unwrap_or_default();
+    let room_id = body
+        .get("roomId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     if target_id == 0 || room_id.is_empty() {
         return Err(ApiError::bad_request("Missing userId or roomId"));
     }

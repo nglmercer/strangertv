@@ -16,11 +16,12 @@ WORKDIR /build
 # Cache the dependency compile: it dominates the build and only changes when
 # the manifests do.
 COPY rust/Cargo.toml rust/Cargo.lock ./
-RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm -rf src
+COPY rust/vendor ./vendor
+RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release --bins && rm -rf src
 COPY rust/src ./src
 COPY rust/.cargo ./.cargo
 # Touch so cargo does not reuse the stub's fingerprint.
-RUN touch src/main.rs && cargo build --release
+RUN touch src/main.rs && cargo build --release --bins
 
 # ---------------------------------------------------------------------------
 # Runtime
@@ -38,6 +39,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=api /build/target/release/stranger-server /usr/local/bin/stranger-server
+COPY --from=api /build/target/release/migrate-auth /usr/local/bin/migrate-auth
+COPY --from=api /build/target/release/migrate-auth-users /usr/local/bin/migrate-auth-users
 COPY --from=web /app/dist ./dist
 COPY --from=web /app/public ./public
 

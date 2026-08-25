@@ -7,14 +7,14 @@ use axum::{Json, Router};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::auth::session::{user_from_token, UserRow};
+use crate::auth::resolver::resolve_authenticated_user_row;
+use crate::auth::session::UserRow;
 use crate::domain::groups::{
     add_group_members, create_group, get_group, get_group_invite, get_group_invites,
     get_group_members, get_group_messages, get_groups, leave_group, remove_group_member,
     rename_group, respond_group_invite, send_group_message, GroupError,
 };
 use crate::error::{ApiError, ApiResult};
-use crate::infra::http::get_bearer;
 use crate::infra::rate_limit::rate_limit;
 use crate::proto::ServerMessage;
 use crate::AppState;
@@ -23,8 +23,14 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/v1/groups", get(list_groups).post(create))
         .route("/api/v1/groups/{id}", get(show).patch(rename))
-        .route("/api/v1/groups/{id}/members", get(members).post(add_members))
-        .route("/api/v1/groups/{id}/members/{userId}", delete(remove_member))
+        .route(
+            "/api/v1/groups/{id}/members",
+            get(members).post(add_members),
+        )
+        .route(
+            "/api/v1/groups/{id}/members/{userId}",
+            delete(remove_member),
+        )
         .route("/api/v1/groups/{id}/leave", post(leave))
         .route(
             "/api/v1/groups/{id}/messages",
@@ -50,7 +56,7 @@ impl From<GroupError> for ApiError {
 }
 
 async fn require_user(state: &AppState, headers: &HeaderMap) -> ApiResult<UserRow> {
-    user_from_token(&state.db, get_bearer(headers).as_deref())
+    resolve_authenticated_user_row(headers, state)
         .await
         .map_err(ApiError::from)?
         .ok_or_else(ApiError::unauthorized)
@@ -211,7 +217,9 @@ async fn leave(
         return Err(ApiError::bad_request("Invalid id"));
     }
     let out = leave_group(&state.db, group_id, user.id).await?;
-    Ok(Json(json!({ "ok": true, "left": true, "dissolved": out.dissolved })))
+    Ok(Json(
+        json!({ "ok": true, "left": true, "dissolved": out.dissolved }),
+    ))
 }
 
 #[derive(Deserialize)]

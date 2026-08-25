@@ -41,27 +41,28 @@ type Handlers = {
   onPresenceChange?: (userId: number, online: boolean) => void
 }
 
-export function useMatchSocket(handlers: Handlers) {
+export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
   const socket = useRef<WebSocket | null>(null)
   const handlersRef = useRef(handlers)
   handlersRef.current = handlers
   const [connected, setConnected] = useState(false)
   const heartbeatTimer = useRef<number | null>(null)
   const reconnectTimer = useRef<number | null>(null)
+  const authIdentityRef = useRef(authUserId)
 
-  const stopHeartbeat = () => {
+  const stopHeartbeat = useCallback(() => {
     if (heartbeatTimer.current != null) {
       window.clearInterval(heartbeatTimer.current)
       heartbeatTimer.current = null
     }
-  }
+  }, [])
 
-  const stopReconnect = () => {
+  const stopReconnect = useCallback(() => {
     if (reconnectTimer.current != null) {
       window.clearTimeout(reconnectTimer.current)
       reconnectTimer.current = null
     }
-  }
+  }, [])
 
   const send = useCallback((message: ClientMessage) => {
     if (socket.current?.readyState === WebSocket.OPEN) {
@@ -84,6 +85,7 @@ export function useMatchSocket(handlers: Handlers) {
     socket.current = ws
 
     ws.onopen = () => {
+      if (socket.current !== ws) return
       setConnected(true)
       stopHeartbeat()
       heartbeatTimer.current = window.setInterval(() => {
@@ -94,6 +96,8 @@ export function useMatchSocket(handlers: Handlers) {
     }
 
     ws.onclose = () => {
+      if (socket.current !== ws) return
+      socket.current = null
       setConnected(false)
       stopHeartbeat()
       stopReconnect()
@@ -101,10 +105,12 @@ export function useMatchSocket(handlers: Handlers) {
     }
 
     ws.onerror = () => {
+      if (socket.current !== ws) return
       setConnected(false)
     }
 
     ws.onmessage = ({ data }) => {
+      if (socket.current !== ws) return
       let msg: ServerMessage
       try {
         msg = JSON.parse(String(data)) as ServerMessage
@@ -223,7 +229,30 @@ export function useMatchSocket(handlers: Handlers) {
     }
 
     return ws
-  }, [send])
+  }, [send, stopHeartbeat, stopReconnect])
+
+  const disposeSocket = useCallback(() => {
+    stopHeartbeat()
+    stopReconnect()
+    const current = socket.current
+    socket.current = null
+    setConnected(false)
+    if (!current) return
+
+    // An auth transition intentionally replaces this connection. Detach all
+    // handlers first so the old socket cannot schedule a reconnect or update
+    // state after the replacement has started its handshake.
+    current.onopen = null
+    current.onclose = null
+    current.onerror = null
+    current.onmessage = null
+    if (current.readyState < WebSocket.CLOSED) current.close()
+  }, [stopHeartbeat, stopReconnect])
+
+  const reconnectForAuthChange = useCallback(() => {
+    disposeSocket()
+    ensureSocket()
+  }, [disposeSocket, ensureSocket])
 
   const join = useCallback(
     (preferences: MatchPreferences) => {
@@ -371,21 +400,17 @@ export function useMatchSocket(handlers: Handlers) {
 
   useEffect(() => {
     ensureSocket()
-    return () => {
-      stopHeartbeat()
-      stopReconnect()
-      socket.current?.close()
-      socket.current = null
-    }
-  }, [ensureSocket])
+    return disposeSocket
+  }, [disposeSocket, ensureSocket])
 
-  // Re-authenticate when token changes (e.g. user logs in after WS is already open)
+  // Cookies are sent only during the WebSocket upgrade. Replacing the socket
+  // on an identity transition makes login and logout affect an already-open
+  // guest/authenticated connection instead of leaving its old identity cached.
   useEffect(() => {
-    const token = getToken()
-    if (token && socket.current?.readyState === WebSocket.OPEN) {
-      socket.current.send(JSON.stringify({ type: WS_MESSAGE_TYPE.wsAuth, token }))
-    }
-  }, [getToken()])
+    if (authIdentityRef.current === authUserId) return
+    authIdentityRef.current = authUserId
+    reconnectForAuthChange()
+  }, [authUserId, reconnectForAuthChange])
 
   return {
     send,

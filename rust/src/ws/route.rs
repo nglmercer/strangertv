@@ -8,7 +8,7 @@
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
 use axum::Router;
@@ -16,6 +16,7 @@ use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
 use tokio::sync::mpsc::unbounded_channel;
 
+use crate::auth::resolver::{resolve_authenticated_user, AuthenticatedUser};
 use crate::infra::http::client_ip;
 use crate::proto::ServerMessage;
 use crate::ws::handlers::{handle_message, WsContext};
@@ -23,6 +24,21 @@ use crate::AppState;
 
 pub fn router(state: AppState) -> Router {
     Router::new().route("/ws", any(upgrade)).with_state(state)
+}
+
+/// Browser cookies are automatically attached to a WebSocket upgrade, so the
+/// handshake needs its own CSWSH boundary. HTTP CORS does not protect this
+/// upgrade; compare the browser Origin to the same exact configured allowlist.
+/// Clients without an Origin (for example native protocol clients) remain
+/// supported and are authenticated by the normal handshake/protocol checks.
+fn origin_is_allowed(headers: &HeaderMap, trusted_origins: &[String]) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN) else {
+        return true;
+    };
+    let Ok(origin) = origin.to_str() else {
+        return false;
+    };
+    trusted_origins.iter().any(|trusted| trusted == origin)
 }
 
 // `WebSocketUpgrade` consumes the request, so it must be the LAST extractor.
@@ -35,13 +51,23 @@ async fn upgrade(
     if state.is_draining() {
         return (StatusCode::SERVICE_UNAVAILABLE, "draining").into_response();
     }
+    if !origin_is_allowed(&headers, &state.config.cors_origins) {
+        return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
+    }
     // Proxy headers first, then the peer address — `client_ip` only knows about
     // the former, and a direct connection has no `x-forwarded-for`.
     let mut ip = client_ip(&headers);
     if ip == "unknown" {
         ip = peer.ip().to_string();
     }
-    ws.on_upgrade(move |socket| connection(state, socket, ip))
+    let authenticated_user = match resolve_authenticated_user(&headers, &state).await {
+        Ok(user) => user,
+        Err(error) => {
+            crate::log_error!("ws.auth_resolve_failed", { "message": error.to_string() });
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    };
+    ws.on_upgrade(move |socket| connection(state, socket, ip, headers, authenticated_user))
 }
 
 /// Opaque per-connection key used for rate limiting and guest report
@@ -60,13 +86,24 @@ fn session_key(ip: &str) -> String {
     hex::encode(hasher.finalize())[..16].to_string()
 }
 
-async fn connection(state: AppState, socket: WebSocket, ip: String) {
+async fn connection(
+    state: AppState,
+    socket: WebSocket,
+    ip: String,
+    auth_headers: HeaderMap,
+    authenticated_user: Option<AuthenticatedUser>,
+) {
     use futures_util::{SinkExt, StreamExt};
 
     let (mut sink, mut stream) = socket.split();
     let (tx, mut rx) = unbounded_channel::<String>();
     let handle = state.hub.connect(tx);
     let socket_id = handle.id;
+
+    if let Some(user) = &authenticated_user {
+        state.hub.register_user(socket_id, user.user_id);
+        crate::presence::announce_online(&state.db, &state.hub, user.user_id, socket_id).await;
+    }
 
     crate::infra::metrics::inc("ws_connections", 1);
 
@@ -84,6 +121,8 @@ async fn connection(state: AppState, socket: WebSocket, ip: String) {
         socket: socket_id,
         ip: ip.clone(),
         session_key: session_key(&ip),
+        auth_headers,
+        authenticated_user,
     };
 
     while let Some(Ok(msg)) = stream.next().await {
@@ -114,4 +153,28 @@ pub async fn broadcast_drain(state: &AppState) {
     state.hub.broadcast(&ServerMessage::ServerDraining {
         message: Some("Server is restarting. Please reconnect shortly.".into()),
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_origin_is_allowed_for_non_browser_clients() {
+        assert!(origin_is_allowed(
+            &HeaderMap::new(),
+            &["https://app.example".into()]
+        ));
+    }
+
+    #[test]
+    fn origin_must_exactly_match_the_configured_allowlist() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::ORIGIN, "https://app.example".parse().unwrap());
+        assert!(origin_is_allowed(&headers, &["https://app.example".into()]));
+        assert!(!origin_is_allowed(
+            &headers,
+            &["https://attacker.example".into()]
+        ));
+    }
 }

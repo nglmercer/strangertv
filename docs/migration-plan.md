@@ -1,5 +1,3 @@
-Yes. I’d structure this as a **multi-agent / multi-PR migration plan**, so an LLM can implement each phase independently without trying to rewrite StrangerTV auth in one pass.
-
 # StrangerTV → better-auth-rs Migration Plan
 
 ## Mission
@@ -22,6 +20,19 @@ commit: aa0117e49d30ff69d1ed36c74df27193c062f2de
 ```
 
 Do **not** track Better Auth `main` during the migration. Pin the submodule.
+
+## Current repository status
+
+The repository now contains the independently deployable bridge through
+Phase 15: pinned Better Auth infrastructure, explicit schema/user migration
+commands, legacy-password verification with lazy rehashing, unified REST and
+WebSocket resolution, dual-session auth endpoints, cookie-based frontend
+requests, and migration telemetry.
+
+Phase 16 is a deployment gate: keep legacy sessions and password hashes until
+fallback telemetry remains effectively zero for longer than one complete
+14-day legacy-session lifetime. Phases 17 and 18 intentionally remain
+deferred until that gate and the rollback window have passed.
 
 ---
 

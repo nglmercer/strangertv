@@ -7,10 +7,11 @@ import {
   getStoredUser,
   getToken,
   setJSON,
+  setAuthenticatedUser,
   setSession,
 } from './utils/storage'
 
-export { clearSession, getStoredUser, getToken, setSession }
+export { clearSession, getStoredUser, getToken, setAuthenticatedUser, setSession }
 
 export type { PublicUser }
 
@@ -33,7 +34,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!headers.has(HTTP_HEADERS.contentType) && init?.body) headers.set(HTTP_HEADERS.contentType, MIME_TYPE.json)
   const token = getToken()
   if (token) headers.set(HTTP_HEADERS.authorization, `Bearer ${token}`)
-  const res = await fetch(path, { ...init, headers })
+  const res = await fetch(path, { ...init, headers, credentials: init?.credentials ?? 'include' })
   const data = (await res.json().catch(() => ({}))) as T & { error?: string }
   if (!res.ok) throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`)
   return data
@@ -49,12 +50,12 @@ export const authApi = {
     language?: string
     interests?: string[]
   }) =>
-    api<{ user: PublicUser; token: string; devVerifyToken?: string }>(API_ROUTES.authRegister, {
+    api<{ user: PublicUser; token: string; session?: 'better-auth' | 'legacy'; devVerifyToken?: string }>(API_ROUTES.authRegister, {
       method: 'POST',
       body: JSON.stringify(body),
     }),
   login: (body: { email: string; password: string }) =>
-    api<{ user: PublicUser; token: string }>(API_ROUTES.authLogin, { method: 'POST', body: JSON.stringify(body) }),
+    api<{ user: PublicUser; token: string; session?: 'better-auth' | 'legacy' }>(API_ROUTES.authLogin, { method: 'POST', body: JSON.stringify(body) }),
   logout: () => api<{ ok: boolean }>(API_ROUTES.authLogout, { method: 'POST' }),
   me: () => api<{ user: PublicUser }>(API_ROUTES.authMe),
   refresh: () => api<{ token: string; user: PublicUser }>(API_ROUTES.authRefresh, { method: 'POST' }),

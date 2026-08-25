@@ -14,6 +14,7 @@ import { useWebRTC } from './useWebRTC'
 type Options = {
   tr: Messages
   prefs: MatchPreferences
+  authUserId: number | null
   onStatus: (s: string) => void
   onGroupMessage?: (message: GroupMessage) => void
   onSocialEvent?: (msg: SocialWsEvent) => void
@@ -48,7 +49,7 @@ export type GroupMatchParticipant = {
   country?: string
 }
 
-export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange }: Options) {
+export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -422,7 +423,7 @@ export function useMatchSession({ tr, prefs, onStatus, onGroupMessage, onSocialE
         peerId,
       )
     },
-  })
+  }, authUserId)
 
   const matchRef = useRef(match)
   matchRef.current = match

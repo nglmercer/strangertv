@@ -11,6 +11,7 @@ services:
       ADMIN_KEY: ${ADMIN_KEY:-change-me}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8787}
       APP_URL: ${APP_URL:-http://localhost:8787}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
       TURN_SECRET: ${TURN_SECRET:-}
       TURN_URLS: ${TURN_URLS:-}
       EMAIL_WEBHOOK_URL: ${EMAIL_WEBHOOK_URL:-}

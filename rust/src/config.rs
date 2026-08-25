@@ -40,6 +40,11 @@ pub struct Config {
     pub is_prod: bool,
     pub cors_origins: Vec<String>,
     pub app_url: String,
+    /// Better Auth signs cookies and other derived session values with this
+    /// secret. Production must provide it explicitly; development gets a
+    /// stable local-only default so the server remains runnable out of the
+    /// box without making an unsafe production fallback possible.
+    pub better_auth_secret: String,
     pub admin_key: String,
     pub metrics_public: bool,
     pub static_dir: String,
@@ -51,9 +56,17 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Self {
         let node_env = env::var("NODE_ENV").unwrap_or_else(|_| "development".into());
+        let is_prod = node_env == "production";
+        let better_auth_secret = env::var("BETTER_AUTH_SECRET").unwrap_or_else(|_| {
+            if is_prod {
+                String::new()
+            } else {
+                "development-only-better-auth-secret-change-me".into()
+            }
+        });
         Self {
             port: num_env("PORT", 8787) as u16,
-            is_prod: node_env == "production",
+            is_prod,
             node_env,
             cors_origins: env::var("CORS_ORIGINS")
                 .unwrap_or_else(|_| "http://localhost:5173,http://127.0.0.1:5173".into())
@@ -62,6 +75,7 @@ impl Config {
                 .filter(|s| !s.is_empty())
                 .collect(),
             app_url: env::var("APP_URL").unwrap_or_else(|_| "http://localhost:5173".into()),
+            better_auth_secret,
             admin_key: env::var("ADMIN_KEY").unwrap_or_default(),
             metrics_public: bool_env("METRICS_PUBLIC", false),
             static_dir: env::var("STATIC_DIR").unwrap_or_default(),

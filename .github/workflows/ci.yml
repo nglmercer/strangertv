@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -37,6 +39,8 @@ jobs:
     needs: unit
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -58,6 +62,8 @@ jobs:
     needs: unit
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
       - run: docker build -t stranger-chat:ci .
       # Regression guard for the /data volume: reproduce docker-compose's
       # default local deployment (file:/data/local.db on a fresh named volume).
@@ -66,18 +72,32 @@ jobs:
       - name: Start with the default local database and probe health
         run: |
           docker volume rm stranger-ci-data >/dev/null 2>&1 || true
+          docker run --rm --entrypoint /usr/local/bin/migrate-auth \
+            -e TURSO_DATABASE_URL=file:/data/local.db \
+            -e BETTER_AUTH_SECRET=ci-only-better-auth-secret-change-me-123456 \
+            -v stranger-ci-data:/data stranger-chat:ci
           docker run -d --name stranger-ci -p 8787:8787 \
             -e TURSO_DATABASE_URL=file:/data/local.db \
+            -e BETTER_AUTH_SECRET=ci-only-better-auth-secret-change-me-123456 \
             -v stranger-ci-data:/data stranger-chat:ci
+          healthy=0
           for i in $(seq 1 30); do
             if docker exec stranger-ci /usr/local/bin/stranger-server --healthcheck; then
               echo "healthy"
-              # The DB must have been created by the non-root user in /data.
-              docker exec stranger-ci ls -la /data
-              exit 0
+              healthy=1
+              break
             fi
             sleep 2
           done
-          echo "server never became healthy"
-          docker logs stranger-ci
-          exit 1
+          if [ "$healthy" -ne 1 ]; then
+            echo "server never became healthy"
+            docker logs stranger-ci
+            exit 1
+          fi
+          # The server created StrangerTV's legacy tables before the explicit
+          # importer runs. The DB must remain writable by the non-root user.
+          docker run --rm --entrypoint /usr/local/bin/migrate-auth-users \
+            -e TURSO_DATABASE_URL=file:/data/local.db \
+            -e BETTER_AUTH_SECRET=ci-only-better-auth-secret-change-me-123456 \
+            -v stranger-ci-data:/data stranger-chat:ci
+          docker exec stranger-ci ls -la /data

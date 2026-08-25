@@ -109,6 +109,12 @@ export function setSession(token: string, user: PublicUser) {
   setJSON(STORAGE_KEYS.user, user)
 }
 
+/** Store the Better Auth-backed identity without creating a new bearer token. */
+export function setAuthenticatedUser(user: PublicUser) {
+  remove(STORAGE_KEYS.token)
+  setJSON(STORAGE_KEYS.user, user)
+}
+
 export function getStoredUser(): PublicUser | null {
   return getJSON<PublicUser | null>(STORAGE_KEYS.user, null)
 }

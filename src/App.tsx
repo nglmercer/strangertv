@@ -157,6 +157,7 @@ export function App(_props: AppProps) {
   }, [showToast, tr])
 
   const session = useMatchSession({
+    authUserId: user?.id ?? null,
     tr,
     prefs,
     onStatus: setStatus,
