@@ -32,6 +32,10 @@ pub struct WsContext {
     pub socket: SocketId,
     pub ip: String,
     pub session_key: String,
+    /// Headers from the HTTP upgrade. Cookie/bearer authentication is
+    /// revalidated from this snapshot for every authenticated operation so a
+    /// later HTTP logout invalidates an already-open socket too.
+    pub auth_headers: HeaderMap,
     pub authenticated_user: Option<crate::auth::resolver::AuthenticatedUser>,
 }
 
@@ -48,9 +52,13 @@ fn send(hub: &Hub, socket: SocketId, message: &ServerMessage) {
     }
 }
 
-/// The caller's user id: the socket's authenticated identity, falling back to
-/// the queue metadata (which a guest-then-signed-in session may carry).
-async fn caller_user_id(state: &AppState, socket: SocketId) -> Option<i64> {
+/// The caller's user id: revalidate a credential-backed socket, then fall back
+/// to the registry/queue metadata for guest and protocol-token flows.
+async fn caller_user_id(state: &AppState, ctx: &WsContext) -> Option<i64> {
+    if ctx.authenticated_user.is_some() {
+        return resolve_ws_user(state, ctx, None).await.map(|user| user.id);
+    }
+    let socket = ctx.socket;
     if let Some(id) = state.hub.user_of(socket) {
         return Some(id);
     }
@@ -109,17 +117,23 @@ pub async fn handle_message(state: &AppState, ctx: &WsContext, raw: &str) {
 
 /// Resolve an explicit protocol bearer token through the same migration
 /// bridge as HTTP. With no token, retain the identity established during the
-/// cookie-authenticated WebSocket upgrade.
+/// credential-authenticated WebSocket upgrade.
 async fn resolve_ws_user(
     state: &AppState,
     ctx: &WsContext,
     token: Option<&str>,
 ) -> Option<UserRow> {
-    // The HTTP upgrade already applied the migration order. Once a cookie has
-    // authenticated this socket, a stale protocol token must not be allowed
-    // to switch it to another identity.
+    // The HTTP upgrade already applied the migration order. Once a cookie or
+    // bearer has authenticated this socket, re-resolve the original
+    // credential before each operation. This prevents an HTTP logout from
+    // leaving the cached `authenticated_user` usable on the open socket, and
+    // a stale protocol token must not switch it to another identity.
     if let Some(authenticated) = &ctx.authenticated_user {
-        return load_user(&state.db, authenticated.user_id).await;
+        return resolve_authenticated_user_row(&ctx.auth_headers, state)
+            .await
+            .ok()
+            .flatten()
+            .filter(|user| user.id == authenticated.user_id);
     }
     let token = token.filter(|token| !token.is_empty())?;
     let mut headers = HeaderMap::new();
@@ -206,7 +220,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
             user_id,
             token,
         } => {
-            let mut inviter_id = caller_user_id(state, socket).await;
+            let mut inviter_id = caller_user_id(state, ctx).await;
             if inviter_id.is_none() {
                 inviter_id = resolve_ws_user(state, ctx, token.as_deref())
                     .await
@@ -333,9 +347,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
             let partner_user_id = engine.relay_chat(socket, &text, &time).await;
             // A 1:1 chat between two people who already know each other is also
             // persisted, so it shows up in their message history.
-            if let (Some(me), Some(partner)) =
-                (caller_user_id(state, socket).await, partner_user_id)
-            {
+            if let (Some(me), Some(partner)) = (caller_user_id(state, ctx).await, partner_user_id) {
                 if messages_svc::has_relationship(&state.db, me, partner)
                     .await
                     .unwrap_or(false)
@@ -358,7 +370,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::FriendRequest { user_id } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 send(
                     hub,
                     socket,
@@ -387,7 +399,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::FriendAccept { friend_id } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 return;
             };
             if friends_svc::respond_friend_request(&state.db, friend_id, me, true)
@@ -403,19 +415,19 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::FriendDecline { friend_id } => {
-            if let Some(me) = caller_user_id(state, socket).await {
+            if let Some(me) = caller_user_id(state, ctx).await {
                 let _ = friends_svc::respond_friend_request(&state.db, friend_id, me, false).await;
             }
         }
 
         ClientMessage::FriendRemove { friend_id } => {
-            if let Some(me) = caller_user_id(state, socket).await {
+            if let Some(me) = caller_user_id(state, ctx).await {
                 let _ = friends_svc::remove_friend(&state.db, friend_id, me).await;
             }
         }
 
         ClientMessage::Follow { user_id } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 send(hub, socket, &err("auth_required", "Sign in to follow."));
                 return;
             };
@@ -430,13 +442,13 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::Unfollow { user_id } => {
-            if let Some(me) = caller_user_id(state, socket).await {
+            if let Some(me) = caller_user_id(state, ctx).await {
                 let _ = friends_svc::unfollow_user(&state.db, me, user_id).await;
             }
         }
 
         ClientMessage::InvitationSend { user_id, room_id } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 send(
                     hub,
                     socket,
@@ -461,7 +473,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::InvitationAccept { invitation_id, .. } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 return;
             };
             // Read the row BEFORE responding: the inviter and room id are needed
@@ -486,7 +498,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::InvitationDecline { invitation_id } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 return;
             };
             let inviter_id = invitation_row(&state.db, invitation_id)
@@ -507,7 +519,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::MessageSend { friend_id, text } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 send(
                     hub,
                     socket,
@@ -544,7 +556,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
             limit,
             before_id,
         } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 return;
             };
             if friend_id == 0
@@ -571,7 +583,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::GroupMessageSend { group_id, text } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 return;
             };
             if group_id == 0 || text.trim().is_empty() {
@@ -595,7 +607,7 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::GroupInviteSend { group_id, user_id } => {
-            let Some(me) = caller_user_id(state, socket).await else {
+            let Some(me) = caller_user_id(state, ctx).await else {
                 send(hub, socket, &err("auth_required", "Sign in to invite."));
                 return;
             };
@@ -629,10 +641,10 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::GroupInviteAccept { invite_id } => {
-            group_invite_response(state, socket, invite_id, true).await;
+            group_invite_response(state, ctx, invite_id, true).await;
         }
         ClientMessage::GroupInviteDecline { invite_id } => {
-            group_invite_response(state, socket, invite_id, false).await;
+            group_invite_response(state, ctx, invite_id, false).await;
         }
 
         ClientMessage::TelemetryQuality {
@@ -884,7 +896,7 @@ async fn report(
     if !crate::infra::rate_limit::rate_limit(&format!("wsreport:{}", ctx.ip), 10, 60_000) {
         return;
     }
-    let me = caller_user_id(state, socket).await;
+    let me = caller_user_id(state, ctx).await;
     if !state.config.features.guest_reports && me.is_none() {
         send(hub, socket, &err("auth_required", "Sign in to report."));
         return;
@@ -934,7 +946,7 @@ async fn block(state: &AppState, ctx: &WsContext, requested_user_id: Option<i64>
     let hub = &state.hub;
     let socket = ctx.socket;
 
-    let me = caller_user_id(state, socket).await;
+    let me = caller_user_id(state, ctx).await;
     let peer_id = state
         .engine
         .resolve_target_user(socket, requested_user_id)
@@ -968,8 +980,8 @@ async fn block(state: &AppState, ctx: &WsContext, requested_user_id: Option<i64>
     }
 }
 
-async fn group_invite_response(state: &AppState, socket: SocketId, invite_id: i64, accept: bool) {
-    let Some(me) = caller_user_id(state, socket).await else {
+async fn group_invite_response(state: &AppState, ctx: &WsContext, invite_id: i64, accept: bool) {
+    let Some(me) = caller_user_id(state, ctx).await else {
         return;
     };
     let Ok(result) = groups_svc::respond_group_invite(&state.db, invite_id, me, accept).await

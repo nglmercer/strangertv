@@ -1012,9 +1012,11 @@ async fn reset_confirm(
 }
 
 /// Apply StrangerTV's account-deletion policy after auth sessions are revoked:
-/// remove user-owned social/match data, retain moderation records with
-/// anonymized user references, then remove the canonical user row. The Better
-/// Auth identity is deleted by the caller only after this transaction commits.
+/// Remove user-owned social/match data and retain moderation records with
+/// anonymized user references. The canonical user row is intentionally kept
+/// until the Better Auth identity has been deleted, so a failure in that
+/// second system leaves a credential that can retry deletion rather than an
+/// orphaned Better Auth account mapped to a missing application user.
 async fn execute_transactional_statements(
     conn: &libsql::Connection,
     statements: &[String],
@@ -1059,9 +1061,17 @@ async fn delete_legacy_account_data(state: &AppState, user_id: i64) -> anyhow::R
         format!("UPDATE reports SET reporter_id = NULL WHERE reporter_id = {user_id}"),
         format!("UPDATE ratings SET rater_id = NULL WHERE rater_id = {user_id}"),
         format!("UPDATE bans SET user_id = NULL WHERE user_id = {user_id}"),
-        format!("DELETE FROM users WHERE id = {user_id}"),
     ];
     execute_transactional_statements(conn, &statements).await
+}
+
+async fn delete_legacy_user_row(state: &AppState, user_id: i64) -> anyhow::Result<()> {
+    state
+        .db
+        .conn()
+        .execute("DELETE FROM users WHERE id = ?", params![user_id])
+        .await?;
+    Ok(())
 }
 
 async fn delete_account(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Response> {
@@ -1092,9 +1102,10 @@ async fn delete_account(State(state): State<AppState>, headers: HeaderMap) -> Ap
     delete_legacy_account_data(&state, user.id)
         .await
         .map_err(ApiError::from)?;
-    // Keep the Better Auth identity until the transactional legacy cleanup
-    // succeeds. If cleanup fails, the still-existing identity can authenticate
-    // again after its sessions are revoked and the deletion can be retried.
+    // Keep the application user row until the Better Auth identity is gone. If
+    // that final cross-system deletion fails, the still-existing identity can
+    // authenticate again after its sessions are revoked and the deletion can
+    // be retried without an orphaned Better Auth account.
     if better_auth_account {
         state
             .better_auth
@@ -1102,6 +1113,9 @@ async fn delete_account(State(state): State<AppState>, headers: HeaderMap) -> Ap
             .await
             .map_err(ApiError::from)?;
     }
+    delete_legacy_user_row(&state, user.id)
+        .await
+        .map_err(ApiError::from)?;
     let cookie = match state
         .better_auth
         .sessions

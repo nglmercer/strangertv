@@ -15,6 +15,7 @@ Anonymous 1:1 **live video chat** with random matching, text chat, preferences, 
 ## Quick start
 
 ```bash
+git submodule update --init --recursive
 npm install
 cp .env.example .env   # optional for local defaults
 npm run dev
@@ -39,11 +40,16 @@ API, WebSocket, and the built SPA share one port:
 
 ```bash
 npm run build:all
+NODE_ENV=production \
+BETTER_AUTH_SECRET='replace-with-at-least-32-random-bytes' \
 ADMIN_KEY=secret \
   CORS_ORIGINS=http://localhost:8787 \
   APP_URL=http://localhost:8787 \
   npm start
 ```
+
+Use a unique randomly generated `BETTER_AUTH_SECRET` in production; never use
+the example value above literally.
 
 - App: http://localhost:8787  
 - Admin: http://localhost:8787/admin  

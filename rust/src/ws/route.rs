@@ -8,7 +8,7 @@
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::any;
 use axum::Router;
@@ -26,6 +26,21 @@ pub fn router(state: AppState) -> Router {
     Router::new().route("/ws", any(upgrade)).with_state(state)
 }
 
+/// Browser cookies are automatically attached to a WebSocket upgrade, so the
+/// handshake needs its own CSWSH boundary. HTTP CORS does not protect this
+/// upgrade; compare the browser Origin to the same exact configured allowlist.
+/// Clients without an Origin (for example native protocol clients) remain
+/// supported and are authenticated by the normal handshake/protocol checks.
+fn origin_is_allowed(headers: &HeaderMap, trusted_origins: &[String]) -> bool {
+    let Some(origin) = headers.get(header::ORIGIN) else {
+        return true;
+    };
+    let Ok(origin) = origin.to_str() else {
+        return false;
+    };
+    trusted_origins.iter().any(|trusted| trusted == origin)
+}
+
 // `WebSocketUpgrade` consumes the request, so it must be the LAST extractor.
 async fn upgrade(
     State(state): State<AppState>,
@@ -35,6 +50,9 @@ async fn upgrade(
 ) -> Response {
     if state.is_draining() {
         return (StatusCode::SERVICE_UNAVAILABLE, "draining").into_response();
+    }
+    if !origin_is_allowed(&headers, &state.config.cors_origins) {
+        return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
     }
     // Proxy headers first, then the peer address — `client_ip` only knows about
     // the former, and a direct connection has no `x-forwarded-for`.
@@ -49,7 +67,7 @@ async fn upgrade(
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     };
-    ws.on_upgrade(move |socket| connection(state, socket, ip, authenticated_user))
+    ws.on_upgrade(move |socket| connection(state, socket, ip, headers, authenticated_user))
 }
 
 /// Opaque per-connection key used for rate limiting and guest report
@@ -72,6 +90,7 @@ async fn connection(
     state: AppState,
     socket: WebSocket,
     ip: String,
+    auth_headers: HeaderMap,
     authenticated_user: Option<AuthenticatedUser>,
 ) {
     use futures_util::{SinkExt, StreamExt};
@@ -102,6 +121,7 @@ async fn connection(
         socket: socket_id,
         ip: ip.clone(),
         session_key: session_key(&ip),
+        auth_headers,
         authenticated_user,
     };
 
@@ -133,4 +153,28 @@ pub async fn broadcast_drain(state: &AppState) {
     state.hub.broadcast(&ServerMessage::ServerDraining {
         message: Some("Server is restarting. Please reconnect shortly.".into()),
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_origin_is_allowed_for_non_browser_clients() {
+        assert!(origin_is_allowed(
+            &HeaderMap::new(),
+            &["https://app.example".into()]
+        ));
+    }
+
+    #[test]
+    fn origin_must_exactly_match_the_configured_allowlist() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::ORIGIN, "https://app.example".parse().unwrap());
+        assert!(origin_is_allowed(&headers, &["https://app.example".into()]));
+        assert!(!origin_is_allowed(
+            &headers,
+            &["https://attacker.example".into()]
+        ));
+    }
 }

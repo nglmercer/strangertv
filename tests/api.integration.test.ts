@@ -167,6 +167,21 @@ describe('API integration', () => {
     })
     expect(beforeLogout.status).toBe(200)
 
+    const openSocket = new WebSocket(`ws://127.0.0.1:${PORT}/ws`, {
+      headers: { Cookie: cookie! },
+    })
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timed out opening authenticated WebSocket')), 5000)
+      openSocket.once('open', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      openSocket.once('error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+    })
+
     const logout = await fetch(`${BASE}${API_ROUTES.authLogout}`, {
       method: 'POST',
       headers: { cookie: cookie! },
@@ -181,6 +196,34 @@ describe('API integration', () => {
       headers: { authorization: `Bearer ${signedInBody.token}` },
     })
     expect(bearerAfterLogout.status).toBe(401)
+
+    const socketAfterLogout = new Promise<Record<string, unknown>>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timed out waiting for post-logout WebSocket auth result')), 5000)
+      openSocket.once('message', (data) => {
+        clearTimeout(timer)
+        resolve(JSON.parse(String(data)) as Record<string, unknown>)
+      })
+      openSocket.once('error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+    })
+    openSocket.send(JSON.stringify({
+      type: 'group-match:create',
+      visibility: 'public',
+      preferences: {
+        country: 'any',
+        language: 'any',
+        gender: 'any',
+        lookingFor: 'any',
+        interests: [],
+        allowMatchWithSameUsers: true,
+        mode: 'group',
+        matchScope: 'all',
+      },
+    }))
+    expect(await socketAfterLogout).toMatchObject({ type: 'error', code: 'auth_required' })
+    openSocket.close()
   })
 
   it('admin requires key', async () => {
@@ -237,7 +280,7 @@ describe('API integration', () => {
 
     const message = await new Promise<Record<string, unknown>>((resolve, reject) => {
       const ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws', {
-        headers: { Cookie: cookie! },
+        headers: { Cookie: cookie!, Origin: 'http://localhost:5173' },
       })
       const timer = setTimeout(() => {
         ws.close()
@@ -273,6 +316,109 @@ describe('API integration', () => {
       })
     })
     expect(message.type).toBe('group-match:created')
+
+    const rejectedStatus = await new Promise<number>((resolve, reject) => {
+      let settled = false
+      const ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws', {
+        headers: { Cookie: cookie!, Origin: 'https://attacker.example' },
+      })
+      const fail = (error: Error) => {
+        if (settled) return
+        settled = true
+        reject(error)
+      }
+      ws.once('unexpected-response', (_request, response) => {
+        if (settled) return
+        settled = true
+        resolve(response.statusCode ?? 0)
+        ws.close()
+      })
+      ws.once('open', () => fail(new Error('attacker Origin unexpectedly upgraded')))
+      ws.once('error', (error) => fail(error))
+    })
+    expect(rejectedStatus).toBe(403)
+  })
+
+  it('re-establishes a WebSocket after a guest-to-cookie login transition', async () => {
+    const email = `ws_transition_${Date.now()}@example.com`
+    const reg = await fetch(BASE + API_ROUTES.authRegister, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12', birthDate: '1990-02-02' }),
+    })
+    expect(reg.status).toBe(201)
+    const registrationCookie = reg.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(registrationCookie).toContain('better-auth.session_token=')
+
+    // End the registration session so the next socket is an actual guest.
+    const loggedOut = await fetch(BASE + API_ROUTES.authLogout, {
+      method: 'POST',
+      headers: { cookie: registrationCookie! },
+    })
+    expect(loggedOut.status).toBe(200)
+
+    const guestSocket = new WebSocket(`ws://127.0.0.1:${PORT}/ws`)
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timed out opening guest WebSocket')), 5000)
+      guestSocket.once('open', () => {
+        clearTimeout(timer)
+        resolve()
+      })
+      guestSocket.once('error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+    })
+
+    const login = await fetch(BASE + API_ROUTES.authLogin, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12' }),
+    })
+    expect(login.status).toBe(200)
+    const cookie = login.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(cookie).toContain('better-auth.session_token=')
+
+    // The old guest connection cannot receive a browser cookie after its
+    // handshake. The client must close it and open a new cookie-authenticated
+    // connection before sending an auth-required operation.
+    guestSocket.close()
+    await new Promise<void>((resolve) => guestSocket.once('close', () => resolve()))
+
+    const authenticatedSocket = new WebSocket(`ws://127.0.0.1:${PORT}/ws`, {
+      headers: { Cookie: cookie!, Origin: 'http://localhost:5173' },
+    })
+    const created = new Promise<Record<string, unknown>>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timed out waiting for transitioned WebSocket auth')), 5000)
+      authenticatedSocket.once('message', (data) => {
+        clearTimeout(timer)
+        resolve(JSON.parse(String(data)) as Record<string, unknown>)
+      })
+      authenticatedSocket.once('error', (error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+    })
+    await new Promise<void>((resolve, reject) => {
+      authenticatedSocket.once('open', () => resolve())
+      authenticatedSocket.once('error', reject)
+    })
+    authenticatedSocket.send(JSON.stringify({
+      type: 'group-match:create',
+      visibility: 'public',
+      preferences: {
+        country: 'any',
+        language: 'any',
+        gender: 'any',
+        lookingFor: 'any',
+        interests: [],
+        allowMatchWithSameUsers: true,
+        mode: 'group',
+        matchScope: 'all',
+      },
+    }))
+    expect(await created).toMatchObject({ type: 'group-match:created' })
+    authenticatedSocket.close()
   })
 
   it('friend messaging: send and fetch conversation', async () => {
