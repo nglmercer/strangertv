@@ -18,8 +18,8 @@ use crate::auth::password::{
 };
 use crate::auth::resolver::{better_auth_schema_not_ready, resolve_authenticated_user_row};
 use crate::auth::session::{
-    create_session, is_banned, public_user, refresh_session, revoke_session, user_from_id,
-    user_from_token,
+    create_session, is_banned, public_user, refresh_session, revoke_all_sessions, revoke_session,
+    user_from_id, user_from_token,
 };
 use crate::constants::{DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE};
 use crate::email::{
@@ -495,6 +495,34 @@ async fn resend_verification(
     Ok(Json(out))
 }
 
+/// Apply account policy only after the submitted password has been verified.
+/// Keeping this separate from credential lookup prevents login from becoming
+/// an account-state oracle for banned, underage, or unverified addresses.
+async fn enforce_login_policy(
+    state: &AppState,
+    user_id: i64,
+    birth_date: Option<&str>,
+    email_verified: i64,
+    ip: &str,
+) -> ApiResult<()> {
+    if is_banned(&state.db, Some(user_id), Some(ip))
+        .await
+        .map_err(ApiError::from)?
+    {
+        return Err(ApiError::forbidden("This account is banned."));
+    }
+    if !birth_date.is_some_and(is_adult) {
+        return Err(ApiError::forbidden(
+            "Your account needs a valid 18+ birthday.",
+        ));
+    }
+    if state.config.features.require_email_verified && email_verified == 0 {
+        return Err(ApiError::forbidden("Verify your email before signing in.")
+            .with_code("email_unverified"));
+    }
+    Ok(())
+}
+
 async fn login(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -519,12 +547,13 @@ async fn login(
         return Err(ApiError::bad_request("Invalid email or password."));
     }
 
+    let email_lower = email.to_lowercase();
     let mut rows = state
         .db
         .conn()
         .query(
             "SELECT id, password_hash, birth_date, email_verified FROM users WHERE email = ?",
-            params![email.to_lowercase()],
+            params![email_lower],
         )
         .await?;
     let row = rows.next().await?;
@@ -540,21 +569,6 @@ async fn login(
     let email_verified: i64 = row.get(3).unwrap_or(0);
     drop(row);
     drop(rows);
-    if is_banned(&state.db, Some(user_id), Some(&ip))
-        .await
-        .map_err(ApiError::from)?
-    {
-        return Err(ApiError::forbidden("This account is banned."));
-    }
-    if !birth_date.as_deref().is_some_and(is_adult) {
-        return Err(ApiError::forbidden(
-            "Your account needs a valid 18+ birthday.",
-        ));
-    }
-    if state.config.features.require_email_verified && email_verified == 0 {
-        return Err(ApiError::forbidden("Verify your email before signing in.")
-            .with_code("email_unverified"));
-    }
 
     // Imported users use Better Auth's composite provider. If the explicit
     // auth schema migration has not run yet, or this user has not been
@@ -591,6 +605,18 @@ async fn login(
             }
             Err(error) => return Err(ApiError::from(anyhow::anyhow!(error.to_string()))),
         };
+        if let Err(error) =
+            enforce_login_policy(&state, user_id, birth_date.as_deref(), email_verified, &ip).await
+        {
+            // Better Auth creates its session as part of sign-in. Do not leave
+            // a session behind when application policy rejects the account.
+            let _ = state
+                .better_auth
+                .sessions
+                .revoke_token(&result.session_token)
+                .await;
+            return Err(error);
+        }
         let token = match create_session(&state.db, user_id).await {
             Ok(token) => token,
             Err(error) => {
@@ -628,6 +654,7 @@ async fn login(
         inc("auth_login_better_auth_failed", 1);
         return Err(invalid());
     }
+    enforce_login_policy(&state, user_id, birth_date.as_deref(), email_verified, &ip).await?;
 
     let token = create_session(&state.db, user_id)
         .await
@@ -654,7 +681,23 @@ async fn login(
 async fn logout(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Response> {
     let secure_cookie = state.config.app_url.starts_with("https://");
     let bearer = get_bearer(&headers);
-    let better_auth_bearer = if bearer.is_some() {
+
+    // A Better Auth browser logout is normally cookie-only. Resolve both
+    // supported Better Auth transports before revoking anything so the
+    // compatibility legacy session can be invalidated by user id even when no
+    // legacy bearer token is present in the request.
+    let better_auth_cookie_user_id = match state
+        .better_auth
+        .sessions
+        .resolve(&headers, secure_cookie)
+        .await
+    {
+        Ok(Some(principal)) => principal.user.id.parse::<i64>().ok(),
+        Ok(None) => None,
+        Err(error) if better_auth_schema_not_ready(&error.to_string()) => None,
+        Err(error) => return Err(ApiError::from(anyhow::anyhow!(error.to_string()))),
+    };
+    let better_auth_bearer_user_id = if bearer.is_some() {
         match state
             .better_auth
             .sessions
@@ -665,14 +708,15 @@ async fn logout(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<
             )
             .await
         {
-            Ok(Some(_)) => true,
-            Ok(None) => false,
-            Err(error) if better_auth_schema_not_ready(&error.to_string()) => false,
+            Ok(Some(principal)) => principal.user.id.parse::<i64>().ok(),
+            Ok(None) => None,
+            Err(error) if better_auth_schema_not_ready(&error.to_string()) => None,
             Err(error) => return Err(ApiError::from(anyhow::anyhow!(error.to_string()))),
         }
     } else {
-        false
+        None
     };
+    let better_auth_bearer = better_auth_bearer_user_id.is_some();
     if let Some(token) = bearer {
         if better_auth_bearer {
             state
@@ -689,6 +733,14 @@ async fn logout(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<
             inc("auth_logout_legacy", 1);
         }
     }
+
+    if let Some(user_id) = better_auth_cookie_user_id.or(better_auth_bearer_user_id) {
+        revoke_all_sessions(&state.db, user_id)
+            .await
+            .map_err(ApiError::from)?;
+        inc("auth_logout_legacy_compat", 1);
+    }
+
     let cookie = match state
         .better_auth
         .sessions
@@ -959,9 +1011,30 @@ async fn reset_confirm(
     Ok(Json(json!({ "ok": true })))
 }
 
-/// Apply StrangerTV's account-deletion policy after auth sessions/credentials
-/// are revoked: remove user-owned social/match data, retain moderation records
-/// with anonymized user references, then remove the canonical user row.
+/// Apply StrangerTV's account-deletion policy after auth sessions are revoked:
+/// remove user-owned social/match data, retain moderation records with
+/// anonymized user references, then remove the canonical user row. The Better
+/// Auth identity is deleted by the caller only after this transaction commits.
+async fn execute_transactional_statements(
+    conn: &libsql::Connection,
+    statements: &[String],
+) -> anyhow::Result<()> {
+    let transaction = conn.transaction().await?;
+    for sql in statements {
+        if let Err(error) = transaction.execute(sql, ()).await {
+            let rollback_error = transaction.rollback().await.err();
+            return match rollback_error {
+                Some(rollback_error) => Err(anyhow::anyhow!(
+                    "account cleanup failed: {error}; rollback failed: {rollback_error}"
+                )),
+                None => Err(error.into()),
+            };
+        }
+    }
+    transaction.commit().await?;
+    Ok(())
+}
+
 async fn delete_legacy_account_data(state: &AppState, user_id: i64) -> anyhow::Result<()> {
     let conn = state.db.conn();
     // user_id is an i64 loaded from the database, so interpolating this
@@ -988,10 +1061,7 @@ async fn delete_legacy_account_data(state: &AppState, user_id: i64) -> anyhow::R
         format!("UPDATE bans SET user_id = NULL WHERE user_id = {user_id}"),
         format!("DELETE FROM users WHERE id = {user_id}"),
     ];
-    for sql in statements {
-        conn.execute(&sql, ()).await?;
-    }
-    Ok(())
+    execute_transactional_statements(conn, &statements).await
 }
 
 async fn delete_account(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Response> {
@@ -1008,14 +1078,9 @@ async fn delete_account(State(state): State<AppState>, headers: HeaderMap) -> Ap
     // Revoke the application-owned sessions before removing the Better Auth
     // identity, matching the documented deletion ordering. The later data
     // cleanup deletes these rows permanently.
-    state
-        .db
-        .conn()
-        .execute(
-            "UPDATE sessions SET revoked = 1 WHERE user_id = ?",
-            params![user.id],
-        )
-        .await?;
+    revoke_all_sessions(&state.db, user.id)
+        .await
+        .map_err(ApiError::from)?;
     if better_auth_account {
         state
             .better_auth
@@ -1023,15 +1088,20 @@ async fn delete_account(State(state): State<AppState>, headers: HeaderMap) -> Ap
             .revoke_all_for_user(&user.id.to_string())
             .await
             .map_err(|error| ApiError::from(anyhow::anyhow!(error.to_string())))?;
+    }
+    delete_legacy_account_data(&state, user.id)
+        .await
+        .map_err(ApiError::from)?;
+    // Keep the Better Auth identity until the transactional legacy cleanup
+    // succeeds. If cleanup fails, the still-existing identity can authenticate
+    // again after its sessions are revoked and the deletion can be retried.
+    if better_auth_account {
         state
             .better_auth
             .delete_credential_user(user.id)
             .await
             .map_err(ApiError::from)?;
     }
-    delete_legacy_account_data(&state, user.id)
-        .await
-        .map_err(ApiError::from)?;
     let cookie = match state
         .better_auth
         .sessions
@@ -1045,4 +1115,53 @@ async fn delete_account(State(state): State<AppState>, headers: HeaderMap) -> Ap
         Err(error) => return Err(ApiError::from(anyhow::anyhow!(error.to_string()))),
     };
     better_auth_cookie_response(StatusCode::OK, json!({ "ok": true }), &cookie)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Db;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[tokio::test]
+    async fn account_cleanup_rolls_back_when_a_statement_fails() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("stranger-account-cleanup-{suffix}.db"));
+        let url = format!("file:{}", path.display());
+        let db = Db::open(&url).await.expect("database");
+        db.migrate().await.expect("legacy schema");
+        db.conn()
+            .execute(
+                "INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)",
+                params![77_i64, "cleanup@example.com", "unused"],
+            )
+            .await
+            .expect("user");
+
+        let statements = vec![
+            "DELETE FROM users WHERE id = 77".to_string(),
+            "DELETE FROM table_that_does_not_exist".to_string(),
+        ];
+        assert!(execute_transactional_statements(db.conn(), &statements)
+            .await
+            .is_err());
+
+        let mut rows = db
+            .conn()
+            .query("SELECT COUNT(*) FROM users WHERE id = 77", ())
+            .await
+            .expect("count query");
+        let row = rows.next().await.expect("count row").expect("user count");
+        let count: i64 = row.get(0).expect("count");
+        assert_eq!(
+            count, 1,
+            "the failed cleanup must not partially delete data"
+        );
+
+        drop(db);
+        let _ = std::fs::remove_file(path);
+    }
 }

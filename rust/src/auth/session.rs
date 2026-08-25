@@ -50,6 +50,21 @@ pub async fn revoke_session(db: &Db, token: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Revoke every legacy session belonging to a user.
+///
+/// Better Auth browser sessions also receive a legacy compatibility session
+/// during the migration. A cookie-only Better Auth logout has no legacy token
+/// to identify, so it must invalidate the compatibility sessions by user.
+pub async fn revoke_all_sessions(db: &Db, user_id: i64) -> anyhow::Result<()> {
+    db.conn()
+        .execute(
+            "UPDATE sessions SET revoked = 1 WHERE user_id = ?",
+            params![user_id],
+        )
+        .await?;
+    Ok(())
+}
+
 /// Issue a new session token and revoke the previous one (sliding sessions).
 pub async fn refresh_session(db: &Db, token: &str) -> anyhow::Result<Option<String>> {
     let Some(user) = user_from_token(db, Some(token)).await? else {

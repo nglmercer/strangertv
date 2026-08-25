@@ -142,6 +142,47 @@ describe('API integration', () => {
     expect(loggedOut.status).toBe(401)
   })
 
+  it('Better Auth cookie logout revokes the compatibility bearer session', async () => {
+    const email = `cookie_logout_${Date.now()}@example.com`
+    const reg = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12', birthDate: '1990-02-02' }),
+    })
+    expect(reg.status).toBe(201)
+
+    const signedIn = await fetch(`${BASE}${API_ROUTES.authLogin}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password: 'password12' }),
+    })
+    expect(signedIn.status).toBe(200)
+    const signedInBody = (await signedIn.json()) as { token: string; session: string }
+    expect(signedInBody.session).toBe('better-auth')
+    const cookie = signedIn.headers.get('set-cookie')?.split(';', 1)[0]
+    expect(cookie).toContain('better-auth.session_token=')
+
+    const beforeLogout = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { authorization: `Bearer ${signedInBody.token}` },
+    })
+    expect(beforeLogout.status).toBe(200)
+
+    const logout = await fetch(`${BASE}${API_ROUTES.authLogout}`, {
+      method: 'POST',
+      headers: { cookie: cookie! },
+    })
+    expect(logout.status).toBe(200)
+
+    const cookieAfterLogout = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { cookie: cookie! },
+    })
+    expect(cookieAfterLogout.status).toBe(401)
+    const bearerAfterLogout = await fetch(`${BASE}${API_ROUTES.authMe}`, {
+      headers: { authorization: `Bearer ${signedInBody.token}` },
+    })
+    expect(bearerAfterLogout.status).toBe(401)
+  })
+
   it('admin requires key', async () => {
     const denied = await fetch(`${BASE}${API_ROUTES.adminOverview}`)
     expect(denied.status).toBe(403)
