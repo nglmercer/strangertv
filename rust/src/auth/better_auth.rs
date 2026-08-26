@@ -8,7 +8,9 @@
 use std::sync::Arc;
 
 use better_auth::{
-    core::{AuthOptions, BaseUrl, CookieOptions, DbAdapter, Query, SessionOptions},
+    core::{
+        AuthOptions, BaseUrl, CookieOptions, DbAdapter, Query, SecondaryStorage, SessionOptions,
+    },
     CompositePasswordProvider, CredentialService, LibSqlDbAdapter, LibSqlSecondaryStorage,
     ScryptPhcPasswordProvider, SessionService,
 };
@@ -102,7 +104,7 @@ impl BetterAuthState {
         let context = better_auth::AuthContext::builder(options)
             .database(Arc::clone(&adapter) as Arc<dyn DbAdapter>)
             .secondary_storage(Some(
-                Arc::clone(&secondary_storage) as Arc<dyn better_auth::core::SecondaryStorage>
+                Arc::clone(&secondary_storage) as Arc<dyn SecondaryStorage>
             ))
             .password_provider(password_provider)
             .build()
@@ -166,6 +168,23 @@ impl BetterAuthState {
             .await
             .map(|_| ())
             .map_err(|error| anyhow::anyhow!(error.to_string()))
+    }
+
+    /// Whether the explicit schema migration has run.
+    ///
+    /// Both stores are probed: the core tables and the secondary key/value
+    /// store, which `migrate-auth` creates separately and which OAuth state
+    /// depends on.
+    pub async fn schema_ready(&self) -> bool {
+        if self
+            .adapter
+            .find_one("user", Query::new().eq("id", "0"))
+            .await
+            .is_err()
+        {
+            return false;
+        }
+        self.secondary_storage.get("stranger:probe").await.is_ok()
     }
 
     /// Check whether an imported credential account exists. The adapter error

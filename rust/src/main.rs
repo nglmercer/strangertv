@@ -131,6 +131,14 @@ async fn main() {
         }
     };
     log_info!("oauth.google", { "configured": google_oauth.is_some() });
+    // Google sign-in has no legacy fallback: every step needs the Better Auth
+    // tables, including the key/value store that holds the OAuth state. Say so
+    // at boot rather than letting the first sign-in attempt 500.
+    if google_oauth.is_some() && !better_auth.schema_ready().await {
+        log_error!("oauth.google_schema_missing", {
+            "hint": "Google sign-in needs the Better Auth schema. Run the migrate-auth binary against this database."
+        });
+    }
 
     let hub = Arc::new(matchmaking::Hub::new());
 

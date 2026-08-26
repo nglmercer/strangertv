@@ -113,6 +113,21 @@ docker compose run --rm stranger migrate-auth-users
 
 The last command preserves numeric StrangerTV IDs and is safe to repeat.
 
+On a platform that keeps the database in a container volume (Railway, Fly),
+the migration has to run *inside* that container -- a local run would create
+the tables in a local file instead. The image already ships the binary:
+
+```bash
+railway ssh
+/usr/local/bin/migrate-auth
+```
+
+Password sign-in tolerates a missing Better Auth schema and falls back to the
+legacy path, so this step is easy to forget. Google sign-in does not: it keeps
+its OAuth state in Better Auth's key/value table. When the schema is absent
+the server logs `oauth.google_schema_missing` at startup and the sign-in
+endpoint answers 503 rather than failing obscurely.
+
 The migration bridge keeps the legacy bearer session available for rollback and
 older clients. A successful Better Auth login/registration also sets the
 HttpOnly `better-auth.session_token` cookie; browser requests must send

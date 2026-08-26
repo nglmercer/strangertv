@@ -1395,6 +1395,24 @@ struct GoogleCallbackQuery {
     error: Option<String>,
 }
 
+/// Unlike password sign-in, the Google flow has no legacy fallback: it stores
+/// its OAuth state in Better Auth's key/value table and writes Better Auth
+/// rows. A deployment that has not run `migrate-auth` would otherwise report
+/// this as an opaque 500.
+fn oauth_setup_error(error: anyhow::Error) -> ApiError {
+    if better_auth_schema_not_ready(&error.to_string()) {
+        crate::log_error!("oauth.google_schema_missing", {
+            "hint": "Run the migrate-auth binary against this database.",
+            "message": error.to_string()
+        });
+        return ApiError::new(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Google sign-in is not available yet.",
+        );
+    }
+    ApiError::from(error)
+}
+
 /// Send the browser back to the SPA. The callback is a top-level navigation
 /// from Google, so failures cannot be reported as JSON — they become a query
 /// parameter the client turns into a message.
@@ -1427,7 +1445,7 @@ async fn oauth_google_start(
     let url = google
         .authorization_url(state.config.app_url.starts_with("https://"))
         .await
-        .map_err(ApiError::from)?;
+        .map_err(oauth_setup_error)?;
     Ok(Redirect::to(&url).into_response())
 }
 
@@ -1503,7 +1521,14 @@ async fn oauth_google_callback(
                 }
                 Err(error) => {
                     crate::log_error!("oauth.google_pending_failed", { "message": error.to_string() });
-                    oauth_error_redirect(&state, "failed")
+                    oauth_error_redirect(
+                        &state,
+                        if better_auth_schema_not_ready(&error.to_string()) {
+                            "setup"
+                        } else {
+                            "failed"
+                        },
+                    )
                 }
             }
         }
@@ -1723,7 +1748,7 @@ async fn oauth_google_complete_impl(
     // Single-use: the record is consumed here whatever happens next.
     let Some(pending) = crate::auth::oauth::take_pending_signup(&state.better_auth, token)
         .await
-        .map_err(ApiError::from)?
+        .map_err(oauth_setup_error)?
     else {
         return Err(ApiError::bad_request("That sign-in link has expired."));
     };
