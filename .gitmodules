@@ -1,3 +1,0 @@
-[submodule "rust/vendor/better-auth-rs"]
-	path = rust/vendor/better-auth-rs
-	url = https://github.com/nglmercer/better-auth-rs.git

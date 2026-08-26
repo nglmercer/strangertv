@@ -19,7 +19,7 @@ nglmercer/better-auth-rs
 commit: aa0117e49d30ff69d1ed36c74df27193c062f2de
 ```
 
-Do **not** track Better Auth `main` during the migration. Pin the submodule.
+Do **not** track Better Auth `main` during the migration. Pin the vendored copy.
 
 ## Current repository status
 
@@ -197,11 +197,17 @@ Add:
 rust/vendor/better-auth-rs
 ```
 
-as a git submodule pinned to:
+as vendored sources, copied verbatim from upstream commit:
 
 ```text
 aa0117e49d30ff69d1ed36c74df27193c062f2de
 ```
+
+> This started as a git submodule. It is now checked in directly: Railway (and
+> any other builder that shallow-clones without `--recurse-submodules`) got an
+> empty `rust/vendor/better-auth-rs`, so the Docker build failed to read
+> `crates/better-auth/Cargo.toml`. To re-sync, copy `crates/` and the workspace
+> `Cargo.toml` from the upstream repo at the desired commit.
 
 Add dependency:
 
@@ -213,15 +219,8 @@ better-auth = {
 }
 ```
 
-Update CI checkout:
-
-```yaml
-- uses: actions/checkout@v4
-  with:
-    submodules: recursive
-```
-
-Update Docker/build scripts so the submodule is present in build context.
+No special CI checkout or build-script step is needed: the vendored crate is
+part of the repository tree and the Docker build context.
 
 ### Acceptance criteria
 
@@ -1056,8 +1055,8 @@ Each agent should preserve/add tests covering:
 | Fresh DB migration succeeds                     |        ✅ |
 | Migration can run twice                         |        ✅ |
 | Existing social tables unchanged                |        ✅ |
-| Docker build with submodule                     |        ✅ |
-| CI checkout with submodule                      |        ✅ |
+| Docker build with vendored crate                |        ✅ |
+| CI checkout with vendored crate                 |        ✅ |
 
 ---
 

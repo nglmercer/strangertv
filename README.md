@@ -15,7 +15,6 @@ Anonymous 1:1 **live video chat** with random matching, text chat, preferences, 
 ## Quick start
 
 ```bash
-git submodule update --init --recursive
 npm install
 cp .env.example .env   # optional for local defaults
 npm run dev
