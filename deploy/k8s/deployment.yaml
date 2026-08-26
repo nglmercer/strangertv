@@ -31,6 +31,11 @@ spec:
               value: "8787"
             - name: STATIC_DIR
               value: /app/dist
+            # The image applies the Better Auth schema on start, which is the
+            # wrong shape for replicas > 1: every pod would race the same DDL.
+            # Run `migrate-auth` as a one-off Job before rolling out instead.
+            - name: SKIP_AUTH_MIGRATION
+              value: "1"
           readinessProbe:
             httpGet:
               path: /api/v1/health/ready

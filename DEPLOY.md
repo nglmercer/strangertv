@@ -113,20 +113,27 @@ docker compose run --rm stranger migrate-auth-users
 
 The last command preserves numeric StrangerTV IDs and is safe to repeat.
 
-On a platform that keeps the database in a container volume (Railway, Fly),
-the migration has to run *inside* that container -- a local run would create
-the tables in a local file instead. The image already ships the binary:
+**The Docker image does this for you.** Its entrypoint runs `migrate-auth`
+before the server, so a fresh deployment -- Railway, Fly, `docker compose up`,
+anything whose database lives in a container volume where there is no good
+moment to run a command by hand -- comes up migrated. The migration is
+idempotent, so it is a no-op on every later start.
+
+Set `SKIP_AUTH_MIGRATION=1` to take the step back, which is what you want when
+several replicas start at once (they would all race the same DDL) or when a
+deploy pipeline already runs the migration out of band. Run it as a one-off
+job instead:
 
 ```bash
-railway ssh
-/usr/local/bin/migrate-auth
+docker compose run --rm stranger migrate-auth
 ```
 
-Password sign-in tolerates a missing Better Auth schema and falls back to the
-legacy path, so this step is easy to forget. Google sign-in does not: it keeps
-its OAuth state in Better Auth's key/value table. When the schema is absent
-the server logs `oauth.google_schema_missing` at startup and the sign-in
-endpoint answers 503 rather than failing obscurely.
+The server binary itself still never applies auth DDL. Password sign-in
+tolerates a missing schema and falls back to the legacy path, so a gap here is
+easy to miss; Google sign-in cannot, because it keeps its OAuth state in
+Better Auth's key/value table. When the schema is absent the server logs
+`oauth.google_schema_missing` at startup and the sign-in endpoint answers 503
+rather than failing obscurely.
 
 The migration bridge keeps the legacy bearer session available for rollback and
 older clients. A successful Better Auth login/registration also sets the

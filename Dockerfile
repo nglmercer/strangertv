@@ -38,6 +38,8 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
+COPY deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 COPY --from=api /build/target/release/stranger-server /usr/local/bin/stranger-server
 COPY --from=api /build/target/release/migrate-auth /usr/local/bin/migrate-auth
 COPY --from=api /build/target/release/migrate-auth-users /usr/local/bin/migrate-auth-users
@@ -58,4 +60,7 @@ RUN useradd --system --uid 10001 stranger \
 USER stranger
 
 EXPOSE 8787
-CMD ["/usr/local/bin/stranger-server"]
+# The entrypoint applies the Better Auth schema first; passing a command
+# (`docker compose run stranger migrate-auth-users`) runs that instead.
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD []
