@@ -56,6 +56,16 @@ impl BetterAuthState {
         database_url: &str,
         auth_token: &str,
     ) -> anyhow::Result<Self> {
+        // `AuthOptions::validate` rejects a short secret with a message that
+        // does not say where the value comes from. In production the config
+        // has no fallback, so an unset variable lands here as an empty string:
+        // name it, or the deploy log only says "secret must be at least 32
+        // bytes".
+        if config.better_auth_secret.len() < 32 {
+            anyhow::bail!(
+                "BETTER_AUTH_SECRET must be set to at least 32 bytes (no default exists in production)"
+            );
+        }
         let adapter = Arc::new(if is_remote_url(database_url) {
             if auth_token.trim().is_empty() {
                 anyhow::bail!("TURSO_AUTH_TOKEN is required when TURSO_DATABASE_URL is remote");
