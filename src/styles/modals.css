@@ -179,6 +179,22 @@
   cursor: pointer;
 }
 
+/* Provider sign-in sits between the primary action and the plain text
+   switches, so it needs a visible edge without competing with `.match`. */
+.switch.google {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--green-dark);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.switch.google:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .form-error {
   color: var(--danger);
   font-size: 12px;

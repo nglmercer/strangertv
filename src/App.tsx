@@ -73,6 +73,7 @@ export function App(_props: AppProps) {
   const [prefsTab, setPrefsTab] = useState<PrefsTab | undefined>(undefined)
   const [auth, setAuth] = useState(false)
   const [resetTokenFromUrl, setResetTokenFromUrl] = useState('')
+  const [googleSignupToken, setGoogleSignupToken] = useState('')
   const [settings, setSettings] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
   const [reportTarget, setReportTarget] = useState<number | undefined>()
@@ -172,6 +173,7 @@ export function App(_props: AppProps) {
     setUser: applyUser,
     setAuth,
     setResetToken: setResetTokenFromUrl,
+    setGoogleSignupToken,
     setStatus,
     setOnline: session.setOnline,
     setWaitingCount: session.setWaitingCount,
@@ -563,6 +565,8 @@ export function App(_props: AppProps) {
         authActive={authActive}
         resetTokenFromUrl={resetTokenFromUrl}
         setResetTokenFromUrl={setResetTokenFromUrl}
+        googleSignupToken={googleSignupToken}
+        setGoogleSignupToken={setGoogleSignupToken}
         settings={settings}
         setSettings={setSettings}
         reportOpen={reportOpen}

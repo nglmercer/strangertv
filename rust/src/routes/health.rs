@@ -115,6 +115,9 @@ async fn config_public(State(state): State<AppState>) -> Json<Value> {
             "qualityTelemetry": state.config.features.quality_telemetry,
         },
         "turnConfigured": turn_configured(),
+        // The client only renders the Google button when the server can
+        // actually complete the flow.
+        "googleAuth": state.google_oauth.is_some(),
     }))
 }
 

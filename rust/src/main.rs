@@ -47,6 +47,8 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub db: Arc<Db>,
     pub better_auth: Arc<auth::better_auth::BetterAuthState>,
+    /// `None` when Google sign-in is not configured for this deployment.
+    pub google_oauth: Option<Arc<auth::oauth::GoogleOAuth>>,
     pub hub: Arc<matchmaking::Hub>,
     pub engine: Arc<matchmaking::Engine>,
     draining: Arc<AtomicBool>,
@@ -119,6 +121,17 @@ async fn main() {
         "sessionDays": 14
     });
 
+    // Google sign-in is optional. A misconfigured redirect URI is fatal, but
+    // an absent client id simply leaves the provider off.
+    let google_oauth = match auth::oauth::GoogleOAuth::from_env(&config, &better_auth) {
+        Ok(provider) => provider.map(Arc::new),
+        Err(err) => {
+            log_error!("oauth.google_config_failed", { "message": err.to_string() });
+            std::process::exit(1);
+        }
+    };
+    log_info!("oauth.google", { "configured": google_oauth.is_some() });
+
     let hub = Arc::new(matchmaking::Hub::new());
 
     let dist_dir = if config.static_dir.is_empty() {
@@ -130,6 +143,7 @@ async fn main() {
         config: Arc::clone(&config),
         db: Arc::clone(&db),
         better_auth,
+        google_oauth,
         hub: Arc::clone(&hub),
         engine: Arc::new(matchmaking::Engine::new(Arc::clone(&hub), Arc::clone(&db))),
         draining: Arc::new(AtomicBool::new(false)),

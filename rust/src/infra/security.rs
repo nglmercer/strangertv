@@ -13,7 +13,10 @@ pub const X_ADMIN_KEY: &str = "x-admin-key";
 pub async fn security_headers(req: Request, next: Next) -> Response {
     let mut res = next.run(req).await;
     let h = res.headers_mut();
-    h.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
+    h.insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
     h.insert("x-frame-options", HeaderValue::from_static("DENY"));
     h.insert(
         "referrer-policy",
@@ -29,6 +32,8 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
             HeaderValue::from_static("max-age=31536000; includeSubDomains"),
         );
         // Allow same-origin WS + media; tighten further behind a reverse proxy.
+        // `lh3.googleusercontent.com` is where Google serves the avatars
+        // stored on OAuth users; without it those images silently fail.
         h.insert(
             "content-security-policy",
             HeaderValue::from_static(
@@ -36,7 +41,7 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
                  script-src 'self'; \
                  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
                  font-src 'self' https://fonts.gstatic.com; \
-                 img-src 'self' data:; \
+                 img-src 'self' data: https://lh3.googleusercontent.com; \
                  connect-src 'self' ws: wss:; \
                  media-src 'self' blob:; \
                  frame-ancestors 'none'",

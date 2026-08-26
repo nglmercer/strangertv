@@ -53,6 +53,8 @@ export const API_ROUTES = {
   authPasswordResetRequest: '/api/v1/auth/password-reset/request',
   authPasswordResetConfirm: '/api/v1/auth/password-reset/confirm',
   authAccount: '/api/v1/auth/account',
+  authOauthGoogle: '/api/v1/auth/oauth/google',
+  authOauthGoogleComplete: '/api/v1/auth/oauth/google/complete',
   blocks: '/api/v1/blocks',
   blockById: (id: number | string) => `/api/v1/blocks/${id}`,
   reports: '/api/v1/reports',
@@ -98,6 +100,11 @@ export const WS_PATH = '/ws'
 export const URL_PARAM = {
   reset: 'reset',
   verify: 'verify',
+  /** Outcome of a provider redirect: ok | signup | cancelled | error. */
+  oauth: 'oauth',
+  /** Single-use claim token for a pending provider signup. */
+  oauthToken: 'token',
+  oauthReason: 'reason',
   prefs: 'prefs',
   shareCountry: 'country',
   shareLang: 'lang',

@@ -3,11 +3,12 @@
 //! Error strings and status codes are copied verbatim — the client matches on
 //! some of them, and the integration suite asserts on others.
 
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
+use better_auth::core::DbAdapter;
 use better_auth::{EmailPasswordService, SignInInput};
 use libsql::params;
 use serde_json::{json, Value};
@@ -30,6 +31,11 @@ use crate::infra::http::{client_ip, get_bearer};
 use crate::infra::metrics::inc;
 use crate::infra::rate_limit::{rate_limit, rate_limit_headers, rate_limit_info};
 use crate::AppState;
+
+/// Stored in `users.password_hash` for accounts that only ever sign in
+/// through a provider. `verify_password` rejects any value without a `:`
+/// separator, so no password can ever match it.
+const UNUSABLE_PASSWORD_HASH: &str = "oauth-google-no-password";
 
 fn register_limit() -> u32 {
     std::env::var("REGISTER_RATE_LIMIT")
@@ -83,6 +89,15 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/auth/password-reset/request", post(reset_request))
         .route("/api/v1/auth/password-reset/confirm", post(reset_confirm))
         .route("/api/v1/auth/account", delete(delete_account))
+        .route("/api/v1/auth/oauth/google", get(oauth_google_start))
+        .route(
+            crate::auth::oauth::CALLBACK_PATH,
+            get(oauth_google_callback),
+        )
+        .route(
+            "/api/v1/auth/oauth/google/complete",
+            post(oauth_google_complete),
+        )
         .with_state(state)
 }
 
@@ -1137,6 +1152,25 @@ mod tests {
     use crate::db::Db;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    #[test]
+    fn the_oauth_password_sentinel_can_never_be_guessed() {
+        // `login` falls through to `verify_password` against this value for
+        // any account with no Better Auth credential, so it must reject
+        // everything -- including itself and the empty password.
+        for attempt in [
+            "",
+            " ",
+            UNUSABLE_PASSWORD_HASH,
+            "password12",
+            "oauth-google",
+        ] {
+            assert!(
+                !verify_password(attempt, UNUSABLE_PASSWORD_HASH),
+                "{attempt:?} must not unlock a provider-only account"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn account_cleanup_rolls_back_when_a_statement_fails() {
         let suffix = SystemTime::now()
@@ -1178,4 +1212,664 @@ mod tests {
         drop(db);
         let _ = std::fs::remove_file(path);
     }
+
+    /// Minimal `AppState` over a throwaway database, enough to drive the
+    /// handlers directly.
+    async fn test_state(label: &str) -> (AppState, std::path::PathBuf) {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("stranger-{label}-{suffix}.db"));
+        let url = format!("file:{}", path.display());
+        let db = std::sync::Arc::new(Db::open(&url).await.expect("database"));
+        db.migrate().await.expect("legacy schema");
+
+        let mut config = crate::config::Config::from_env();
+        config.better_auth_secret = "test-secret-that-is-at-least-32-bytes-long".into();
+        config.app_url = "http://127.0.0.1:8787".into();
+        let config = std::sync::Arc::new(config);
+        let better_auth = std::sync::Arc::new(
+            crate::auth::better_auth::BetterAuthState::connect_with(&config, &url, "")
+                .await
+                .expect("Better Auth connects"),
+        );
+        better_auth.apply_migrations().await.expect("auth schema");
+
+        let hub = std::sync::Arc::new(crate::matchmaking::Hub::new());
+        let state = AppState {
+            config,
+            db: std::sync::Arc::clone(&db),
+            better_auth,
+            // Exercising the handler does not require a live provider; only
+            // its presence is checked before a pending signup is claimed.
+            google_oauth: None,
+            hub: std::sync::Arc::clone(&hub),
+            engine: std::sync::Arc::new(crate::matchmaking::Engine::new(
+                std::sync::Arc::clone(&hub),
+                std::sync::Arc::clone(&db),
+            )),
+            draining: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            db_ok: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
+            r#static: std::sync::Arc::new(crate::static_files::StaticHandler::new(
+                "dist",
+                Some("dist"),
+            )),
+        };
+        (state, path)
+    }
+
+    #[tokio::test]
+    async fn completing_a_google_signup_produces_a_resolvable_application_identity() {
+        let (state, path) = test_state("oauth-complete").await;
+        let pending = crate::auth::oauth::PendingSignup {
+            email: "ada@example.com".into(),
+            provider_account_id: "sub-1".into(),
+            name: Some("Ada Lovelace".into()),
+            image: None,
+            email_verified: true,
+        };
+        let token = crate::auth::oauth::store_pending_signup(&state.better_auth, &pending)
+            .await
+            .expect("pending stored");
+
+        let response = oauth_google_complete_inner(&state, &token, "1990-05-04", "203.0.113.9")
+            .await
+            .expect("signup completes");
+        assert_eq!(response.status(), StatusCode::CREATED);
+        assert!(
+            response
+                .headers()
+                .get(header::SET_COOKIE)
+                .expect("session cookie")
+                .to_str()
+                .expect("ascii cookie")
+                .contains("better-auth"),
+            "the browser must leave with a Better Auth session"
+        );
+
+        let mut rows = state
+            .db
+            .conn()
+            .query(
+                "SELECT id, password_hash, birth_date, email_verified FROM users WHERE email = ?",
+                params!["ada@example.com"],
+            )
+            .await
+            .expect("user query");
+        let row = rows.next().await.expect("row").expect("user exists");
+        let user_id: i64 = row.get(0).expect("id");
+        let stored_hash: String = row.get(1).expect("hash");
+        let birth_date: String = row.get(2).expect("birth date");
+        let email_verified: i64 = row.get(3).expect("verified");
+        drop(row);
+        drop(rows);
+        assert_eq!(stored_hash, UNUSABLE_PASSWORD_HASH);
+        assert_eq!(birth_date, "1990-05-04");
+        assert_eq!(email_verified, 1, "Google confirmed the address");
+
+        // The whole point of the id juggling: the Better Auth identity has to
+        // map back to this numeric user, or every later request is a 401.
+        assert_eq!(
+            crate::auth::oauth::linked_user_id(&state.better_auth, "sub-1")
+                .await
+                .expect("link lookup"),
+            Some(user_id)
+        );
+
+        // End to end: the cookie the browser leaves with must resolve to that
+        // same numeric identity, which is what every later request needs.
+        let cookie = response
+            .headers()
+            .get(header::SET_COOKIE)
+            .expect("session cookie")
+            .to_str()
+            .expect("ascii cookie")
+            .split(';')
+            .next()
+            .expect("cookie pair")
+            .to_owned();
+        let mut request_headers = HeaderMap::new();
+        request_headers.insert(
+            header::COOKIE,
+            HeaderValue::from_str(&cookie).expect("cookie header"),
+        );
+        let resolved = crate::auth::resolver::resolve_authenticated_user_with(
+            &request_headers,
+            &state.db,
+            &state.better_auth,
+            &state.config,
+        )
+        .await
+        .expect("resolver runs");
+        assert_eq!(
+            resolved.map(|user| user.user_id),
+            Some(user_id),
+            "a Google session must resolve to the application user"
+        );
+
+        // A second claim of the same token must not mint a second account.
+        assert!(
+            oauth_google_complete_inner(&state, &token, "1990-05-04", "203.0.113.9")
+                .await
+                .is_err(),
+            "the pending token is single-use"
+        );
+
+        drop(state);
+        let _ = std::fs::remove_file(path);
+    }
+
+    /// Call the handler with a synthetic request. Axum's extractors are just
+    /// wrappers here, so the test builds them directly.
+    async fn oauth_google_complete_inner(
+        state: &AppState,
+        token: &str,
+        birth_date: &str,
+        ip: &str,
+    ) -> ApiResult<Response> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "x-forwarded-for",
+            HeaderValue::from_str(ip).expect("ascii ip"),
+        );
+        oauth_google_complete_impl(
+            state.clone(),
+            headers,
+            json!({ "token": token, "birthDate": birth_date }),
+        )
+        .await
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Google sign-in
+// ---------------------------------------------------------------------------
+
+/// Query string Google appends to the callback.
+#[derive(serde::Deserialize)]
+struct GoogleCallbackQuery {
+    code: Option<String>,
+    state: Option<String>,
+    /// Set when the user declines the consent screen.
+    error: Option<String>,
+}
+
+/// Send the browser back to the SPA. The callback is a top-level navigation
+/// from Google, so failures cannot be reported as JSON — they become a query
+/// parameter the client turns into a message.
+fn oauth_redirect(state: &AppState, query: &str) -> Response {
+    let target = format!("{}/?{}", state.config.app_url.trim_end_matches('/'), query);
+    Redirect::to(&target).into_response()
+}
+
+fn oauth_error_redirect(state: &AppState, reason: &str) -> Response {
+    inc("auth_oauth_google_failed", 1);
+    oauth_redirect(state, &format!("oauth=error&reason={reason}"))
+}
+
+/// `GET /api/v1/auth/oauth/google` — begin the authorization-code flow.
+async fn oauth_google_start(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Response> {
+    let Some(google) = state.google_oauth.clone() else {
+        return Err(ApiError::new(
+            StatusCode::NOT_FOUND,
+            "Google sign-in is not enabled.",
+        ));
+    };
+    let ip = client_ip(&headers);
+    if !rate_limit(&format!("oauth:{ip}"), 20, 15 * 60_000) {
+        return Err(ApiError::too_many("Too many attempts. Try later."));
+    }
+    inc("auth_oauth_google_start", 1);
+    let url = google
+        .authorization_url(state.config.app_url.starts_with("https://"))
+        .await
+        .map_err(ApiError::from)?;
+    Ok(Redirect::to(&url).into_response())
+}
+
+/// `GET /api/v1/auth/oauth/google/callback` — exchange the code and either
+/// sign the user in or hand the browser a pending-signup token.
+async fn oauth_google_callback(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<GoogleCallbackQuery>,
+) -> Response {
+    let Some(google) = state.google_oauth.clone() else {
+        return oauth_error_redirect(&state, "disabled");
+    };
+    if query.error.is_some() {
+        // The user pressed "cancel" on the consent screen.
+        return oauth_redirect(&state, "oauth=cancelled");
+    }
+    let (Some(code), Some(oauth_state)) = (query.code.as_deref(), query.state.as_deref()) else {
+        return oauth_error_redirect(&state, "invalid_request");
+    };
+
+    let profile = match google.verified_profile(code, oauth_state).await {
+        Ok(profile) => profile,
+        Err(error) => {
+            crate::log_error!("oauth.google_exchange_failed", { "message": error.to_string() });
+            return oauth_error_redirect(&state, "exchange_failed");
+        }
+    };
+    let Some(email) = profile
+        .email
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_lowercase)
+    else {
+        return oauth_error_redirect(&state, "no_email");
+    };
+    // Google marks unverified addresses on some workspace tenants; accepting
+    // one would let a stranger claim an existing StrangerTV account by email.
+    if !profile.email_verified {
+        return oauth_error_redirect(&state, "email_unverified");
+    }
+
+    let ip = client_ip(&headers);
+    match is_banned(&state.db, None, Some(&ip)).await {
+        Ok(true) => return oauth_error_redirect(&state, "banned"),
+        Ok(false) => {}
+        Err(error) => {
+            crate::log_error!("oauth.google_ban_check_failed", { "message": error.to_string() });
+            return oauth_error_redirect(&state, "failed");
+        }
+    }
+
+    match existing_user_for_google(&state, &profile, &email).await {
+        Ok(Some(user_id)) => match sign_in_linked_google_user(&state, user_id, &ip).await {
+            Ok(response) => response,
+            Err(reason) => oauth_error_redirect(&state, reason),
+        },
+        Ok(None) => {
+            // Nothing exists yet, and Google never returns a birth date. Park
+            // the verified profile and let the client collect one.
+            let pending = crate::auth::oauth::PendingSignup {
+                email,
+                provider_account_id: profile.provider_account_id.clone(),
+                name: profile.name.clone(),
+                image: profile.image.clone(),
+                email_verified: profile.email_verified,
+            };
+            match crate::auth::oauth::store_pending_signup(&state.better_auth, &pending).await {
+                Ok(token) => {
+                    inc("auth_oauth_google_signup_pending", 1);
+                    oauth_redirect(&state, &format!("oauth=signup&token={token}"))
+                }
+                Err(error) => {
+                    crate::log_error!("oauth.google_pending_failed", { "message": error.to_string() });
+                    oauth_error_redirect(&state, "failed")
+                }
+            }
+        }
+        Err(error) => {
+            crate::log_error!("oauth.google_lookup_failed", { "message": error.to_string() });
+            oauth_error_redirect(&state, "failed")
+        }
+    }
+}
+
+/// Resolve the application user this Google identity belongs to, by provider
+/// account first and then by verified email so an existing password account
+/// is adopted rather than duplicated.
+async fn existing_user_for_google(
+    state: &AppState,
+    profile: &better_auth::OAuthUserProfile,
+    email: &str,
+) -> anyhow::Result<Option<i64>> {
+    if let Some(user_id) =
+        crate::auth::oauth::linked_user_id(&state.better_auth, &profile.provider_account_id).await?
+    {
+        return Ok(Some(user_id));
+    }
+    let mut rows = state
+        .db
+        .conn()
+        .query("SELECT id FROM users WHERE email = ?", params![email])
+        .await?;
+    let Some(row) = rows.next().await? else {
+        return Ok(None);
+    };
+    let user_id: i64 = row.get(0)?;
+    drop(rows);
+    // First Google sign-in for an address that already has an account: link
+    // it, so later sign-ins skip the email lookup even if the address changes.
+    crate::auth::oauth::link_account(&state.better_auth, user_id, &profile.provider_account_id)
+        .await?;
+    Ok(Some(user_id))
+}
+
+/// Issue a Better Auth session for an established account. The response is a
+/// redirect carrying the session cookie; the SPA bootstraps from `/auth/me`,
+/// so no token is ever placed in the URL.
+async fn sign_in_linked_google_user(
+    state: &AppState,
+    user_id: i64,
+    ip: &str,
+) -> Result<Response, &'static str> {
+    let mut rows = state
+        .db
+        .conn()
+        .query(
+            "SELECT birth_date, email_verified FROM users WHERE id = ?",
+            params![user_id],
+        )
+        .await
+        .map_err(|_| "failed")?;
+    let Some(row) = rows.next().await.map_err(|_| "failed")? else {
+        return Err("failed");
+    };
+    let birth_date: Option<String> = row.get(0).ok();
+    let email_verified: i64 = row.get(1).unwrap_or(0);
+    drop(row);
+    drop(rows);
+
+    // Identical policy to password sign-in: bans, the 18+ gate and the
+    // optional email-verification requirement all still apply.
+    if let Err(error) =
+        enforce_login_policy(state, user_id, birth_date.as_deref(), email_verified, ip).await
+    {
+        return Err(match error.status {
+            StatusCode::FORBIDDEN if error.code.as_deref() == Some("email_unverified") => {
+                "email_unverified"
+            }
+            StatusCode::FORBIDDEN if birth_date.as_deref().is_some_and(is_adult) => "banned",
+            StatusCode::FORBIDDEN => "age",
+            _ => "failed",
+        });
+    }
+
+    let user = better_auth_user(state, user_id).await.map_err(|error| {
+        crate::log_error!("oauth.google_user_row_failed", { "message": error.to_string() });
+        "failed"
+    })?;
+    let result = state
+        .better_auth
+        .sessions
+        .create(user, state.config.app_url.starts_with("https://"))
+        .await
+        .map_err(|error| {
+            crate::log_error!("oauth.google_session_failed", { "message": error.to_string() });
+            "failed"
+        })?;
+
+    inc("auth_oauth_google_login_ok", 1);
+    inc("auth_session_better_auth", 1);
+    inc("auth_login_ok", 1);
+    crate::log_info!("auth.oauth_login", { "userId": user_id, "provider": "google" });
+
+    let mut response = oauth_redirect(state, "oauth=ok");
+    let cookie =
+        HeaderValue::from_str(&result.cookie.to_set_cookie_header()).map_err(|_| "failed")?;
+    response.headers_mut().append(header::SET_COOKIE, cookie);
+    Ok(response)
+}
+
+/// The Better Auth `user` row for an application id, created on demand.
+///
+/// Accounts that predate the Better Auth migration have a legacy row but no
+/// Better Auth identity. Signing in with Google is the moment to create one:
+/// its id must be the legacy id, which is what the resolver parses.
+async fn better_auth_user(state: &AppState, user_id: i64) -> anyhow::Result<better_auth::User> {
+    if let Some(value) = state
+        .better_auth
+        .adapter
+        .find_one(
+            "user",
+            better_auth::core::Query::new().eq("id", user_id.to_string()),
+        )
+        .await
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?
+    {
+        return Ok(serde_json::from_value(value)?);
+    }
+    let mut rows = state
+        .db
+        .conn()
+        .query(
+            "SELECT email, email_verified FROM users WHERE id = ?",
+            params![user_id],
+        )
+        .await?;
+    let row = rows
+        .next()
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("user {user_id} disappeared"))?;
+    let email: String = row.get(0)?;
+    let email_verified: i64 = row.get(1).unwrap_or(0);
+    drop(row);
+    drop(rows);
+    let user = better_auth::User {
+        id: user_id.to_string(),
+        email: email.clone(),
+        name: crate::auth::oauth::display_name_from_email(&email),
+        email_verified: email_verified != 0,
+        image: None,
+        additional_fields: serde_json::Map::new(),
+    };
+    state
+        .better_auth
+        .adapter
+        .transaction(vec![better_auth::core::DbOperation::InsertRecord {
+            table: "user".into(),
+            record: serde_json::to_value(&user)?,
+        }])
+        .await
+        .map_err(|error| anyhow::anyhow!(error.to_string()))?;
+    Ok(user)
+}
+
+/// `POST /api/v1/auth/oauth/google/complete` — turn a pending Google signup
+/// into a real account once the client supplies the missing birth date.
+async fn oauth_google_complete(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> ApiResult<Response> {
+    if state.google_oauth.is_none() {
+        return Err(ApiError::new(
+            StatusCode::NOT_FOUND,
+            "Google sign-in is not enabled.",
+        ));
+    }
+    oauth_google_complete_impl(state, headers, body).await
+}
+
+/// The body of [`oauth_google_complete`], split out so tests can drive it
+/// without standing up a provider that would need real Google credentials.
+async fn oauth_google_complete_impl(
+    state: AppState,
+    headers: HeaderMap,
+    body: Value,
+) -> ApiResult<Response> {
+    let ip = client_ip(&headers);
+    let rl = rate_limit_info(
+        &format!("register:{ip}"),
+        register_limit(),
+        register_window_ms(),
+    );
+    if !rl.ok {
+        return Err(ApiError::too_many("Too many attempts. Try later."));
+    }
+
+    let token = body
+        .get("token")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if token.is_empty() {
+        return Err(ApiError::bad_request("That sign-in link has expired."));
+    }
+    let birth_date = body
+        .get("birthDate")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !is_adult(birth_date) {
+        return Err(ApiError::bad_request(
+            "You must be 18 or older to register.",
+        ));
+    }
+    if is_banned(&state.db, None, Some(&ip))
+        .await
+        .map_err(ApiError::from)?
+    {
+        return Err(ApiError::forbidden("Access denied."));
+    }
+
+    // Single-use: the record is consumed here whatever happens next.
+    let Some(pending) = crate::auth::oauth::take_pending_signup(&state.better_auth, token)
+        .await
+        .map_err(ApiError::from)?
+    else {
+        return Err(ApiError::bad_request("That sign-in link has expired."));
+    };
+
+    let gender = str_or(&body, "gender", DEFAULT_GENDER).to_string();
+    let country = str_or(&body, "country", DEFAULT_COUNTRY).to_string();
+    let language = str_or(&body, "language", DEFAULT_LANGUAGE).to_string();
+    let interests = interests_json(&body);
+
+    let inserted = state
+        .db
+        .conn()
+        .execute(
+            "INSERT INTO users (email, password_hash, birth_date, gender, country, language, interests, email_verified)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            params![
+                pending.email.clone(),
+                UNUSABLE_PASSWORD_HASH,
+                birth_date,
+                gender,
+                country,
+                language,
+                interests,
+                i64::from(pending.email_verified)
+            ],
+        )
+        .await;
+    if inserted.is_err() {
+        return Err(ApiError::conflict("That email is already registered."));
+    }
+
+    let mut rows = state
+        .db
+        .conn()
+        .query(
+            "SELECT id FROM users WHERE email = ?",
+            params![pending.email.clone()],
+        )
+        .await?;
+    let user_id: i64 = match rows.next().await? {
+        Some(row) => row.get(0)?,
+        None => return Err(ApiError::conflict("That email is already registered.")),
+    };
+    drop(rows);
+
+    let profile = better_auth::OAuthUserProfile {
+        provider_account_id: pending.provider_account_id.clone(),
+        email: Some(pending.email.clone()),
+        name: pending.name.clone(),
+        image: pending.image.clone(),
+        email_verified: pending.email_verified,
+    };
+    if let Err(error) = crate::auth::oauth::create_better_auth_user(
+        &state.better_auth,
+        user_id,
+        &profile,
+        &pending.email,
+    )
+    .await
+    {
+        rollback_new_legacy_user(&state, user_id).await;
+        return Err(ApiError::from(error));
+    }
+    if let Err(error) =
+        crate::auth::oauth::link_account(&state.better_auth, user_id, &pending.provider_account_id)
+            .await
+    {
+        let _ = state.better_auth.delete_credential_user(user_id).await;
+        rollback_new_legacy_user(&state, user_id).await;
+        return Err(ApiError::from(error));
+    }
+
+    let user = match better_auth_user(&state, user_id).await {
+        Ok(user) => user,
+        Err(error) => {
+            rollback_google_signup(&state, user_id, None).await;
+            return Err(ApiError::from(error));
+        }
+    };
+    let result = match state
+        .better_auth
+        .sessions
+        .create(user, state.config.app_url.starts_with("https://"))
+        .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            rollback_google_signup(&state, user_id, None).await;
+            return Err(ApiError::from(anyhow::anyhow!(error.to_string())));
+        }
+    };
+    if let Err(error) = state
+        .db
+        .conn()
+        .execute(
+            "INSERT INTO consents (user_id, kind) VALUES (?, ?)",
+            params![user_id, crate::constants::CONSENT_KIND_TERMS_AGE],
+        )
+        .await
+    {
+        rollback_google_signup(&state, user_id, Some(&result)).await;
+        return Err(ApiError::from(error));
+    }
+
+    let public = match user_from_id(&state.db, user_id).await {
+        Ok(user) => user,
+        Err(error) => {
+            rollback_google_signup(&state, user_id, Some(&result)).await;
+            return Err(ApiError::from(error));
+        }
+    };
+    inc("auth_oauth_google_signup_ok", 1);
+    inc("auth_register_ok", 1);
+    inc("auth_session_better_auth", 1);
+    crate::log_info!("auth.oauth_register", { "userId": user_id, "provider": "google" });
+
+    better_auth_cookie_response(
+        StatusCode::CREATED,
+        json!({
+            "user": public.as_ref().map(public_user),
+            "session": "better-auth",
+        }),
+        &result.cookie,
+    )
+}
+
+/// Undo a partially-created Google signup. Mirrors `rollback_signup`, minus
+/// the legacy bearer token and verification mail this path never issues.
+async fn rollback_google_signup(
+    state: &AppState,
+    user_id: i64,
+    session: Option<&better_auth::AuthResult>,
+) {
+    if let Some(result) = session {
+        let _ = state
+            .better_auth
+            .sessions
+            .revoke_token(&result.session_token)
+            .await;
+    }
+    let _ = state
+        .db
+        .conn()
+        .execute("DELETE FROM consents WHERE user_id = ?", params![user_id])
+        .await;
+    // Deletes both the `account` link and the Better Auth `user` row.
+    let _ = state.better_auth.delete_credential_user(user_id).await;
+    rollback_new_legacy_user(state, user_id).await;
 }

@@ -6,6 +6,7 @@
 //! fail to log in. See `password::hash_password` for the specifics.
 
 pub mod better_auth;
+pub mod oauth;
 pub mod password;
 pub mod resolver;
 pub mod session;

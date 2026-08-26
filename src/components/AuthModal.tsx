@@ -1,5 +1,5 @@
-import { useState } from 'preact/hooks'
-import { authApi, setAuthenticatedUser, setSession, type PublicUser } from '../api'
+import { useEffect, useState } from 'preact/hooks'
+import { authApi, fetchPublicConfig, setAuthenticatedUser, setSession, type PublicUser } from '../api'
 import type { Messages } from '../i18n'
 import { isAdult, maxAdultBirthDate } from '../utils/age'
 import { get, storageKeys, applyUserToClient } from '../utils/clientStorage'
@@ -10,13 +10,18 @@ export function AuthModal({
   onClose,
   onAuth,
   initialResetToken,
+  googleSignupToken,
 }: {
   t: Messages
   onClose: () => void
   onAuth: (user: PublicUser) => void
   initialResetToken?: string
+  /** Set when Google verified a new address and only a birthday is missing. */
+  googleSignupToken?: string
 }) {
   const [registering, setRegistering] = useState(false)
+  const finishingGoogle = Boolean(googleSignupToken)
+  const [googleEnabled, setGoogleEnabled] = useState(false)
   const [resetMode, setResetMode] = useState<'off' | 'request' | 'confirm'>(
     initialResetToken ? 'confirm' : 'off',
   )
@@ -27,6 +32,16 @@ export function AuthModal({
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    void fetchPublicConfig().then((config) => {
+      if (active) setGoogleEnabled(Boolean(config.googleAuth))
+    })
+    return () => {
+      active = false
+    }
+  }, [])
 
   const submit = async (event: Event) => {
     event.preventDefault()
@@ -51,8 +66,19 @@ export function AuthModal({
         setResetMode('off')
         return
       }
-      if (registering && !isAdult(birthDate)) {
+      if ((registering || finishingGoogle) && !isAdult(birthDate)) {
         setError(t.mustBe18)
+        return
+      }
+      if (finishingGoogle) {
+        const res = await authApi.completeGoogleSignup({
+          token: googleSignupToken as string,
+          birthDate,
+        })
+        setAuthenticatedUser(res.user)
+        applyUserToClient(res.user)
+        onAuth(res.user)
+        onClose()
         return
       }
       const res = registering
@@ -77,16 +103,30 @@ export function AuthModal({
           ×
         </button>
         <p class="eyebrow">
-          {resetMode !== 'off' ? t.resetPassword : registering ? t.register : t.login}
+          {finishingGoogle
+            ? t.googleFinish
+            : resetMode !== 'off'
+              ? t.resetPassword
+              : registering
+                ? t.register
+                : t.login}
         </p>
         <h2 id="auth-title">
-          {resetMode !== 'off' ? t.resetPassword : registering ? t.savePrefs : t.continueConv}
+          {finishingGoogle
+            ? t.googleFinishTitle
+            : resetMode !== 'off'
+              ? t.resetPassword
+              : registering
+                ? t.savePrefs
+                : t.continueConv}
         </h2>
-        <label>
-          {t.email}
-          <input value={email} onInput={(e) => setEmail(e.currentTarget.value)} type="email" required />
-        </label>
-        {resetMode !== 'request' && (
+        {!finishingGoogle && (
+          <label>
+            {t.email}
+            <input value={email} onInput={(e) => setEmail(e.currentTarget.value)} type="email" required />
+          </label>
+        )}
+        {!finishingGoogle && resetMode !== 'request' && (
           <label>
             {resetMode === 'confirm' ? t.newPassword : t.password}
             <input
@@ -98,13 +138,13 @@ export function AuthModal({
             />
           </label>
         )}
-        {resetMode === 'confirm' && (
+        {!finishingGoogle && resetMode === 'confirm' && (
           <label>
             {t.resetToken}
             <input value={resetToken} onInput={(e) => setResetToken(e.currentTarget.value)} required />
           </label>
         )}
-        {registering && resetMode === 'off' && (
+        {(finishingGoogle || (registering && resetMode === 'off')) && (
           <label>
             {t.birthday}
             <input
@@ -119,15 +159,30 @@ export function AuthModal({
         {error && <p class="form-error" role="alert">{error}</p>}
         {info && <p class="form-info">{info}</p>}
         <button class="match full" disabled={loading}>
-          {resetMode === 'request'
-            ? t.sendReset
-            : resetMode === 'confirm'
-              ? t.confirmReset
-              : registering
-                ? t.register
-                : t.signIn}
+          {finishingGoogle
+            ? t.googleFinishAction
+            : resetMode === 'request'
+              ? t.sendReset
+              : resetMode === 'confirm'
+                ? t.confirmReset
+                : registering
+                  ? t.register
+                  : t.signIn}
         </button>
-        {resetMode === 'off' && (
+        {googleEnabled && !finishingGoogle && resetMode === 'off' && (
+          <button
+            type="button"
+            class="switch google"
+            disabled={loading}
+            onClick={() => {
+              setLoading(true)
+              authApi.startGoogle()
+            }}
+          >
+            {t.continueWithGoogle}
+          </button>
+        )}
+        {!finishingGoogle && resetMode === 'off' && (
           <>
             <button type="button" class="switch" onClick={() => setRegistering(!registering)}>
               {registering ? t.alreadyAccount : t.newHere}
@@ -137,7 +192,7 @@ export function AuthModal({
             </button>
           </>
         )}
-        {resetMode !== 'off' && (
+        {!finishingGoogle && resetMode !== 'off' && (
           <button type="button" class="switch" onClick={() => setResetMode('off')}>
             {t.signIn}
           </button>

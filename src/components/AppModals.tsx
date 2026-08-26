@@ -51,6 +51,8 @@ export function AppModals({
   authActive,
   resetTokenFromUrl,
   setResetTokenFromUrl,
+  googleSignupToken,
+  setGoogleSignupToken,
   settings,
   setSettings,
   reportOpen,
@@ -86,6 +88,8 @@ export function AppModals({
   authActive: boolean
   resetTokenFromUrl: string
   setResetTokenFromUrl: (v: string) => void
+  googleSignupToken: string
+  setGoogleSignupToken: (v: string) => void
   settings: boolean
   setSettings: (v: boolean) => void
   reportOpen: boolean
@@ -174,9 +178,11 @@ export function AppModals({
         <AuthModal
           t={t}
           initialResetToken={resetTokenFromUrl || undefined}
+          googleSignupToken={googleSignupToken || undefined}
           onClose={() => {
             setAuth(false)
             setResetTokenFromUrl('')
+            setGoogleSignupToken('')
           }}
           onAuth={(u) => {
             setUser(u)

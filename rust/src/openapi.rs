@@ -57,6 +57,30 @@ pub fn open_api_document(app_url: &str) -> Value {
             "/api/v1/auth/verify-email": {
                 "post": { "summary": "Verify email token", "responses": { "200": { "description": "OK" } } }
             },
+            "/api/v1/auth/oauth/google": {
+                "get": {
+                    "summary": "Start Google sign-in",
+                    "responses": {
+                        "302": { "description": "Redirect to Google" },
+                        "404": { "description": "Provider not configured" },
+                    },
+                }
+            },
+            "/api/v1/auth/oauth/google/callback": {
+                "get": {
+                    "summary": "Google redirect target",
+                    "responses": { "302": { "description": "Redirect back to the app" } },
+                }
+            },
+            "/api/v1/auth/oauth/google/complete": {
+                "post": {
+                    "summary": "Finish a Google signup with a birth date",
+                    "responses": {
+                        "201": { "description": "Created" },
+                        "400": { "description": "Expired token or under 18" },
+                    },
+                }
+            },
             "/api/v1/blocks": {
                 "get": get("List blocks", true, ok("Blocked users")),
                 "post": {

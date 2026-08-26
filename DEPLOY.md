@@ -39,6 +39,46 @@ for anything beyond a single node.
 | `EMAIL_WEBHOOK_URL` | POST JSON mailer for password reset |
 | `NODE_ENV=production` | Enables HSTS + CSP |
 
+## Google sign-in (optional)
+
+Set both variables and the "Continue with Google" button appears; leave either
+empty and every other auth path is unaffected.
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_CLIENT_ID` | OAuth 2.0 Web application client id |
+| `GOOGLE_CLIENT_SECRET` | Its client secret |
+| `OAUTH_REDIRECT_BASE_URL` | Only for split dev setups; defaults to `APP_URL` |
+
+In Google Cloud Console → *APIs & Services* → *Credentials*, create an OAuth
+2.0 Client ID of type **Web application** and register the redirect URI:
+
+```text
+https://your-domain/api/v1/auth/oauth/google/callback
+```
+
+It must match the deployment exactly — scheme, host and path — for the host
+the browser actually visits. Apex and `www` are different origins; register
+whichever one `APP_URL` names. For local development against Vite, the API is
+on a different port than the SPA:
+
+```bash
+OAUTH_REDIRECT_BASE_URL=http://localhost:8787   # register this callback too
+```
+
+Startup logs `oauth.google` with `configured: true|false`, so a deploy that
+silently lacks the credentials is visible in the deploy log.
+
+Notes on behavior:
+
+- Google returns no birth date, and this service is 18+. A first-time Google
+  user is redirected back with a short-lived, single-use token and asked for a
+  birthday; the account only exists once that is supplied.
+- An address that already has a password account is adopted, not duplicated:
+  the Google identity is linked to the existing user.
+- Provider-only accounts have no usable password. Their owners must use the
+  password-reset flow to add one.
+
 ## Reverse proxy (Caddy example)
 
 ```caddyfile

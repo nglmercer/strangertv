@@ -75,6 +75,19 @@ export const authApi = {
     api<{ ok: boolean }>(API_ROUTES.authVerifyEmail, { method: 'POST', body: JSON.stringify({ token }) }),
   resendVerification: () => api<{ ok: boolean; devVerifyToken?: string }>(API_ROUTES.authResendVerification, { method: 'POST' }),
   deleteAccount: () => api<{ ok: boolean }>(API_ROUTES.authAccount, { method: 'DELETE' }),
+  /** Top-level navigation, not fetch: the provider redirect must own the tab. */
+  startGoogle: () => {
+    location.href = API_ROUTES.authOauthGoogle
+  },
+  /**
+   * Finish a Google signup. Google returns no birth date, so the account only
+   * exists once the client supplies one.
+   */
+  completeGoogleSignup: (body: { token: string; birthDate: string }) =>
+    api<{ user: PublicUser; session?: 'better-auth' | 'legacy' }>(API_ROUTES.authOauthGoogleComplete, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 }
 
 export const socialApi = {
@@ -134,6 +147,15 @@ export async function fetchHealth() {
     return await api<{ ok: boolean; waiting: number; online: number; version?: string }>(API_ROUTES.health)
   } catch {
     return { ok: false, waiting: 0, online: 0 }
+  }
+}
+
+/** Server capabilities the UI branches on. Falls back to "off" when absent. */
+export async function fetchPublicConfig() {
+  try {
+    return await api<{ googleAuth?: boolean; turnConfigured?: boolean }>(API_ROUTES.configPublic)
+  } catch {
+    return { googleAuth: false, turnConfigured: false }
   }
 }
 
