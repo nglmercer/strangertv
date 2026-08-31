@@ -106,14 +106,6 @@
     padding: 16px;
   }
 
-  .empty h2 {
-    font-size: 18px;
-  }
-
-  .empty p {
-    font-size: 12px;
-  }
-
   .dashboard {
     grid-template-columns: 1fr;
     gap: 8px;

@@ -9,7 +9,7 @@ import { formatDuration } from '../utils/format'
 import type { LinkStats } from '../utils/webrtcQuality'
 import { QualityBadge } from './QualityBadge'
 import type { PublicUser } from '../api'
-import { BrandMark3D } from './brandmark'
+import { StageBrandMark } from './brandmark'
 import { Icon, icons } from './icons'
 import { PeerTileActions } from './PeerTileActions'
 import { SPEECH_ON, useSpeakerFocus } from '../hooks/useSpeakerFocus'
@@ -147,7 +147,7 @@ function SearchingTile({ finding, title, body, label }: { finding: boolean; titl
     <article class={`video remote group-peer is-searching ${finding ? 'is-finding' : ''}`} aria-label={label}>
       <div class="stage-empty">
         <StaticNoise opacity={0.55} density={0.6} cellSize={5} />
-        <BrandMark3D />
+        <StageBrandMark finding={finding} title={title} body={body} />
         {finding && (
           <div class="pulse-ring" aria-hidden="true">
             <span />
@@ -155,10 +155,6 @@ function SearchingTile({ finding, title, body, label }: { finding: boolean; titl
             <span />
           </div>
         )}
-        <div class="empty">
-          <h2>{title}</h2>
-          <p>{body}</p>
-        </div>
       </div>
     </article>
   )
@@ -470,7 +466,7 @@ export function VideoStage({
               {!hasRemote && (
                 <div class="stage-empty">
                   <StaticNoise opacity={0.55} density={0.6} cellSize={5} />
-                  <BrandMark3D />
+                  <StageBrandMark finding={finding} title={emptyTitle} body={emptyBody} />
                   {finding && (
                     <div class="pulse-ring" aria-hidden="true">
                       <span />
@@ -478,10 +474,6 @@ export function VideoStage({
                       <span />
                     </div>
                   )}
-                  <div class="empty">
-                    <h2>{emptyTitle}</h2>
-                    <p>{emptyBody}</p>
-                  </div>
                 </div>
               )}
               {strangerMeta && <span class="label">{strangerMeta}</span>}
