@@ -1,234 +1,179 @@
-// geometry.ts
+import { DEVICE_CONFIG, type DeviceConfig } from './deviceConfig'
+
 export interface SmartDeviceGeometry {
-  positions: Float32Array
-  normals: Float32Array
-  chassisIndices: Uint16Array
-  screenIndices: Uint16Array
-  starIndices: Uint16Array // Reused for the premium 3D Orbit Connection emblem
+  positions: Float32Array<ArrayBuffer>
+  normals: Float32Array<ArrayBuffer>
+  uvs: Float32Array<ArrayBuffer>
+  chassisIndices: Uint16Array<ArrayBuffer>
+  bezelIndices: Uint16Array<ArrayBuffer>
+  screenIndices: Uint16Array<ArrayBuffer>
 }
 
-export function makeSmartDevice(): SmartDeviceGeometry {
-  const size = 1.1
-  const bevel = 0.06 // Crisp chamfered edge
+type Point = readonly [number, number]
 
-  const chassisPositions: number[] = []
-  const chassisNormals: number[] = []
-  const chassisIndicesList: number[] = []
-
-  // --- 1. CHAMFERED 1:1:1 CUBE CHASSIS ---
-  const outer = size
-  const inner = size - bevel
-
-  // 8-point profile for a perfectly square face with corner cuts
-  const squareProfile = [
-    [-inner,  outer], [ inner,  outer], // Top
-    [ outer,  inner], [ outer, -inner], // Right
-    [ inner, -outer], [-inner, -outer], // Bottom
-    [-outer, -inner], [-outer,  inner]  // Left
+function roundedRectangle(width: number, height: number, radius: number, segmentCount: number): Point[] {
+  const halfWidth = width / 2
+  const halfHeight = height / 2
+  const safeRadius = Math.min(radius, halfWidth, halfHeight)
+  const perCorner = Math.max(2, Math.round(segmentCount / 4))
+  const centers: Point[] = [
+    [halfWidth - safeRadius, halfHeight - safeRadius],
+    [-halfWidth + safeRadius, halfHeight - safeRadius],
+    [-halfWidth + safeRadius, -halfHeight + safeRadius],
+    [halfWidth - safeRadius, -halfHeight + safeRadius],
   ]
+  const points: Point[] = []
 
-  // Front Bevel Ring (0 - 7)
-  for (const [x, y] of squareProfile) {
-    chassisPositions.push(x, y, inner)
-    const dX = Math.sign(x), dY = Math.sign(y)
-    chassisNormals.push(dX * 0.3, dY * 0.3, 0.9)
-  }
-  // Front Plateau (8 - 15)
-  for (const [x, y] of squareProfile) {
-    chassisPositions.push(x * 0.94, y * 0.94, outer)
-    chassisNormals.push(0, 0, 1)
-  }
-  // Back Bevel Ring (16 - 23)
-  for (const [x, y] of squareProfile) {
-    chassisPositions.push(x, y, -inner)
-    const dX = Math.sign(x), dY = Math.sign(y)
-    chassisNormals.push(dX * 0.3, dY * 0.3, -0.9)
-  }
-  // Back Plateau (24 - 31)
-  for (const [x, y] of squareProfile) {
-    chassisPositions.push(x * 0.94, y * 0.94, -outer)
-    chassisNormals.push(0, 0, -1)
-  }
-
-  // Cap centers
-  const frontCenterIdx = 32
-  chassisPositions.push(0, 0, outer)
-  chassisNormals.push(0, 0, 1)
-
-  const backCenterIdx = 33
-  chassisPositions.push(0, 0, -outer)
-  chassisNormals.push(0, 0, -1)
-
-  // Corrected outward-facing triangle builder
-  const addTriangle = (p0: number, p1: number, p2: number) => {
-    // Front-facing winding order check
-    const v1x = chassisPositions[p1 * 3] - chassisPositions[p0 * 3]
-    const v1y = chassisPositions[p1 * 3 + 1] - chassisPositions[p0 * 3 + 1]
-    const v1z = chassisPositions[p1 * 3 + 2] - chassisPositions[p0 * 3 + 2]
-
-    const v2x = chassisPositions[p2 * 3] - chassisPositions[p0 * 3]
-    const v2y = chassisPositions[p2 * 3 + 1] - chassisPositions[p0 * 3 + 1]
-    const v2z = chassisPositions[p2 * 3 + 2] - chassisPositions[p0 * 3 + 2]
-
-    const nx = v1y * v2z - v1z * v2y
-    const ny = v1z * v2x - v1x * v2z
-    const nz = v1x * v2y - v1y * v2x
-
-    const cx = (chassisPositions[p0 * 3] + chassisPositions[p1 * 3] + chassisPositions[p2 * 3]) / 3
-    const cy = (chassisPositions[p0 * 3 + 1] + chassisPositions[p1 * 3 + 1] + chassisPositions[p2 * 3 + 1]) / 3
-    const cz = (chassisPositions[p0 * 3 + 2] + chassisPositions[p1 * 3 + 2] + chassisPositions[p2 * 3 + 2]) / 3
-
-    if (nx * cx + ny * cy + nz * cz < 0) {
-      chassisIndicesList.push(p0, p2, p1)
-    } else {
-      chassisIndicesList.push(p0, p1, p2)
+  for (let corner = 0; corner < 4; corner += 1) {
+    const [centerX, centerY] = centers[corner]
+    const startAngle = corner * Math.PI * 0.5
+    for (let step = 0; step < perCorner; step += 1) {
+      const angle = startAngle + (step / perCorner) * Math.PI * 0.5
+      points.push([
+        centerX + Math.cos(angle) * safeRadius,
+        centerY + Math.sin(angle) * safeRadius,
+      ])
     }
   }
 
-  // Connect Rings cleanly with outward normals
-  const connectRings = (r1: number, r2: number) => {
-    for (let i = 0; i < 8; i++) {
-      const next = (i + 1) % 8
-      addTriangle(r1 + i, r1 + next, r2 + i)
-      addTriangle(r1 + next, r2 + next, r2 + i)
-    }
+  return points
+}
+
+function appendFace(
+  positions: number[],
+  normals: number[],
+  uvs: number[],
+  indices: number[],
+  profile: Point[],
+  width: number,
+  height: number,
+  z: number,
+): void {
+  const centerIndex = positions.length / 3
+  positions.push(0, 0, z)
+  normals.push(0, 0, 1)
+  uvs.push(0.5, 0.5)
+
+  for (const [x, y] of profile) {
+    positions.push(x, y, z)
+    normals.push(0, 0, 1)
+    // The display contract uses top-left (0, 0). Canvas uploads are therefore
+    // intentionally not Y-flipped by the renderer.
+    uvs.push(x / width + 0.5, 0.5 - y / height)
   }
 
-  connectRings(0, 8)       // Front Ring to Front Plateau
-  connectRings(24, 16)     // Back Plateau to Back Ring
-  connectRings(16, 0)      // Side connection: Back to Front
+  for (let index = 0; index < profile.length; index += 1) {
+    const next = (index + 1) % profile.length
+    indices.push(centerIndex, centerIndex + index + 1, centerIndex + next + 1)
+  }
+}
 
-  // Cap the front and back flat plateaus
-  for (let i = 0; i < 8; i++) {
-    const next = (i + 1) % 8
-    addTriangle(frontCenterIdx, 8 + next, 8 + i)
-    addTriangle(backCenterIdx, 24 + i, 24 + next)
+export function makeSmartDevice(config: DeviceConfig = DEVICE_CONFIG): SmartDeviceGeometry {
+  const positions: number[] = []
+  const normals: number[] = []
+  const uvs: number[] = []
+  const chassisIndices: number[] = []
+  const bezelIndices: number[] = []
+  const screenIndices: number[] = []
+
+  const chassisProfile = roundedRectangle(
+    config.width,
+    config.height,
+    config.cornerRadius,
+    config.perimeterSegments,
+  )
+  const frontZ = config.depth / 2
+  const backZ = -frontZ
+
+  // The side wall uses duplicated front/back vertices so its normals stay
+  // independent from the planar caps, producing a clean satin edge highlight.
+  for (const [x, y] of chassisProfile) {
+    const insetX = Math.max(0, Math.abs(x) - (config.width / 2 - config.cornerRadius))
+    const insetY = Math.max(0, Math.abs(y) - (config.height / 2 - config.cornerRadius))
+    const length = Math.hypot(insetX, insetY)
+    const normalX = length > 0 ? (Math.sign(x) * insetX) / length : Math.sign(x)
+    const normalY = length > 0 ? (Math.sign(y) * insetY) / length : Math.sign(y)
+
+    positions.push(x, y, frontZ, x, y, backZ)
+    normals.push(normalX, normalY, 0, normalX, normalY, 0)
+    uvs.push(0, 0, 0, 0)
   }
 
-  // --- 2. PERFECT SQUARE WATERFALL GLASS SCREEN ---
-  const screenPositions: number[] = []
-  const screenNormals: number[] = []
-  const screenIndicesList: number[] = []
-
-  const sSize = size - 0.08
-  const screenBaseIdx = chassisPositions.length / 3
-  const xSegments = 12
-  const ySegments = 12
-
-  for (let y = 0; y <= ySegments; y++) {
-    const pctY = y / ySegments
-    const posY = -sSize + pctY * (sSize * 2)
-
-    for (let x = 0; x <= xSegments; x++) {
-      const pctX = x / xSegments
-      const posX = -sSize + pctX * (sSize * 2)
-
-      const normalizedX = posX / sSize
-      const curveDepth = 0.035 * (1.0 - normalizedX * normalizedX)
-      const posZ = outer + 0.009 + curveDepth
-
-      screenPositions.push(posX, posY, posZ)
-
-      const nx = normalizedX * 0.15
-      const nz = Math.sqrt(1.0 - nx * nx)
-      screenNormals.push(nx, 0.0, nz)
-    }
+  for (let index = 0; index < chassisProfile.length; index += 1) {
+    const next = (index + 1) % chassisProfile.length
+    const front = index * 2
+    const back = front + 1
+    const nextFront = next * 2
+    const nextBack = nextFront + 1
+    chassisIndices.push(front, back, nextFront, nextFront, back, nextBack)
   }
 
-  for (let y = 0; y < ySegments; y++) {
-    for (let x = 0; x < xSegments; x++) {
-      const row0 = screenBaseIdx + y * (xSegments + 1)
-      const row1 = screenBaseIdx + (y + 1) * (xSegments + 1)
-      screenIndicesList.push(row0 + x, row0 + (x + 1), row1 + x)
-      screenIndicesList.push(row0 + (x + 1), row1 + (x + 1), row1 + x)
-    }
+  appendFace(positions, normals, uvs, chassisIndices, chassisProfile, config.width, config.height, frontZ)
+
+  const backCenter = positions.length / 3
+  positions.push(0, 0, backZ)
+  normals.push(0, 0, -1)
+  uvs.push(0, 0)
+  const backStart = positions.length / 3
+  for (const [x, y] of chassisProfile) {
+    positions.push(x, y, backZ)
+    normals.push(0, 0, -1)
+    uvs.push(0, 0)
+  }
+  for (let index = 0; index < chassisProfile.length; index += 1) {
+    const next = (index + 1) % chassisProfile.length
+    chassisIndices.push(backCenter, backStart + next, backStart + index)
   }
 
-  // --- 3. SLEEK NEW BRAND LOGO: 3D DIAMOND STAR + ORBIT RING ---
-  const logoPositions: number[] = []
-  const logoNormals: number[] = []
-  const logoIndicesList: number[] = []
+  const screenWidth = config.width * config.screenScale
+  const screenHeight = config.height * config.screenScale
+  const bezelWidth = screenWidth + config.bezelWidth * 2
+  const bezelHeight = screenHeight + config.bezelWidth * 2
+  const screenRadius = Math.max(0.07, config.cornerRadius * 0.62)
+  const bezelProfile = roundedRectangle(
+    bezelWidth,
+    bezelHeight,
+    screenRadius + config.bezelWidth,
+    config.perimeterSegments,
+  )
+  const screenProfile = roundedRectangle(
+    screenWidth,
+    screenHeight,
+    screenRadius,
+    config.perimeterSegments,
+  )
 
-  const logoBaseIdx = (chassisPositions.length + screenPositions.length) / 3
-  const centerZ = outer + 0.06
+  appendFace(
+    positions,
+    normals,
+    uvs,
+    bezelIndices,
+    bezelProfile,
+    bezelWidth,
+    bezelHeight,
+    frontZ + config.screenInset * 0.48,
+  )
+  appendFace(
+    positions,
+    normals,
+    uvs,
+    screenIndices,
+    screenProfile,
+    screenWidth,
+    screenHeight,
+    frontZ + config.screenInset,
+  )
 
-  // 3.1 Draw Central Diamond Star (Octahedron)
-  const starHalfWidth = 0.14
-  const starHalfHeight = 0.22
-  const starDepth = 0.08
-
-  const starVerts = [
-    [0, starHalfHeight, centerZ],               // Top (0)
-    [0, -starHalfHeight, centerZ],              // Bottom (1)
-    [-starHalfWidth, 0, centerZ],               // Left (2)
-    [starHalfWidth, 0, centerZ],                // Right (3)
-    [0, 0, centerZ + starDepth],                // Front Peak (4)
-    [0, 0, centerZ - starDepth / 2]             // Back (5)
-  ]
-
-  for (const [vx, vy, vz] of starVerts) {
-    logoPositions.push(vx, vy, vz)
-    const length = Math.hypot(vx, vy, vz - centerZ) || 1
-    logoNormals.push(vx / length, vy / length, (vz - centerZ) / length)
-  }
-
-  // Octahedron index connections
-  const starFaces = [
-    [4, 0, 3], [4, 3, 1], [4, 1, 2], [4, 2, 0], // Front facets
-    [5, 3, 0], [5, 1, 3], [5, 2, 1], [5, 0, 2]  // Back facets
-  ]
-  for (const [a, b, c] of starFaces) {
-    logoIndicesList.push(logoBaseIdx + a, logoBaseIdx + b, logoBaseIdx + c)
-  }
-
-  // 3.2 Draw Diagonal Orbit Torus Ring
-  const ringStartIdx = logoBaseIdx + starVerts.length
-  const radialSteps = 36
-  const tubeSteps = 8
-  const ringRadius = 0.28
-  const tubeRadius = 0.02
-
-  const tiltAngle = 0.35 // Stunning diagonal dynamic orbit slant
-
-  for (let i = 0; i <= radialSteps; i++) {
-    const theta = (i / radialSteps) * Math.PI * 2
-    const rawX = ringRadius * Math.cos(theta)
-    const rawY = ringRadius * Math.sin(theta)
-
-    // Apply rotation around Y/X-axis for the orbital tilt effect
-    const rx = rawX * Math.cos(tiltAngle)
-    const ry = rawY
-    const rz = centerZ + rawX * Math.sin(tiltAngle)
-
-    for (let j = 0; j < tubeSteps; j++) {
-      const phi = (j / tubeSteps) * Math.PI * 2
-      const nx = Math.cos(phi) * Math.cos(theta)
-      const ny = Math.sin(phi)
-      const nz = Math.cos(phi) * Math.sin(theta)
-
-      logoPositions.push(rx + tubeRadius * nx, ry + tubeRadius * ny, rz + tubeRadius * nz)
-
-      // Calculate smooth normal vector for the torus
-      const normLength = Math.hypot(nx, ny, nz) || 1
-      logoNormals.push(nx / normLength, ny / normLength, nz / normLength)
-    }
-  }
-
-  for (let i = 0; i < radialSteps; i++) {
-    const r0 = ringStartIdx + i * tubeSteps
-    const r1 = ringStartIdx + (i + 1) * tubeSteps
-    for (let j = 0; j < tubeSteps; j++) {
-      const nextJ = (j + 1) % tubeSteps
-      logoIndicesList.push(r0 + j, r1 + j, r0 + nextJ)
-      logoIndicesList.push(r0 + nextJ, r1 + j, r1 + nextJ)
-    }
+  if (positions.length / 3 > 65_535) {
+    throw new Error('Device geometry exceeds the Uint16 index limit')
   }
 
   return {
-    positions: new Float32Array([...chassisPositions, ...screenPositions, ...logoPositions]),
-    normals: new Float32Array([...chassisNormals, ...screenNormals, ...logoNormals]),
-    chassisIndices: new Uint16Array(chassisIndicesList),
-    screenIndices: new Uint16Array(screenIndicesList),
-    starIndices: new Uint16Array(logoIndicesList),
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    chassisIndices: new Uint16Array(chassisIndices),
+    bezelIndices: new Uint16Array(bezelIndices),
+    screenIndices: new Uint16Array(screenIndices),
   }
 }
