@@ -43,7 +43,7 @@
     "@types/node": "^26.2.0",
     "@types/ws": "^8.5.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "@babel/core": "^7.26.10",
