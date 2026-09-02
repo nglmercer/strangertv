@@ -38,7 +38,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.51.0",
+    "@playwright/test": "^1.62.1",
     "@preact/preset-vite": "^2.10.0",
     "@types/node": "^26.2.0",
     "@types/ws": "^8.5.0",
