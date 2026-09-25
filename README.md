@@ -12,6 +12,29 @@ Anonymous 1:1 **live video chat** with random matching, text chat, preferences, 
 
 ---
 
+## Documentation
+
+| Article | Contents |
+|---------|----------|
+| [Getting started](./docs/getting-started.md) | Dev setup, URLs, production single-port, Docker |
+| [Features](./docs/features.md) | Matching, calls, accounts, safety, platform |
+| [Architecture](./docs/architecture.md) | Stack, request flow, project layout, data |
+| [Development](./docs/development.md) | Scripts, Make targets, PR checks, conventions |
+| [Configuration](./docs/configuration.md) | Full environment-variable reference |
+| [Deployment](./docs/deployment.md) | Prod mode, Docker, reverse proxy, example configs |
+| [Authentication](./docs/authentication.md) | Auth model, Google sign-in, Better Auth migration, rehearsal |
+| [Operations](./docs/operations.md) | Health, metrics, admin, backups, load test & smoke |
+| [WebRTC / TURN](./docs/webrtc.md) | Credentials API, coturn setup, STUN fallback |
+| [Internationalization](./docs/i18n.md) | Locales, message keys, translation rules |
+| [Testing](./docs/testing.md) | Unit, integration, black-box, e2e suites + CI |
+| [Safety](./docs/safety.md) | 18+ policy, reporting, moderation tooling |
+| [Roadmap](./docs/roadmap.md) | Product roadmap (phases, acceptance criteria) |
+| [Auth migration plan](./docs/migration-plan.md) | Phased StrangerTV → better-auth-rs plan |
+| [Contributing](./CONTRIBUTING.md) | Dev workflow, conventions, security |
+| [Changelog](./CHANGELOG.md) | Release notes |
+
+---
+
 ## Quick start
 
 ```bash
@@ -27,145 +50,17 @@ npm run free-ports   # or: npm run dev:fresh
 | Vite SPA | http://localhost:5173 |
 | API + WebSocket | http://localhost:8787 |
 
-Open the SPA; it proxies API/WS to the backend in dev.
-
-**Runtime:** the API server is a Rust binary (`rust/`, built with cargo); the
-client toolchain is **Node.js**. `bun` as a package runner for the frontend is
-fine. `EADDRINUSE` means a leftover process still owns the port — `npm run free-ports`.
-
-### Production (single process)
-
-API, WebSocket, and the built SPA share one port:
-
-```bash
-npm run build:all
-NODE_ENV=production \
-BETTER_AUTH_SECRET='replace-with-at-least-32-random-bytes' \
-ADMIN_KEY=secret \
-  CORS_ORIGINS=http://localhost:8787 \
-  APP_URL=http://localhost:8787 \
-  npm start
-```
-
-Use a unique randomly generated `BETTER_AUTH_SECRET` in production; never use
-the example value above literally.
-
-- App: http://localhost:8787  
-- Admin: http://localhost:8787/admin  
-
-### Docker
-
-```bash
-export ADMIN_KEY=your-long-secret
-export BETTER_AUTH_SECRET=your-at-least-32-byte-auth-secret
-docker compose up --build
-# with optional coturn profile:
-# docker compose --profile turn up --build
-```
-
----
-
-## Features
-
-- **Match filters** — country, language, gender, interests  
-- **Call controls** — next stranger, mute/camera, device pickers, fullscreen, connection quality  
-- **Auto find-next** after peer disconnect  
-- **Ephemeral chat** (not stored server-side)  
-- **Auth** — register / login with an HttpOnly Better Auth cookie, temporary
-  legacy bearer compatibility, email verify, dual-session password reset, and
-  account delete
-- **Safety** — report, block, age gate (18+), rules / privacy / terms  
-- **WebRTC** — TURN credentials API + STUN fallback  
-- **Ops** — health live/ready, JSON + Prometheus metrics, graceful drain, admin CSV export  
-- **i18n** — all user-facing strings via `src/i18n/` (`en` · `es` · `pt`)
-
----
-
-## Scripts
-
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Vite + API (cargo watch) |
-| `npm run build:all` / `npm start` | Production SPA + server binary |
-| `npm run check` | TypeScript project build |
-| `npm run check:generated` | Fail if `shared/generated` is stale vs `rust/src/proto` |
-| `npm run rust:test` | Rust unit + integration tests |
-| `npm run migrate:auth` / `npm run migrate:auth-users` | Explicit Better Auth schema/user migration |
-| `npm test` | Black-box HTTP/WS suites against the built binary |
-| `npm run test:integration` | Live HTTP API tests only |
-| `npm run test:e2e` | Playwright end-to-end |
-| `npm run test:all` | check + generated + rust + build + suites + e2e |
-| `npm run loadtest` | WebSocket matchmaking stress |
-| `npm run smoke` | Post-deploy HTTP smoke |
-| `npm run backup` | Local SQLite backup |
-
-Make targets: `make dev`, `make build`, `make ci`, `make docker`, `make docker-turn`.
-
----
-
-## Project layout
-
-```
-src/           Preact UI (components, hooks, i18n)
-rust/          axum API, WebSocket matchmaking, auth, admin
-shared/        Shared types & preference codes (generated/ comes from rust/src/proto)
-deploy/        Caddy, nginx, systemd, k8s, coturn example
-e2e/           Playwright specs
-scripts/       backup, load-test, smoke
-```
-
-### Internationalization
-
-User-visible copy lives in:
-
-- `src/i18n/en.ts` — source of truth / `Messages` type  
-- `src/i18n/es.ts`, `src/i18n/pt.ts` — translations  
-- `src/i18n/index.ts` — `t()`, `detectLocale()`, label helpers  
-
-**Do not hardcode UI strings** in components. Add a key to `en.ts` first, mirror it in `es`/`pt`, then use `t.key` (or helpers like `countryLabel`, `interestLabel`). Preference **codes** (`music`, `PE`, `en`) stay in `shared/types.ts`; **labels** stay in i18n.
-
-Locale is stored as `stranger-locale` in `localStorage` and falls back to the browser language.
-
----
-
-## Environment (highlights)
-
-See [`.env.example`](./.env.example) and [DEPLOY.md](./DEPLOY.md).
-
-| Variable | Purpose |
-|----------|---------|
-| `ADMIN_KEY` | Moderation console + private metrics |
-| `CORS_ORIGINS` | Allowed browser origins (comma-separated) |
-| `APP_URL` | Public URL (reset / verify links) |
-| `BETTER_AUTH_SECRET` | Secret used to sign Better Auth cookies (at least 32 bytes) |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Hosted libSQL (preferred in prod) |
-| `TURN_SECRET` / `TURN_URLS` | TURN REST credentials |
-| `EMAIL_WEBHOOK_URL` | Password-reset / verify email delivery |
-| `FEATURE_*` | Anonymous match, quality telemetry, require verified email, … |
-| `SHUTDOWN_DRAIN_MS` | Graceful WebSocket drain on shutdown |
-
----
-
-## Ops & deploy
-
-| Doc / path | Contents |
-|------------|----------|
-| [DEPLOY.md](./DEPLOY.md) | Env, TLS, TURN, Turso, backups |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Dev workflow |
-| [CHANGELOG.md](./CHANGELOG.md) | Release notes |
-| `deploy/Caddyfile`, `deploy/nginx.conf` | Reverse proxy |
-| `deploy/turnserver.conf.example` | coturn |
-| `deploy/systemd/stranger.service` | systemd unit |
-| `deploy/k8s/` | Kubernetes sample |
+Full setup: [Getting started](./docs/getting-started.md).
 
 ---
 
 ## Safety
 
-- **18+ only.** Age gate and registration enforce adulthood.  
-- Video/audio are **not recorded** by default.  
-- Report and block tools feed the admin console.  
-- Brand carefully if you go public — this product is **stranger**, not a trademarked third-party service.
+- **18+ only.** Age gate and registration enforce adulthood.
+- Video/audio are **not recorded** by default.
+- Report and block tools feed the admin console.
+
+Details: [Safety](./docs/safety.md).
 
 ---
 

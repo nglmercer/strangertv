@@ -41,3 +41,7 @@ npm run test:e2e   # needs Playwright browsers once: npx playwright install chro
 ## Security
 
 Never commit `.env`, production `ADMIN_KEY`, or Turso tokens.
+
+## Full docs
+
+Index of all articles: [README.md](./README.md).
