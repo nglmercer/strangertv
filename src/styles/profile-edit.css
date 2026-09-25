@@ -1,0 +1,434 @@
+/* ===========================================================================
+   Link editor page (design-only). Theme-aware editor column plus an
+   always-dark live preview reusing the shared link list component.
+   =========================================================================== */
+
+.pedit-page {
+  min-height: 100dvh;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  display: flex;
+  justify-content: center;
+  padding: 12px 20px 40px;
+}
+
+.pedit-col {
+  width: 100%;
+  max-width: 960px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pedit-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.pedit-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pedit-back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.pedit-title {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pedit-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 96px;
+  justify-content: flex-end;
+  font: 11px 'DM Mono', monospace;
+  color: var(--green-dark);
+}
+
+.pedit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+/* Editor column */
+.pedit-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Section summary + shared editor button */
+.pedit-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pedit-sumicon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg-surface-3);
+  color: var(--text-secondary);
+}
+
+.pedit-summeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pedit-sumtitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pedit-sumsub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.pedit-summary .pedit-btn {
+  flex: none;
+}
+
+.pedit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-mid);
+  border-radius: 9px;
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.pedit-btn:hover {
+  border-color: var(--green-dark);
+  color: var(--green-dark);
+}
+
+.pedit-btn.primary {
+  background: var(--green-dark);
+  border-color: var(--green-dark);
+  color: #fff;
+}
+
+.pedit-btn.primary:hover {
+  color: #fff;
+  filter: brightness(1.1);
+}
+
+.pedit-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-surface);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pedit-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pedit-card-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.pedit-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.pedit-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.pedit-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pedit-icon-btn.danger:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.rot-180 {
+  transform: rotate(180deg);
+}
+
+.pedit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pedit-field > span {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.pedit-field input,
+.pedit-field select {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.pedit-field input:focus-visible,
+.pedit-field select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+  border-color: var(--green-dark);
+}
+
+.pedit-row2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+/* Live preview column */
+.pedit-preview {
+  min-width: 0;
+}
+
+.pedit-preview-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pedit-preview-card {
+  background: #080808;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+/* Section settings card */
+.pedit-section-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.pedit-seg {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--bg-surface-3);
+}
+
+.pedit-seg button {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 4px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pedit-seg button.is-on {
+  background: var(--bg-page);
+  color: var(--text-strong);
+  box-shadow: 0 1px 3px var(--shadow-md);
+}
+
+.pedit-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.pedit-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green-dark);
+}
+
+.pedit-hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* Accent swatches */
+.pedit-accent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.pedit-accent > span {
+  flex: none;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.pedit-swatches {
+  display: flex;
+  gap: 8px;
+}
+
+.pedit-swatch {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.12s ease;
+}
+
+.pedit-swatch:hover {
+  transform: scale(1.1);
+}
+
+.pedit-swatch.is-on {
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--green-dark);
+}
+
+.pedit-custom {
+  position: relative;
+  overflow: hidden;
+  background: conic-gradient(#f16a42, #e8c547, #57c9a1, #8ab4ff, #b392f0, #f16a42);
+}
+
+.pedit-custom input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pedit-hex {
+  margin-left: auto;
+  width: 84px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: 12px 'DM Mono', monospace;
+}
+
+.pedit-hex:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+  border-color: var(--green-dark);
+}
+
+@media (min-width: 861px) {
+  .pedit-preview {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pedit-seg button,
+  .pedit-swatch {
+    transition: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .pedit-grid {
+    grid-template-columns: 1fr;
+  }
+  .pedit-preview {
+    order: -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .pedit-row2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pedit-back,
+  .pedit-icon-btn,
+  .pedit-btn {
+    transition: none;
+  }
+}

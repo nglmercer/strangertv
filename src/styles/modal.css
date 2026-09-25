@@ -1,0 +1,57 @@
+/* Inner layout for dialogs built on the shared Modal (backdrop + card
+   come from modals.css). Token-driven. */
+
+.pmodal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pmodal-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pmodal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex: none;
+}
+
+.pmodal-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* Cards render flat inside a modal: the dialog is already the card. */
+.pmodal-body .pedit-card {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+/* Beats the legacy `.modal label` block rule so the row stays horizontal. */
+.modal label.pedit-check {
+  display: flex;
+  margin: 0;
+}
+
+.pmodal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}

@@ -1,0 +1,203 @@
+/* ===========================================================================
+   Profile variant A — minimalist social profile (design-only).
+   Token-driven so light/dark themes keep working; mono accents echo the
+   video-stage labels (DM Mono) while body copy stays in DM Sans.
+   Shared primitives (.verified, .u-link, .mutuals) and the follow/message
+   action states (.pact). Token-driven for light/dark themes.
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Shared profile primitives
+   -------------------------------------------------------------------------- */
+
+/* Verified check shown next to the display name */
+.verified {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #031;
+  vertical-align: 2px;
+}
+
+/* Inline website link */
+.u-link {
+  color: var(--info-strong);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.u-link:hover {
+  text-decoration: underline;
+}
+
+.u-link-dark {
+  color: #9eecc8;
+}
+
+/* Mutual-followers row: stacked avatars + line */
+.mutuals {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.mutuals-start {
+  justify-content: flex-start;
+}
+
+.mutuals-dark {
+  color: #888;
+}
+
+.mutuals b {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.mutuals-dark b {
+  color: #ccc;
+}
+
+.mutual-stack {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.mutual-stack > span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-page);
+  background: radial-gradient(circle at 50% 35%, #333 0%, #161616 70%);
+  color: #eee;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.mutual-stack > span:first-child {
+  margin-left: 0;
+}
+
+.mutual-stack > span:nth-child(2) {
+  background: #1e3a31;
+}
+
+.mutual-stack > span:nth-child(3) {
+  background: #3a2c1e;
+}
+
+.mutuals-dark .mutual-stack > span {
+  border-color: #101010;
+}
+
+/* ---------------------------------------------------------------------------
+   Profile actions: follow state machine + conditional message (design demo)
+   -------------------------------------------------------------------------- */
+.pact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pact-row {
+  display: flex;
+  gap: 10px;
+}
+
+.pact-follow,
+.pact-msg {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+/* Not following: solid green invite */
+.pact-follow {
+  border: 1px solid var(--green-dark);
+  background: var(--green);
+  color: #fff;
+}
+
+.pact-follow:hover {
+  filter: brightness(1.06);
+}
+
+/* Following / mutual: quiet outline */
+.pact-follow.is-following,
+.pact-msg {
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.pact-follow.is-following:hover,
+.pact-msg:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-mid);
+}
+
+/* Hovering "Following"/"Friends" reveals the real action */
+.pact-follow.is-following:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--bg-surface);
+}
+
+.pact-label-hover {
+  display: none;
+}
+
+.pact-follow.is-following:hover .pact-label,
+.pact-follow.is-following:hover .pact-check {
+  display: none;
+}
+
+.pact-follow.is-following:hover .pact-label-hover {
+  display: inline;
+}
+
+/* Dark card variant (B) */
+.pact-dark .pact-follow.is-following,
+.pact-dark .pact-msg {
+  border-color: #ffffff22;
+  background: #ffffff0a;
+  color: #ddd;
+}
+
+.pact-dark .pact-follow.is-following:hover,
+.pact-dark .pact-msg:hover {
+  background: #ffffff14;
+  border-color: #ffffff33;
+  color: #fff;
+}
+
+.pact-dark .pact-follow.is-following:hover {
+  border-color: var(--danger);
+  color: #ffb4a8;
+  background: #ffffff0a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pact-follow,
+  .pact-msg {
+    transition: none;
+  }
+}

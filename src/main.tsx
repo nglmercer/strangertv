@@ -1,6 +1,8 @@
 import { render } from 'preact'
 import { Router } from 'preact-router'
 import { App } from './App'
+import { ProfilePage } from './pages/ProfilePage'
+import { ProfileEditPage } from './pages/ProfileEditPage'
 import { AdminApp } from './admin/AdminApp'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ADMIN_HASH, ADMIN_PATH } from '../shared/constants'
@@ -23,6 +25,8 @@ if (isAdmin) {
       <Router>
         <App path="/" />
         <App path="/social" />
+        <ProfilePage path="/u/:handle" />
+        <ProfileEditPage path="/u/:handle/edit" />
       </Router>
     </ErrorBoundary>,
     document.getElementById('root')!,

@@ -1,0 +1,278 @@
+/* ===========================================================================
+   Profile page header — X-style dark header (design-only).
+   Reuses the page chrome (.pb-top/.pb-ghost/.pb-links/.pb-link),
+   shared profile primitives (.verified/.u-link/.mutuals) and the
+   follow pill states (.pact-follow). Only the header row, icon buttons with
+   hover tooltips, and the overflow menu are new.
+   =========================================================================== */
+
+.pd-page {
+  min-height: 100dvh;
+  background: #000;
+  color: #eee;
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px 32px;
+}
+
+.pd-col {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pd-col .pb-top {
+  padding: 4px 0;
+}
+
+.pd-head {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Avatar left, actions right */
+.pd-idrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pd-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #2a2a2a 0%, #111 70%);
+  color: #eee;
+  font-size: 46px;
+  font-weight: 700;
+  border: 2px solid #ffffff22;
+}
+
+.pd-avatar.is-online {
+  border-color: var(--green);
+}
+
+.pd-avatar.is-online::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 4px solid #000;
+}
+
+.pd-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Circular icon buttons */
+.pd-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid #ffffff2e;
+  background: transparent;
+  color: #ddd;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.pd-icon:hover {
+  background: #ffffff12;
+  color: #fff;
+}
+
+.pd-icon:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.pd-icon.is-on {
+  color: var(--green);
+  border-color: var(--green-dark);
+}
+
+/* Hover tooltip, X-style: small dark label under the button */
+.pd-icon::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 9px;
+  border-radius: 4px;
+  background: #333639;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease 0.2s;
+  z-index: 30;
+}
+
+.pd-icon:hover::after,
+.pd-icon:focus-visible::after {
+  opacity: 1;
+}
+
+/* No tooltip while its menu is open */
+.pd-icon[aria-expanded='true']::after {
+  display: none;
+}
+
+/* Follow pill reuses .pact-follow states; only the shape is new */
+.pd-pill {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 8px 20px;
+}
+
+/* Overflow menu */
+.pd-overflow {
+  position: relative;
+}
+
+.pd-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 264px;
+  max-width: min(320px, 80vw);
+  padding: 6px;
+  border-radius: 14px;
+  background: #101010f5;
+  border: 1px solid #ffffff1f;
+  box-shadow: 0 12px 36px #000c;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pd-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #eee;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pd-menu-item:hover {
+  background: #ffffff10;
+}
+
+.pd-menu-item svg {
+  flex-shrink: 0;
+  color: #bbb;
+}
+
+/* Identity block */
+.pd-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pd-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.pd-handleline {
+  margin: 0;
+  font-size: 15px;
+  color: #777;
+}
+
+.pd-bio {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: #eee;
+}
+
+.pd-linkline {
+  margin: 0;
+  font-size: 14px;
+}
+
+.pd-meta {
+  margin: 0;
+  font-size: 14px;
+  color: #888;
+}
+
+.pd-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  color: #888;
+}
+
+.pd-stats strong {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Narrow phones: shrink the avatar so the action row keeps room */
+@media (max-width: 420px) {
+  .pd-avatar {
+    width: 108px;
+    height: 108px;
+    font-size: 38px;
+  }
+
+  .pd-actions {
+    gap: 6px;
+  }
+
+  .pd-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .pd-pill {
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pd-icon,
+  .pd-icon::after {
+    transition: none;
+  }
+}

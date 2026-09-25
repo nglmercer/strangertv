@@ -11,3 +11,8 @@
 @import './styles/responsive.css';
 @import './styles/social.css';
 @import './styles/notifications.css';
+@import './styles/profile.css';
+@import './styles/profile-b.css';
+@import './styles/profile-d.css';
+@import './styles/profile-edit.css';
+@import './styles/modal.css';
