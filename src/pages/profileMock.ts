@@ -1,8 +1,9 @@
 import { icons } from '../components/icons'
 
 /**
- * Design-only mock shared by the profile page, the link editor, and the
- * link store. Wiring to a real profile API is a follow-up.
+ * Profile display helpers plus the offline link seed. Header identity, stats,
+ * and follow state all come from the profile API; `PROFILE_LINKS` only seeds
+ * the local store when the server is unreachable (offline dev).
  */
 export type ProfileLink = {
   id: string
@@ -18,19 +19,6 @@ export const PROFILE_LINKS: ProfileLink[] = [
   { id: 'l2', label: 'Photo gallery', desc: '128 shots, updated every week', domain: 'pics.meme.dev', icon: icons.camOn, color: 'orange' },
   { id: 'l3', label: 'Personal site', desc: 'Blog, projects and contact', domain: 'meme.dev', icon: icons.globe, color: 'gray' },
 ]
-
-export const PROFILE = {
-  bio: 'Night owl. I match to practice languages and trade music recs.',
-  country: 'Peru',
-  languages: 'ES · EN',
-  website: 'meme.dev',
-  joined: 'Mar 2023',
-  verified: true,
-  stats: { friends: 128, followers: 1204, following: 86 },
-  online: true,
-  mutuals: ['Ana', 'Leo', 'Kim'],
-  mutualsExtra: 9,
-}
 
 export function initials(name: string): string {
   return name
@@ -51,6 +39,18 @@ export function formatCount(n: number): string {
   if (n >= 1_000_000) return `${trimCount(n / 1_000_000)}M`
   if (n >= 1_000) return `${trimCount(n / 1_000)}K`
   return String(n)
+}
+
+/**
+ * Join date for the meta line: "Mar 2023". Accepts SQLite `CURRENT_TIMESTAMP`
+ * (`YYYY-MM-DD HH:MM:SS`, UTC) and ISO strings; unparseable input passes
+ * through untouched.
+ */
+export function formatJoined(value: string): string {
+  const iso = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`
+  const at = new Date(iso)
+  if (Number.isNaN(at.getTime())) return value
+  return at.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
 }
 
 function trimCount(v: number): string {

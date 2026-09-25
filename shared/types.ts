@@ -101,6 +101,71 @@ export type GroupInvite = {
   inviterUser?: PublicUser
 }
 
+export type ProfileLinkDTO = {
+  id: string
+  label: string
+  desc: string
+  domain: string
+  icon: string
+  color: string
+}
+
+export type ProfileSectionDTO = {
+  title: string
+  icon: string
+  layout: string
+  showCount: boolean
+}
+
+export type ProfileHeaderDTO = {
+  displayName?: string
+  bio?: string
+  website?: string
+  avatarUrl?: string
+  avatarId?: number
+  country?: string
+  joinedAt?: string
+  followerCount: number
+  followingCount: number
+}
+
+export type MediaKind = 'avatar' | 'icon'
+
+export type MediaMetaDTO = {
+  id: number
+  kind: string
+  mime: string
+  createdAt: string
+}
+
+export type MediaUploadDTO = {
+  id: number
+  url: string
+}
+
+export type ProfileDocDTO = {
+  userId: number
+  username: string
+  header: ProfileHeaderDTO
+  links: ProfileLinkDTO[]
+  section: ProfileSectionDTO
+}
+
+/** Viewer-relative follow state for a profile page. */
+export type FollowStateDTO = {
+  following: boolean
+  followsYou: boolean
+  mutuals: PublicUser[]
+}
+
+/** Public follow lists for a profile page. */
+export type UserFollowsDTO = {
+  followers: Follow[]
+  following: Follow[]
+  followerCount: number
+  followingCount: number
+}
+
 /** Canonical interest tags (display labels live in i18n). */
 export const INTERESTS = [
   'music',

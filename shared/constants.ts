@@ -75,6 +75,8 @@ export const API_ROUTES = {
   // Follows
   follows: '/api/v1/follows',
   followByUser: (id: number | string) => `/api/v1/follows/${id}`,
+  followStateByUser: (id: number | string) => `/api/v1/follows/state/${id}`,
+  userFollows: (id: number | string) => `/api/v1/users/${id}/follows`,
   // Invitations
   invitations: '/api/v1/invitations',
   invitationById: (id: number | string, action?: string) => `/api/v1/invitations/${id}${action ? `/${action}` : ''}`,
@@ -90,6 +92,14 @@ export const API_ROUTES = {
   // Group invites
   groupInvites: '/api/v1/group-invites',
   groupInviteById: (id: number | string, action?: string) => `/api/v1/group-invites/${id}${action ? `/${action}` : ''}`,
+  // Public link profiles
+  profileByUsername: (username: string) => `/api/v1/profiles/${encodeURIComponent(username)}`,
+  profilesMe: '/api/v1/profiles/me',
+  // Per-user media blobs (avatars, custom icons)
+  media: '/api/v1/media',
+  mediaMine: (kind?: string) => (kind ? `/api/v1/media?kind=${encodeURIComponent(kind)}` : '/api/v1/media'),
+  mediaById: (id: number | string) => `/api/v1/media/${id}`,
+  usersMeUsername: '/api/v1/users/me/username',
 } as const
 
 export const API_PREFIX = '/api/v1'

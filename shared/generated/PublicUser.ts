@@ -4,4 +4,4 @@ import type { Gender } from "./Gender";
 /**
  * Minimal public user profile shared between client and server.
  */
-export type PublicUser = { id: number, email: string, birthDate?: string, gender?: Gender, country?: string, language?: string, interests?: Array<string>, emailVerified?: boolean, };
+export type PublicUser = { id: number, email: string, birthDate?: string, gender?: Gender, country?: string, language?: string, interests?: Array<string>, emailVerified?: boolean, username?: string, displayName?: string, bio?: string, website?: string, };

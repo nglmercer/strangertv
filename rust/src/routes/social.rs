@@ -15,9 +15,9 @@ use serde_json::{json, Value};
 use crate::auth::resolver::resolve_authenticated_user_row;
 use crate::auth::session::{public_user, UserRow};
 use crate::domain::friends::{
-    cancel_invitation, follow_user, get_follows, get_friends, get_invitations, remove_friend,
-    respond_friend_request, respond_invitation, send_friend_request, send_invitation,
-    unfollow_user, FriendError,
+    cancel_invitation, follow_state, follow_user, get_follows, get_friends, get_invitations,
+    remove_friend, respond_friend_request, respond_invitation, send_friend_request,
+    send_invitation, unfollow_user, FollowRow, FriendError,
 };
 use crate::domain::messages::{get_conversation, has_relationship, send_message, SendError};
 use crate::error::{ApiError, ApiResult};
@@ -35,6 +35,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/messages", get(list_messages).post(post_message))
         .route("/api/v1/follows", get(list_follows).post(create_follow))
         .route("/api/v1/follows/{id}", delete(delete_follow))
+        .route("/api/v1/follows/state/{id}", get(follow_state_route))
+        .route("/api/v1/users/{id}/follows", get(user_follows))
         .route(
             "/api/v1/invitations",
             get(list_invitations).post(create_invitation),
@@ -315,14 +317,62 @@ async fn list_follows(State(state): State<AppState>, headers: HeaderMap) -> ApiR
 
     // Both arrays use `followedId`/`followedUser` keys, even the followers one —
     // matching the shape the client already reads.
-    let map = |rows: Vec<crate::domain::friends::FollowRow>| -> Vec<Value> {
-        rows.into_iter()
-            .map(|r| json!({ "id": r.id, "followedId": r.user_id, "followedUser": r.user }))
-            .collect()
-    };
     Ok(Json(json!({
-        "followers": map(follows.followers),
-        "following": map(follows.following),
+        "followers": follows.followers.iter().map(follow_row_json).collect::<Vec<_>>(),
+        "following": follows.following.iter().map(follow_row_json).collect::<Vec<_>>(),
+    })))
+}
+
+fn follow_row_json(r: &FollowRow) -> Value {
+    json!({ "id": r.id, "followedId": r.user_id, "followedUser": r.user })
+}
+
+/// Public follow lists for a profile page: no session needed, like the
+/// profile doc itself. Unknown users 404 instead of reading empty.
+async fn user_follows(
+    State(state): State<AppState>,
+    Path(target_id): Path<i64>,
+) -> ApiResult<Json<Value>> {
+    if target_id == 0 || !user_exists(&state, target_id).await? {
+        return Err(ApiError::new(
+            axum::http::StatusCode::NOT_FOUND,
+            "User not found",
+        ));
+    }
+    let follows = get_follows(&state.db, target_id)
+        .await
+        .map_err(ApiError::from)?;
+    let followers: Vec<Value> = follows.followers.iter().map(follow_row_json).collect();
+    let following: Vec<Value> = follows.following.iter().map(follow_row_json).collect();
+    Ok(Json(json!({
+        "followers": followers,
+        "following": following,
+        "followerCount": followers.len(),
+        "followingCount": following.len(),
+    })))
+}
+
+/// Viewer-relative follow state for a profile page: the Follow button label
+/// (`following`/`followsYou`) and the "Followed by" mutuals.
+async fn follow_state_route(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(target_id): Path<i64>,
+) -> ApiResult<Json<Value>> {
+    let user = require_user(&state, &headers).await?;
+    if target_id == 0 || !user_exists(&state, target_id).await? {
+        return Err(ApiError::new(
+            axum::http::StatusCode::NOT_FOUND,
+            "User not found",
+        ));
+    }
+    let rel = follow_state(&state.db, user.id, target_id)
+        .await
+        .map_err(ApiError::from)?;
+    Ok(Json(json!({
+        "following": rel.following,
+        "followsYou": rel.follows_you,
+        "mutuals": rel.mutuals,
     })))
 }
 

@@ -32,6 +32,8 @@
 - Docker HEALTHCHECK, k8s manifests, coturn compose profile
 - GitHub Actions CI + Dependabot
 - Makefile, smoke/backup/loadtest scripts
+- Public link profiles (`/u/:handle`) with per-user links + section API and link editor (`/u/:handle/edit`)
+- Settable usernames (auto-assigned at register, rename in the editor)
 
 ### Changed
 - WebSocket stack uses `ws` + Hono `serve` (stable Node adapter)

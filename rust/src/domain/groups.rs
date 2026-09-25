@@ -10,7 +10,7 @@ const MAX_GROUP_NAME: usize = 100;
 const MAX_MESSAGE_LENGTH: usize = 500;
 
 /// The joined user columns, in the order `public_user_from_row` expects.
-const USER_COLS: &str = "u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified";
+const USER_COLS: &str = "u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified, u.username, u.display_name, u.bio, u.website";
 
 fn public_user_from_row(row: &Row, base: i32) -> PublicUser {
     let interests: Option<String> = row.get(base + 6).ok();
@@ -32,7 +32,15 @@ fn public_user_from_row(row: &Row, base: i32) -> PublicUser {
         language: row.get(base + 5).ok(),
         interests: interests.and_then(|s| serde_json::from_str(&s).ok()),
         email_verified: row.get::<i64>(base + 7).ok().map(|v| v != 0),
+        username: row.get(base + 8).ok(),
+        display_name: row.get(base + 9).ok().and_then(empty_to_none),
+        bio: row.get(base + 10).ok().and_then(empty_to_none),
+        website: row.get(base + 11).ok().and_then(empty_to_none),
     }
+}
+
+fn empty_to_none(s: String) -> Option<String> {
+    if s.is_empty() { None } else { Some(s) }
 }
 
 #[derive(Debug)]

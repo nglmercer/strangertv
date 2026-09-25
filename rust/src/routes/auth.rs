@@ -340,6 +340,18 @@ async fn register(
     };
     drop(rows);
 
+    // Every account resolves at /u/:handle from birth; collisions get a suffix.
+    if let Err(error) = crate::domain::profiles::assign_username(
+        state.db.conn(),
+        user_id,
+        &crate::domain::profiles::suggest_username(&email_lower),
+    )
+    .await
+    {
+        rollback_signup(&state, user_id, None, None).await;
+        return Err(ApiError::from(error));
+    }
+
     let better_auth_result =
         create_better_auth_signup(&state, user_id, &email_lower, password).await?;
     let token = match create_session(&state.db, user_id).await {
@@ -1802,6 +1814,17 @@ async fn oauth_google_complete_impl(
         None => return Err(ApiError::conflict("That email is already registered.")),
     };
     drop(rows);
+
+    if let Err(error) = crate::domain::profiles::assign_username(
+        state.db.conn(),
+        user_id,
+        &crate::domain::profiles::suggest_username(&pending.email),
+    )
+    .await
+    {
+        rollback_new_legacy_user(&state, user_id).await;
+        return Err(ApiError::from(error));
+    }
 
     let profile = better_auth::OAuthUserProfile {
         provider_account_id: pending.provider_account_id.clone(),

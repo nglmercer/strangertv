@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences, Friend, Follow, Invitation, Message, Group, GroupMember, GroupMessage, GroupInvite } from '../shared/types'
+import type { Gender, MatchPreferences, Friend, Follow, FollowStateDTO, Invitation, Message, MediaKind, MediaMetaDTO, MediaUploadDTO, Group, GroupMember, GroupMessage, GroupInvite, ProfileDocDTO, ProfileLinkDTO, ProfileSectionDTO, UserFollowsDTO } from '../shared/types'
 import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_MODE, DEFAULT_MATCH_SCOPE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
@@ -40,8 +40,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (token) headers.set(HTTP_HEADERS.authorization, `Bearer ${token}`)
   const res = await fetch(path, { ...init, headers, credentials: init?.credentials ?? 'include' })
   const data = (await res.json().catch(() => ({}))) as T & { error?: string }
-  if (!res.ok) throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`)
+  if (!res.ok) {
+    const error = new Error(
+      (data as { error?: string }).error ?? `Request failed (${res.status})`,
+    ) as Error & { status?: number }
+    error.status = res.status
+    throw error
+  }
   return data
+}
+
+/** HTTP status of an `api()` failure, or null on network-level errors. */
+export function errorStatus(error: unknown): number | null {
+  return error instanceof Error ? ((error as Error & { status?: number }).status ?? null) : null
 }
 
 export const authApi = {
@@ -124,6 +135,10 @@ export const followsApi = {
   unfollow: (userId: number) => api<{ ok: boolean }>(API_ROUTES.followByUser(userId), { method: 'DELETE' }),
   list: () =>
     api<{ followers: Follow[]; following: Follow[] }>(API_ROUTES.follows),
+  /** Public follow lists + counts for any profile page. */
+  listFor: (userId: number) => api<UserFollowsDTO>(API_ROUTES.userFollows(userId)),
+  /** Viewer-relative state for the Follow button. 401 when logged out. */
+  state: (userId: number) => api<FollowStateDTO>(API_ROUTES.followStateByUser(userId)),
 }
 
 export const invitationsApi = {
@@ -212,6 +227,67 @@ export const groupInvitesApi = {
     api<{ ok: boolean }>(API_ROUTES.groupInviteById(inviteId, 'accept'), { method: 'PATCH' }),
   decline: (inviteId: number) =>
     api<{ ok: boolean }>(API_ROUTES.groupInviteById(inviteId, 'decline'), { method: 'PATCH' }),
+}
+
+export const profilesApi = {
+  getByUsername: (username: string) => api<ProfileDocDTO>(API_ROUTES.profileByUsername(username)),
+  saveMine: (doc: {
+    links: Array<Omit<ProfileLinkDTO, 'id'>>
+    section: ProfileSectionDTO
+    profile?: { displayName: string; bio: string; website: string; avatar?: number | null }
+  }) => api<ProfileDocDTO>(API_ROUTES.profilesMe, { method: 'PUT', body: JSON.stringify(doc) }),
+  setUsername: (username: string) =>
+    api<{ username: string }>(API_ROUTES.usersMeUsername, {
+      method: 'PATCH',
+      body: JSON.stringify({ username }),
+    }),
+}
+
+/** Client-side mirrors of the server caps: fail fast with a readable message. */
+export const MEDIA_MIMES = ['image/png', 'image/jpeg', 'image/webp'] as const
+export const MEDIA_MAX_BYTES: Record<MediaKind, number> = {
+  avatar: 512 * 1024,
+  icon: 256 * 1024,
+}
+
+export const mediaApi = {
+  list: (kind?: MediaKind) => api<{ media: MediaMetaDTO[] }>(API_ROUTES.mediaMine(kind)),
+  upload: (kind: MediaKind, mime: string, data: string) =>
+    api<MediaUploadDTO>(API_ROUTES.media, {
+      method: 'POST',
+      body: JSON.stringify({ kind, mime, data }),
+    }),
+  remove: (id: number) => api<{ ok: boolean }>(API_ROUTES.mediaById(id), { method: 'DELETE' }),
+  /**
+   * Validated file upload: MIME + size checked before reading so the server
+   * never sees an obvious reject. Resolves an ok/error union, never throws.
+   */
+  uploadFile: (
+    kind: MediaKind,
+    file: File,
+  ): Promise<{ ok: true; upload: MediaUploadDTO } | { ok: false; error: string }> =>
+    new Promise((resolve) => {
+      if (!(MEDIA_MIMES as readonly string[]).includes(file.type)) {
+        resolve({ ok: false, error: 'PNG, JPEG, or WebP only.' })
+        return
+      }
+      if (file.size > MEDIA_MAX_BYTES[kind]) {
+        const kb = Math.round(MEDIA_MAX_BYTES[kind] / 1024)
+        resolve({ ok: false, error: `Keep it under ${kb} KB.` })
+        return
+      }
+      const reader = new FileReader()
+      reader.onerror = () => resolve({ ok: false, error: 'Could not read that file.' })
+      reader.onload = () => {
+        const data = typeof reader.result === 'string' ? reader.result : ''
+        mediaApi.upload(kind, file.type, data).then(
+          (upload) => resolve({ ok: true, upload }),
+          (error: unknown) =>
+            resolve({ ok: false, error: error instanceof Error ? error.message : 'Upload failed.' }),
+        )
+      }
+      reader.readAsDataURL(file)
+    }),
 }
 
 export const groupsApi = {

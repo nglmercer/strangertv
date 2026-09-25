@@ -252,6 +252,8 @@ fn build_router(state: AppState) -> Router {
         .merge(routes::health::router(state.clone()))
         .merge(routes::auth::router(state.clone()))
         .merge(routes::misc::router(state.clone()))
+        .merge(routes::profiles::router(state.clone()))
+        .merge(routes::media::router(state.clone()))
         .merge(routes::social::router(state.clone()))
         .merge(routes::groups::router(state.clone()))
         .merge(ws::route::router(state.clone()))

@@ -1,38 +1,107 @@
-import { useState } from 'preact/hooks'
+import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
+import { route } from 'preact-router'
+import type { PublicUser } from '../../shared/types'
+import { followsApi, getStoredUser } from '../api'
 import { Icon, icons } from '../components/icons'
 
 /**
- * Design-demo follow relationship (viewer perspective). Mirrors the app's
- * shared RelationshipStatus: none=stranger, following, follower, friend=mutual.
+ * Viewer-relative follow relationship. Mirrors the app's shared
+ * RelationshipStatus: none=stranger, following, follower, friend=mutual.
  */
 export type FollowStatus = 'stranger' | 'following' | 'follower' | 'mutual'
+
+/** Pure relationship derivation shared by the hook and its tests. */
+export function statusFromState(iFollow: boolean, theyFollow: boolean): FollowStatus {
+  if (iFollow && theyFollow) return 'mutual'
+  if (iFollow) return 'following'
+  if (theyFollow) return 'follower'
+  return 'stranger'
+}
 
 export type FollowState = {
   iFollow: boolean
   theyFollow: boolean
   status: FollowStatus
+  mutuals: PublicUser[]
+  /** Follower-count adjustment vs the server count (optimistic toggle). */
+  countDelta: number
+  pending: boolean
   toggleIFollow: () => void
-  toggleTheyFollow: () => void
+  refresh: () => void
 }
 
-export function useFollow(): FollowState {
+/**
+ * Real viewer-relative follow state for a profile page. Logged-out viewers
+ * read as strangers; toggling logged-out calls `onRequireAuth` (the page
+ * opens the sign-in modal) instead of hitting the API. Toggles are
+ * optimistic and roll back on failure.
+ */
+export function useFollow(targetId: number | null, onRequireAuth?: () => void): FollowState {
   const [iFollow, setIFollow] = useState(false)
-  // Placeholder until the server provides the reverse edge.
   const [theyFollow, setTheyFollow] = useState(false)
-  const status: FollowStatus =
-    iFollow && theyFollow
-      ? 'mutual'
-      : iFollow
-        ? 'following'
-        : theyFollow
-          ? 'follower'
-          : 'stranger'
+  const [mutuals, setMutuals] = useState<PublicUser[]>([])
+  // Snapshot of the server edge when the header count loaded. Toggles move
+  // `iFollow` only, so the delta stays measured against the stale header;
+  // loads (and refresh, which runs pre-toggle after login) resync both.
+  const [baseIFollow, setBaseIFollow] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const authCb = useRef(onRequireAuth)
+  authCb.current = onRequireAuth
+
+  useEffect(() => {
+    setIFollow(false)
+    setTheyFollow(false)
+    setMutuals([])
+    setBaseIFollow(false)
+    if (targetId == null || getStoredUser() == null) return
+    let live = true
+    followsApi.state(targetId).then(
+      (st) => {
+        if (!live) return
+        setIFollow(st.following)
+        setBaseIFollow(st.following)
+        setTheyFollow(st.followsYou)
+        setMutuals(st.mutuals)
+      },
+      () => {
+        /* expired session or offline: stay a stranger */
+      },
+    )
+    return () => {
+      live = false
+    }
+  }, [targetId, refreshKey])
+
+  const toggleIFollow = useCallback(() => {
+    if (targetId == null || pending) return
+    if (getStoredUser() == null) {
+      authCb.current?.()
+      return
+    }
+    const next = !iFollow
+    setPending(true)
+    setIFollow(next)
+    ;(next ? followsApi.follow(targetId) : followsApi.unfollow(targetId)).then(
+      () => {
+        setPending(false)
+      },
+      () => {
+        setIFollow(!next)
+        setPending(false)
+      },
+    )
+  }, [targetId, pending, iFollow])
+
   return {
     iFollow,
     theyFollow,
-    status,
-    toggleIFollow: () => setIFollow((v) => !v),
-    toggleTheyFollow: () => setTheyFollow((v) => !v),
+    status: statusFromState(iFollow, theyFollow),
+    mutuals,
+    countDelta: iFollow === baseIFollow ? 0 : iFollow ? 1 : -1,
+    pending,
+    toggleIFollow,
+    refresh: () => setRefreshKey((k) => k + 1),
   }
 }
 
@@ -50,8 +119,8 @@ export function followLabel(status: FollowStatus): string {
 }
 
 /**
- * Shared follow/message actions for all profile drafts. The Message button
- * only appears on mutual follow.
+ * Shared follow/message actions. The Message button only appears on mutual
+ * follow and opens the social surface where conversations live.
  */
 export function ProfileActions({ follow, dark }: { follow: FollowState; dark?: boolean }) {
   const { status } = follow
@@ -71,7 +140,7 @@ export function ProfileActions({ follow, dark }: { follow: FollowState; dark?: b
           <span class="pact-label-hover">Unfollow</span>
         </button>
         {mutual && (
-          <button type="button" class="pact-msg" title="Send message (design mock)">
+          <button type="button" class="pact-msg" onClick={() => route('/social')}>
             <Icon d={icons.chatBubble} size={16} />
             <span>Message</span>
           </button>

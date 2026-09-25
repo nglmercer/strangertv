@@ -3,4 +3,6 @@
 
 pub mod friends;
 pub mod groups;
+pub mod media;
 pub mod messages;
+pub mod profiles;

@@ -23,6 +23,12 @@
   gap: 16px;
 }
 
+.pd-missing {
+  align-items: center;
+  text-align: center;
+  padding-top: 15vh;
+}
+
 .pd-col .pb-top {
   padding: 4px 0;
 }
@@ -58,6 +64,16 @@
 
 .pd-avatar.is-online {
   border-color: var(--green);
+}
+
+/* Uploaded profile photo: same footprint as the initials avatar. */
+.pd-avatar-img {
+  flex-shrink: 0;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ffffff22;
 }
 
 .pd-avatar.is-online::after {
@@ -255,6 +271,11 @@
     font-size: 38px;
   }
 
+  .pd-avatar-img {
+    width: 108px;
+    height: 108px;
+  }
+
   .pd-actions {
     gap: 6px;
   }
@@ -275,4 +296,107 @@
   .pd-icon::after {
     transition: none;
   }
+}
+
+/* Tappable stat counts: visually identical to the old text spans. */
+.pd-stat {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pd-stat:disabled {
+  cursor: default;
+}
+
+.pd-stat:not(:disabled):hover strong {
+  text-decoration: underline;
+}
+
+/* Followers/following list modal. Token-driven like the pmodal shell. */
+.pfollows-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.pfollows-tab {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 0;
+  cursor: pointer;
+}
+
+.pfollows-tab.is-active {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.pfollows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.pfollows-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 7px 8px;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.pfollows-row:not(:disabled):hover {
+  background: var(--bg-hover);
+}
+
+.pfollows-row:disabled {
+  cursor: default;
+}
+
+.pfollows-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pfollows-id {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.pfollows-id strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pfollows-id span {
+  color: var(--text-tertiary);
 }

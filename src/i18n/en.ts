@@ -159,6 +159,8 @@ export const en = {
   matchNotify: 'Desktop notification on match',
   notifyDenied: 'Notification permission denied.',
   refreshAccount: 'Refresh account status',
+  viewProfile: 'View my profile',
+  dangerZone: 'Danger zone',
   retryIce: 'Retry connection',
   connectionFailed: 'Video connection failed. Try Next or retry.',
   offline: 'You are offline. Matching and chat need a network connection.',

@@ -160,6 +160,8 @@ export const pt: Messages = {
   matchNotify: 'Notificação ao combinar',
   notifyDenied: 'Permissão de notificação negada.',
   refreshAccount: 'Atualizar conta',
+  viewProfile: 'Ver meu perfil',
+  dangerZone: 'Zona de perigo',
   retryIce: 'Tentar conexão de novo',
   connectionFailed: 'Falha no vídeo. Use Próximo ou tentar de novo.',
   offline: 'Você está offline. Combinação e chat precisam de rede.',

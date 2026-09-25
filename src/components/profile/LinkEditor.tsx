@@ -1,9 +1,12 @@
 import { Icon, icons } from '../icons'
 import type { ProfileLink } from '../../pages/profileMock'
+import { CustomIcons } from './CustomIcons'
 import { LINK_COLORS, isHexColor, normalizeHex } from './linksStore'
 import { EditorCard, FieldRow, SelectField, TextField } from './EditorFields'
+import { mediaIdForIcon } from './linkIcons'
 
 export const LINK_ICON_CHOICES = [
+  { key: 'auto', label: 'Auto (domain favicon)' },
   { key: 'video', label: 'Video', path: icons.start },
   { key: 'photo', label: 'Photo', path: icons.camOn },
   { key: 'site', label: 'Website', path: icons.globe },
@@ -12,12 +15,20 @@ export const LINK_ICON_CHOICES = [
   { key: 'game', label: 'Game', path: icons.game },
 ] as const
 
-function iconKeyForPath(path: string): string {
-  return LINK_ICON_CHOICES.find((c) => c.path === path)?.key ?? 'site'
+/** Shown only while a custom upload is assigned, so the select names it. */
+const CUSTOM_CHOICE = { key: 'custom', label: 'Custom upload' } as const
+
+function iconKeyForValue(icon: string): string {
+  if (icon === '') return 'auto'
+  if (mediaIdForIcon(icon) != null) return 'custom'
+  return LINK_ICON_CHOICES.find((c) => 'path' in c && c.path === icon)?.key ?? 'auto'
 }
 
-function iconPathForKey(key: string): string {
-  return LINK_ICON_CHOICES.find((c) => c.key === key)?.path ?? icons.globe
+function iconValueForKey(key: string, current: string): string {
+  if (key === 'auto') return ''
+  if (key === 'custom') return current
+  const found = LINK_ICON_CHOICES.find((c) => c.key === key)
+  return found && 'path' in found ? found.path : ''
 }
 
 /**
@@ -31,6 +42,7 @@ export function LinkCard({
   onUpdate,
   onRemove,
   onMove,
+  onDeleteIcon,
 }: {
   link: ProfileLink
   index: number
@@ -38,8 +50,13 @@ export function LinkCard({
   onUpdate: (patch: Partial<ProfileLink>) => void
   onRemove: () => void
   onMove: (dir: -1 | 1) => void
+  /** Clear a deleted upload from every link still referencing it. */
+  onDeleteIcon: (id: number) => void
 }) {
   const custom = isHexColor(link.color) ? link.color : null
+  const iconKey = iconKeyForValue(link.icon)
+  const iconOptions =
+    iconKey === 'custom' ? [...LINK_ICON_CHOICES, CUSTOM_CHOICE] : LINK_ICON_CHOICES
 
   const onHexInput = (value: string) => {
     const hex = normalizeHex(value)
@@ -146,11 +163,16 @@ export function LinkCard({
         />
         <SelectField
           label="Icon"
-          value={iconKeyForPath(link.icon)}
-          options={LINK_ICON_CHOICES}
-          onChange={(key) => onUpdate({ icon: iconPathForKey(key) })}
+          value={iconKey}
+          options={iconOptions}
+          onChange={(key) => onUpdate({ icon: iconValueForKey(key, link.icon) })}
         />
       </FieldRow>
+      <CustomIcons
+        current={link.icon}
+        onAssign={(icon) => onUpdate({ icon })}
+        onDelete={onDeleteIcon}
+      />
     </EditorCard>
   )
 }

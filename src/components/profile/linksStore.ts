@@ -1,5 +1,6 @@
 import { icons } from '../icons'
 import { PROFILE_LINKS, type ProfileLink } from '../../pages/profileMock'
+import type { ProfileHeaderDTO, ProfileLinkDTO, ProfileSectionDTO } from '../../../shared/types'
 
 /**
  * Link storage for the profile drafts. Defaults come from the shared mock;
@@ -7,6 +8,15 @@ import { PROFILE_LINKS, type ProfileLink } from '../../pages/profileMock'
  */
 const linksKeyFor = (handle: string) => `profile-links:${handle.toLowerCase()}`
 const sectionKeyFor = (handle: string) => `profile-section:${handle.toLowerCase()}`
+
+/** True when this handle has local drafts (else the mock fallback would flash). */
+export function hasLocalDoc(handle: string): boolean {
+  try {
+    return localStorage.getItem(linksKeyFor(handle)) != null
+  } catch {
+    return false
+  }
+}
 
 export type LinksLayout = 'rows' | 'compact' | 'grid'
 
@@ -94,7 +104,9 @@ function cleanLink(value: unknown): ProfileLink | null {
     label: typeof o.label === 'string' ? o.label.slice(0, 60) : '',
     desc: typeof o.desc === 'string' ? o.desc.slice(0, 120) : '',
     domain: typeof o.domain === 'string' ? o.domain.slice(0, 80) : '',
-    icon: typeof o.icon === 'string' && o.icon ? o.icon : icons.globe,
+    // Empty survives: it means automatic (domain favicon). Only non-strings
+    // fall back to the globe.
+    icon: typeof o.icon === 'string' ? o.icon.slice(0, 4096) : icons.globe,
     color: LINK_COLORS[rawColor] ? rawColor : (normalizeHex(rawColor) ?? 'gray'),
   }
 }
@@ -122,21 +134,126 @@ export function saveLinks(handle: string, links: ProfileLink[]) {
   }
 }
 
+function cleanSection(value: unknown): LinksSection {
+  const o = value as Record<string, unknown>
+  if (!o || typeof o !== 'object') return DEFAULT_SECTION
+  return {
+    title: typeof o.title === 'string' ? o.title.slice(0, 30) : DEFAULT_SECTION.title,
+    icon: typeof o.icon === 'string' && o.icon ? o.icon : DEFAULT_SECTION.icon,
+    layout: LAYOUTS.includes(o.layout as LinksLayout) ? (o.layout as LinksLayout) : 'rows',
+    showCount: o.showCount !== false,
+  }
+}
+
 export function loadSection(handle: string): LinksSection {
   try {
     const raw = localStorage.getItem(sectionKeyFor(handle))
     if (!raw) return DEFAULT_SECTION
-    const o = JSON.parse(raw) as Record<string, unknown>
-    if (!o || typeof o !== 'object') return DEFAULT_SECTION
-    return {
-      title: typeof o.title === 'string' ? o.title.slice(0, 30) : DEFAULT_SECTION.title,
-      icon: typeof o.icon === 'string' && o.icon ? o.icon : DEFAULT_SECTION.icon,
-      layout: LAYOUTS.includes(o.layout as LinksLayout) ? (o.layout as LinksLayout) : 'rows',
-      showCount: o.showCount !== false,
-    }
+    return cleanSection(JSON.parse(raw) as unknown)
   } catch {
     return DEFAULT_SECTION
   }
+}
+
+/** Sanitizes API DTOs through the same rules as local drafts. */
+export function dtoToLinks(dtos: ProfileLinkDTO[]): ProfileLink[] {
+  return dtos.flatMap((dto) => {
+    const link = cleanLink(dto)
+    return link ? [link] : []
+  })
+}
+
+export function dtoToSection(dto: ProfileSectionDTO): LinksSection {
+  return cleanSection(dto)
+}
+
+export type ProfileHeaderDraft = {
+  displayName: string
+  bio: string
+  website: string
+  avatar: number | null
+}
+
+const headerKeyFor = (handle: string) => `profile-header:${handle.toLowerCase()}`
+
+export function dtoToHeader(dto: ProfileHeaderDTO): ProfileHeaderDraft {
+  return {
+    displayName: dto.displayName ?? '',
+    bio: dto.bio ?? '',
+    website: dto.website ?? '',
+    avatar: typeof dto.avatarId === 'number' ? dto.avatarId : null,
+  }
+}
+
+function cleanHeader(value: unknown): ProfileHeaderDraft {
+  const v = (value ?? {}) as Partial<ProfileHeaderDraft>
+  const str = (s: unknown) => (typeof s === 'string' ? s : '')
+  return {
+    displayName: str(v.displayName),
+    bio: str(v.bio),
+    website: str(v.website),
+    avatar: typeof v.avatar === 'number' ? v.avatar : null,
+  }
+}
+
+export function loadHeader(handle: string): ProfileHeaderDraft {
+  try {
+    const raw = localStorage.getItem(headerKeyFor(handle))
+    if (!raw) return cleanHeader(null)
+    return cleanHeader(JSON.parse(raw) as unknown)
+  } catch {
+    return cleanHeader(null)
+  }
+}
+
+export function saveHeader(handle: string, header: ProfileHeaderDraft) {
+  try {
+    localStorage.setItem(headerKeyFor(handle), JSON.stringify(header))
+  } catch {
+    /* private mode / quota: edits stay in memory */
+  }
+}
+
+type SaveDoc = {
+  links: Array<Omit<ProfileLinkDTO, 'id'>>
+  section: ProfileSectionDTO
+  profile?: ProfileHeaderDraft
+}
+
+/**
+ * Strips client ids: positions are authoritative on PUT. The header rides
+ * along only when given, so link-only callers leave it untouched.
+ */
+export function docToSave(
+  links: ProfileLink[],
+  section: LinksSection,
+  header?: ProfileHeaderDraft,
+): SaveDoc {
+  return {
+    links: links.map((link) => ({
+      label: link.label,
+      desc: link.desc,
+      domain: link.domain,
+      icon: link.icon,
+      color: link.color,
+    })),
+    section: {
+      title: section.title,
+      icon: section.icon === DEFAULT_SECTION.icon ? '' : section.icon,
+      layout: section.layout,
+      showCount: section.showCount,
+    },
+    ...(header ? { profile: { ...header } } : {}),
+  }
+}
+
+/** Content key ignoring server ids, so echo responses don't retrigger saves. */
+export function docKey(
+  links: ProfileLink[],
+  section: LinksSection,
+  header?: ProfileHeaderDraft,
+): string {
+  return JSON.stringify(docToSave(links, section, header))
 }
 
 export function saveSection(handle: string, section: LinksSection) {
@@ -152,5 +269,5 @@ export function blankLink(): ProfileLink {
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `l-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
-  return { id, label: '', desc: '', domain: '', icon: icons.globe, color: 'gray' }
+  return { id, label: '', desc: '', domain: '', icon: '', color: 'gray' }
 }

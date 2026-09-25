@@ -100,6 +100,10 @@ async fn profile_of(db: &Db, user_id: i64) -> PublicUser {
             language: None,
             interests: None,
             email_verified: None,
+            username: None,
+            display_name: None,
+            bio: None,
+            website: None,
         },
     }
 }
@@ -108,7 +112,7 @@ async fn load_user(db: &Db, user_id: i64) -> Option<UserRow> {
     let mut rows = db
         .conn()
         .query(
-            "SELECT id, email, birth_date, gender, country, language, interests, email_verified
+            "SELECT id, email, birth_date, gender, country, language, interests, email_verified, username, display_name, bio, website
              FROM users WHERE id = ?",
             params![user_id],
         )
@@ -124,6 +128,10 @@ async fn load_user(db: &Db, user_id: i64) -> Option<UserRow> {
         language: row.get(5).ok(),
         interests: row.get(6).ok(),
         email_verified: row.get(7).unwrap_or(0),
+        username: row.get(8).ok(),
+        display_name: row.get(9).ok(),
+        bio: row.get(10).ok(),
+        website: row.get(11).ok(),
     })
 }
 

@@ -20,6 +20,10 @@ pub struct UserRow {
     pub language: Option<String>,
     pub interests: Option<String>,
     pub email_verified: i64,
+    pub username: Option<String>,
+    pub display_name: Option<String>,
+    pub bio: Option<String>,
+    pub website: Option<String>,
 }
 
 /// `new Date(...).toISOString()` — the format already stored in `expires_at`.
@@ -74,17 +78,29 @@ pub async fn refresh_session(db: &Db, token: &str) -> anyhow::Result<Option<Stri
     Ok(Some(create_session(db, user.id).await?))
 }
 
+/// Pre-username schemas fail the full select with `no such column`; retry
+/// without the column so Node-era databases keep authenticating. Mirrors
+/// `better_auth_schema_not_ready`: production always migrates first, so the
+/// fallback only triggers on databases opened raw.
+fn is_missing_column(message: &str) -> bool {
+    message.to_ascii_lowercase().contains("no such column")
+}
+
 /// Load an application user by the canonical numeric StrangerTV ID.
 pub async fn user_from_id(db: &Db, user_id: i64) -> anyhow::Result<Option<UserRow>> {
-    let mut rows = db
-        .conn()
-        .query(
-            "SELECT id, email, birth_date, gender, country, language, interests, email_verified
-             FROM users
-             WHERE id = ?",
-            params![user_id],
-        )
-        .await?;
+    let full = "SELECT id, email, birth_date, gender, country, language, interests, email_verified, username, display_name, bio, website
+         FROM users
+         WHERE id = ?";
+    let legacy = "SELECT id, email, birth_date, gender, country, language, interests, email_verified
+         FROM users
+         WHERE id = ?";
+    let mut rows = match db.conn().query(full, params![user_id]).await {
+        Ok(rows) => rows,
+        Err(error) if is_missing_column(&error.to_string()) => {
+            db.conn().query(legacy, params![user_id]).await?
+        }
+        Err(error) => return Err(error.into()),
+    };
     let Some(row) = rows.next().await? else {
         return Ok(None);
     };
@@ -97,6 +113,11 @@ pub async fn user_from_id(db: &Db, user_id: i64) -> anyhow::Result<Option<UserRo
         language: row.get(5).ok(),
         interests: row.get(6).ok(),
         email_verified: row.get(7).unwrap_or(0),
+        // None on legacy schemas: the missing column reads as Null.
+        username: row.get(8).ok(),
+        display_name: row.get(9).ok(),
+        bio: row.get(10).ok(),
+        website: row.get(11).ok(),
     }))
 }
 
@@ -104,16 +125,22 @@ pub async fn user_from_token(db: &Db, token: Option<&str>) -> anyhow::Result<Opt
     let Some(token) = token.filter(|t| !t.is_empty()) else {
         return Ok(None);
     };
-    let mut rows = db
-        .conn()
-        .query(
-            "SELECT u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified
-             FROM sessions s
-             JOIN users u ON u.id = s.user_id
-             WHERE s.token_hash = ? AND s.revoked = 0 AND s.expires_at > datetime('now')",
-            params![hash_token(token)],
-        )
-        .await?;
+    let full = "SELECT u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified, u.username, u.display_name, u.bio, u.website
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = ? AND s.revoked = 0 AND s.expires_at > datetime('now')";
+    let legacy = "SELECT u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified
+         FROM sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = ? AND s.revoked = 0 AND s.expires_at > datetime('now')";
+    let hashed = hash_token(token);
+    let mut rows = match db.conn().query(full, params![hashed.clone()]).await {
+        Ok(rows) => rows,
+        Err(error) if is_missing_column(&error.to_string()) => {
+            db.conn().query(legacy, params![hashed]).await?
+        }
+        Err(error) => return Err(error.into()),
+    };
 
     let Some(row) = rows.next().await? else {
         return Ok(None);
@@ -127,6 +154,11 @@ pub async fn user_from_token(db: &Db, token: Option<&str>) -> anyhow::Result<Opt
         language: row.get(5).ok(),
         interests: row.get(6).ok(),
         email_verified: row.get(7).unwrap_or(0),
+        // None on legacy schemas: the missing column reads as Null.
+        username: row.get(8).ok(),
+        display_name: row.get(9).ok(),
+        bio: row.get(10).ok(),
+        website: row.get(11).ok(),
     }))
 }
 
@@ -184,6 +216,10 @@ pub fn public_user(u: &UserRow) -> PublicUser {
         ),
         interests: Some(parse_interests(u.interests.as_deref())),
         email_verified: Some(u.email_verified != 0),
+        username: u.username.clone(),
+        display_name: u.display_name.clone().filter(|s| !s.is_empty()),
+        bio: u.bio.clone().filter(|s| !s.is_empty()),
+        website: u.website.clone().filter(|s| !s.is_empty()),
     }
 }
 
@@ -200,6 +236,14 @@ fn gender_from_str(s: &str) -> Option<Gender> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_missing_column_triggers_the_legacy_user_select() {
+        assert!(is_missing_column("no such column: u.username"));
+        assert!(is_missing_column("SQLITE_ERROR: No Such Column: users.username"));
+        assert!(!is_missing_column("database is locked"));
+        assert!(!is_missing_column("no such table: users"));
+    }
 
     #[test]
     fn interests_default_to_empty_on_junk() {
@@ -226,6 +270,10 @@ mod tests {
             language: None,
             interests: None,
             email_verified: 0,
+            username: None,
+            display_name: None,
+            bio: None,
+            website: None,
         };
         let pu = public_user(&row);
         // All three application defaults are "any" — deliberately NOT the SQL
@@ -304,11 +352,30 @@ mod node_compat {
     /// a Rust deploy can start on top of the live schema.
     #[tokio::test]
     async fn migrate_is_idempotent_over_the_node_schema() {
-        let db = fixture_db().await;
+        // Copy: migrate writes (new columns, username backfill) and must
+        // never mutate the committed fixture other tests read concurrently.
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("stranger-node-migrate-{suffix}.db"));
+        std::fs::copy("tests/fixtures/node-users.db", &path).expect("fixture copies");
+        let url = format!("file:{}", path.display());
+        let db = Db::open(&url).await.expect("copy opens");
         db.migrate().await.expect("migrate is idempotent");
         db.migrate()
             .await
             .expect("and stays idempotent on a re-run");
+        // The backfill gave the Node-era account a handle from its email.
+        let mut rows = db
+            .conn()
+            .query("SELECT username FROM users WHERE email = ?", params![EMAIL])
+            .await
+            .expect("username reads");
+        let row = rows.next().await.expect("row").expect("user");
+        assert_eq!(row.get::<String>(0).expect("username"), "compat");
+        drop(db);
+        let _ = std::fs::remove_file(path);
     }
 
     /// The Node-issued session tokens in `node-session-tokens.json` were hashed

@@ -15,6 +15,10 @@ export type PublicUser = {
   language?: string
   interests?: string[]
   emailVerified?: boolean
+  username?: string | null
+  displayName?: string | null
+  bio?: string | null
+  website?: string | null
 }
 
 /**

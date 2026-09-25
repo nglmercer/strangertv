@@ -88,6 +88,18 @@ pub struct PublicUser {
     #[serde(skip_serializing_if = "Option::is_none", default)]
     #[ts(optional)]
     pub email_verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[ts(optional)]
+    pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[ts(optional)]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[ts(optional)]
+    pub bio: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[ts(optional)]
+    pub website: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

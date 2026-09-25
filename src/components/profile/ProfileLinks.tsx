@@ -1,5 +1,7 @@
+import { useState } from 'preact/hooks'
 import { Icon, icons } from '../icons'
 import type { ProfileLink } from '../../pages/profileMock'
+import { resolveLinkIcon } from './linkIcons'
 import { DEFAULT_SECTION, hexA, isHexColor, type LinksSection } from './linksStore'
 
 /**
@@ -107,8 +109,22 @@ export function ProfileLinks({
 }
 
 /**
+ * Raster thumbnail (domain favicon or uploaded icon). A dead URL falls back
+ * to the globe so a deleted upload never leaves a broken-image glyph.
+ */
+function ThumbImage({ src, size }: { src: string; size: number }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) return <Icon d={icons.globe} size={size} />
+  return (
+    <img src={src} alt="" width={size} height={size} loading="lazy" onError={() => setFailed(true)} />
+  )
+}
+
+/**
  * Shared link thumbnail. Preset accents resolve through the `data-color`
  * stylesheet rules; custom hex colors render an equivalent inline tint.
+ * Icons resolve favicon-first: empty means the domain's favicon, `media:*`
+ * an upload, anything else a built-in SVG path.
  */
 export function LinkThumb({
   link,
@@ -120,6 +136,7 @@ export function LinkThumb({
   iconSize: number
 }) {
   const custom = isHexColor(link.color) ? link.color : null
+  const resolved = resolveLinkIcon(link.icon, link.domain)
   return (
     <span
       className={className}
@@ -127,7 +144,11 @@ export function LinkThumb({
       style={custom ? { background: hexA(custom, 0.16), color: custom } : undefined}
       aria-hidden="true"
     >
-      <Icon d={link.icon} size={iconSize} />
+      {resolved.kind === 'path' ? (
+        <Icon d={resolved.path} size={iconSize} />
+      ) : (
+        <ThumbImage src={resolved.src} size={iconSize} />
+      )}
     </span>
   )
 }

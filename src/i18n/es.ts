@@ -160,6 +160,8 @@ export const es: Messages = {
   matchNotify: 'Notificación al emparejar',
   notifyDenied: 'Permiso de notificaciones denegado.',
   refreshAccount: 'Actualizar estado de cuenta',
+  viewProfile: 'Ver mi perfil',
+  dangerZone: 'Zona peligrosa',
   retryIce: 'Reintentar conexión',
   connectionFailed: 'Falló el video. Prueba Siguiente o reintentar.',
   offline: 'Sin conexión. El emparejamiento y el chat necesitan red.',

@@ -238,7 +238,7 @@ async fn search_users(
         .db
         .conn()
         .query(
-            "SELECT id, email, birth_date, gender, country, language, interests, email_verified
+            "SELECT id, email, birth_date, gender, country, language, interests, email_verified, username, display_name, bio, website
              FROM users WHERE email = ? AND id != ?",
             params![email, user.id],
         )
@@ -255,6 +255,10 @@ async fn search_users(
         language: row.get(5).ok(),
         interests: row.get(6).ok(),
         email_verified: row.get(7).unwrap_or(0),
+        username: row.get(8).ok(),
+        display_name: row.get(9).ok(),
+        bio: row.get(10).ok(),
+        website: row.get(11).ok(),
     };
     Ok(Json(json!({ "user": public_user(&found) })))
 }

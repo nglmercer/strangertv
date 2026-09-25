@@ -191,6 +191,12 @@
   color: #bbb;
 }
 
+.pb-link-thumb img,
+.pb-tile-thumb img {
+  border-radius: 4px;
+  object-fit: contain;
+}
+
 .pb-link-thumb[data-color='green'],
 .pb-tile-thumb[data-color='green'] {
   background: #1e3a31;

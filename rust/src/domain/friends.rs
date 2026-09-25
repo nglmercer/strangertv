@@ -5,7 +5,7 @@
 //! decline. A re-request after a decline rewrites both columns so the new
 //! requester lands in `user_a_id`.
 
-use libsql::{params, Row};
+use libsql::{params, Connection, Row};
 
 use crate::db::Db;
 use crate::proto::{Gender, PublicUser};
@@ -29,7 +29,15 @@ fn public_user_from_row(row: &Row, base: i32) -> anyhow::Result<PublicUser> {
         language: row.get(base + 5).ok(),
         interests: interests.and_then(|s| serde_json::from_str(&s).ok()),
         email_verified: row.get::<i64>(base + 7).ok().map(|v| v != 0),
+        username: row.get(base + 8).ok(),
+        display_name: row.get(base + 9).ok().and_then(empty_to_none),
+        bio: row.get(base + 10).ok().and_then(empty_to_none),
+        website: row.get(base + 11).ok().and_then(empty_to_none),
     })
+}
+
+fn empty_to_none(s: String) -> Option<String> {
+    if s.is_empty() { None } else { Some(s) }
 }
 
 fn gender_from_str(s: &str) -> Option<Gender> {
@@ -43,7 +51,7 @@ fn gender_from_str(s: &str) -> Option<Gender> {
 }
 
 /// The joined user columns, in the order `public_user_from_row` expects.
-const USER_COLS: &str = "u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified";
+const USER_COLS: &str = "u.id, u.email, u.birth_date, u.gender, u.country, u.language, u.interests, u.email_verified, u.username, u.display_name, u.bio, u.website";
 
 // ---------------------------------------------------------------------------
 // Friends
@@ -298,6 +306,86 @@ async fn follow_side(db: &Db, user_id: i64, sql: &str) -> anyhow::Result<Vec<Fol
     Ok(out)
 }
 
+async fn count_where(conn: &Connection, sql: &str, user_id: i64) -> anyhow::Result<i64> {
+    let mut rows = conn.query(sql, params![user_id]).await?;
+    match rows.next().await? {
+        Some(row) => Ok(row.get(0)?),
+        None => Ok(0),
+    }
+}
+
+/// `(followers, following)` counts for a profile header.
+pub async fn follow_counts(conn: &Connection, user_id: i64) -> anyhow::Result<(i64, i64)> {
+    let followers = count_where(
+        conn,
+        "SELECT COUNT(*) FROM follows WHERE followed_id = ?",
+        user_id,
+    )
+    .await?;
+    let following = count_where(
+        conn,
+        "SELECT COUNT(*) FROM follows WHERE follower_id = ?",
+        user_id,
+    )
+    .await?;
+    Ok((followers, following))
+}
+
+/// Viewers-relative follow state for a profile page.
+pub struct FollowState {
+    pub following: bool,
+    pub follows_you: bool,
+    pub mutuals: Vec<PublicUser>,
+}
+
+/// Whether `viewer_id` follows `target_id`, whether the target follows back,
+/// and up to `MAX_MUTUALS` users the viewer follows who also follow the
+/// target — the "Followed by x, y" line.
+pub const MAX_MUTUALS: usize = 5;
+
+pub async fn follow_state(
+    db: &Db,
+    viewer_id: i64,
+    target_id: i64,
+) -> anyhow::Result<FollowState> {
+    let edge = |a: i64, b: i64| async move {
+        let mut rows = db
+            .conn()
+            .query(
+                "SELECT 1 FROM follows WHERE follower_id = ? AND followed_id = ? LIMIT 1",
+                params![a, b],
+            )
+            .await?;
+        Ok::<bool, anyhow::Error>(rows.next().await?.is_some())
+    };
+    let following = edge(viewer_id, target_id).await?;
+    let follows_you = edge(target_id, viewer_id).await?;
+
+    let mut rows = db
+        .conn()
+        .query(
+            &format!(
+                "SELECT {USER_COLS}
+                 FROM follows a
+                 JOIN follows b ON b.follower_id = a.followed_id
+                 JOIN users u ON u.id = a.followed_id
+                 WHERE a.follower_id = ? AND b.followed_id = ?
+                 ORDER BY b.created_at DESC LIMIT {MAX_MUTUALS}"
+            ),
+            params![viewer_id, target_id],
+        )
+        .await?;
+    let mut mutuals = Vec::new();
+    while let Some(row) = rows.next().await? {
+        mutuals.push(public_user_from_row(&row, 0)?);
+    }
+    Ok(FollowState {
+        following,
+        follows_you,
+        mutuals,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Invitations
 // ---------------------------------------------------------------------------
@@ -544,5 +632,36 @@ mod tests {
             get_invitations(&db, 2).await.unwrap().is_empty(),
             "expired invitations are hidden"
         );
+    }
+
+    #[tokio::test]
+    async fn follow_counts_reflect_both_directions() {
+        let db = seeded_db().await;
+        follow_user(&db, 1, 2).await.unwrap();
+        follow_user(&db, 3, 2).await.unwrap();
+        follow_user(&db, 2, 3).await.unwrap();
+        assert_eq!(follow_counts(db.conn(), 2).await.unwrap(), (2, 1));
+        assert_eq!(follow_counts(db.conn(), 1).await.unwrap(), (0, 1));
+    }
+
+    #[tokio::test]
+    async fn follow_state_reports_edges_and_mutuals() {
+        let db = seeded_db().await;
+        // 1 follows 2 and 3; 3 follows 2 — so 3 is 1's mutual re: 2.
+        follow_user(&db, 1, 2).await.unwrap();
+        follow_user(&db, 1, 3).await.unwrap();
+        follow_user(&db, 3, 2).await.unwrap();
+        let st = follow_state(&db, 1, 2).await.unwrap();
+        assert!(st.following);
+        assert!(!st.follows_you);
+        assert_eq!(st.mutuals.len(), 1);
+        assert_eq!(st.mutuals[0].id, 3);
+
+        follow_user(&db, 2, 1).await.unwrap();
+        let st = follow_state(&db, 1, 2).await.unwrap();
+        assert!(st.follows_you);
+        // The reverse edge changes nothing about 1's mutuals re: 2.
+        assert_eq!(st.mutuals.len(), 1);
+        assert_eq!(st.mutuals[0].id, 3);
     }
 }

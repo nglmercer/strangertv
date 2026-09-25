@@ -110,6 +110,38 @@ pub fn open_api_document(app_url: &str) -> Value {
             "/api/v1/ratings": {
                 "post": { "summary": "Rate a match (1–5)", "responses": { "200": { "description": "OK" } } }
             },
+            "/api/v1/profiles/{username}": {
+                "get": get("Public link profile", false, json!({
+                    "200": { "description": "Profile doc" },
+                    "404": { "description": "Unknown username" },
+                }))
+            },
+            "/api/v1/profiles/me": {
+                "put": get("Replace own links + section", true, ok("Profile doc"))
+            },
+            "/api/v1/users/me/username": {
+                "patch": get("Claim or change username", true, json!({
+                    "200": { "description": "Username" },
+                    "409": { "description": "Taken" },
+                }))
+            },
+            "/api/v1/users/{id}/follows": {
+                "get": get("Public follower/following lists + counts", false, json!({
+                    "200": { "description": "Follow lists" },
+                    "404": { "description": "Unknown user" },
+                }))
+            },
+            "/api/v1/follows/state/{id}": {
+                "get": get("Viewer-relative follow state + mutuals", true, ok("Follow state"))
+            },
+            "/api/v1/media": {
+                "get": get("List own uploads", true, ok("Media list")),
+                "post": get("Upload avatar or icon", true, ok("Media id + url"))
+            },
+            "/api/v1/media/{id}": {
+                "get": get("Serve a media blob", false, ok("Image bytes")),
+                "delete": get("Delete own upload", true, ok("OK"))
+            },
         },
         "components": {
             "securitySchemes": {

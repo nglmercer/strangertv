@@ -134,6 +134,9 @@ impl Db {
         for stmt in BEST_EFFORT {
             let _ = self.conn.execute(stmt, ()).await;
         }
+        // Existing databases predate usernames: every account gets a stable
+        // /u/:handle derived from its email. A no-op once all rows have one.
+        crate::domain::profiles::backfill_usernames(self.conn()).await?;
         Ok(())
     }
 }
@@ -148,7 +151,41 @@ const CREATE_TABLES: &[&str] = &[
       country TEXT DEFAULT 'any',
       language TEXT DEFAULT 'en',
       interests TEXT DEFAULT '[]',
+      username TEXT,
+      display_name TEXT,
+      bio TEXT,
+      website TEXT,
+      avatar_media_id INTEGER,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )",
+    "CREATE TABLE IF NOT EXISTS media (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      bytes BLOB NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )",
+    "CREATE TABLE IF NOT EXISTS profile_links (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      position INTEGER NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      domain TEXT NOT NULL DEFAULT '',
+      icon TEXT NOT NULL DEFAULT '',
+      color TEXT NOT NULL DEFAULT 'gray',
+      UNIQUE(user_id, position),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )",
+    "CREATE TABLE IF NOT EXISTS profile_sections (
+      user_id INTEGER PRIMARY KEY,
+      title TEXT NOT NULL DEFAULT 'Links',
+      icon TEXT NOT NULL DEFAULT '',
+      layout TEXT NOT NULL DEFAULT 'rows',
+      show_count INTEGER NOT NULL DEFAULT 1,
+      FOREIGN KEY (user_id) REFERENCES users(id)
     )",
     "CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -318,6 +355,13 @@ const BEST_EFFORT: &[&str] = &[
     "ALTER TABLE users ADD COLUMN language TEXT",
     "ALTER TABLE users ADD COLUMN interests TEXT",
     "ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN username TEXT",
+    "ALTER TABLE users ADD COLUMN display_name TEXT",
+    "ALTER TABLE users ADD COLUMN bio TEXT",
+    "ALTER TABLE users ADD COLUMN website TEXT",
+    "ALTER TABLE users ADD COLUMN avatar_media_id INTEGER",
+    "CREATE INDEX IF NOT EXISTS media_owner ON media (user_id, kind)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS users_username ON users (username COLLATE NOCASE)",
     "ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'open'",
     // Who was reported. A 1:1 report is unambiguous, but a group match has
     // several participants, so the reporter names one.

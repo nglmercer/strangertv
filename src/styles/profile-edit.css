@@ -154,6 +154,50 @@
   filter: brightness(1.1);
 }
 
+.pedit-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.pedit-path {
+  font: 12px 'DM Mono', monospace;
+  color: var(--text-muted);
+}
+
+.pedit-rename-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pedit-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.pedit-center {
+  align-items: center;
+  text-align: center;
+}
+
+.pedit-center .pedit-section-title {
+  text-align: center;
+}
+
+.pedit-saved.is-warn {
+  color: var(--text-muted);
+}
+
+.pedit-saved.is-error {
+  color: var(--danger);
+}
+
+.pedit-muted {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .pedit-card {
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -431,4 +475,106 @@
   .pedit-btn {
     transition: none;
   }
+}
+
+/* Custom icon library: thumbnail grid with per-icon delete. */
+.pedit-icons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pedit-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+.pedit-icon-pick {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border-mid);
+  border-radius: 9px;
+  background: var(--bg-surface-3);
+  cursor: pointer;
+}
+
+.pedit-icon-pick img {
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.pedit-icon.is-on .pedit-icon-pick {
+  border-color: var(--green-dark);
+  box-shadow: 0 0 0 1px var(--green-dark);
+}
+
+.pedit-icon-del {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--border-mid);
+  border-radius: 50%;
+  background: var(--bg-surface-3);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.pedit-icon-del:hover {
+  color: var(--danger);
+}
+
+.pedit-icon-add {
+  border-style: dashed;
+  color: var(--text-tertiary);
+}
+
+/* Profile photo card: preview plus actions. */
+.pedit-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pedit-avatar-img {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.pedit-avatar-fallback {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  color: var(--text-tertiary);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.pedit-avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pedit-avatar-actions .pedit-section-title {
+  margin: 0;
+}
+
+.pedit-avatar-btns {
+  display: flex;
+  gap: 8px;
 }
