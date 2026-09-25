@@ -25,7 +25,7 @@ ts-rs = { version = "10", features = ["no-serde-warnings"] }
 libsql = "0.9"
 scrypt = "0.11"
 sha2 = "0.10"
-sha1 = "0.10"
+sha1 = "0.11"
 hmac = "0.12"
 base64 = "0.22"
 rand = "0.8"
