@@ -10,6 +10,11 @@ mod auth {
 }
 #[path = "../auth/better_auth.rs"]
 mod better_auth_state;
+#[path = "../infra/client_ip.rs"]
+mod client_ip;
+mod infra {
+    pub(crate) use crate::client_ip;
+}
 #[path = "../config.rs"]
 mod config;
 

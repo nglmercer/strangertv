@@ -4,8 +4,6 @@ use axum::http::HeaderMap;
 
 const AUTHORIZATION: &str = "authorization";
 const X_SESSION_TOKEN: &str = "x-session-token";
-const X_FORWARDED_FOR: &str = "x-forwarded-for";
-const X_REAL_IP: &str = "x-real-ip";
 const BEARER_PREFIX: &str = "Bearer ";
 
 fn header<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
@@ -20,25 +18,6 @@ pub fn get_bearer(headers: &HeaderMap) -> Option<String> {
         }
     }
     header(headers, X_SESSION_TOKEN).map(str::to_string)
-}
-
-/// Best-effort client IP from proxy headers, falling back to `unknown`.
-///
-/// Note this trusts `x-forwarded-for` unconditionally, exactly as the Node
-/// version does — it is only ever used for rate-limit keys and report
-/// attribution, and changing it here would change rate-limit behaviour.
-pub fn client_ip(headers: &HeaderMap) -> String {
-    if let Some(xff) = header(headers, X_FORWARDED_FOR) {
-        if let Some(first) = xff.split(',').next() {
-            let first = first.trim();
-            if !first.is_empty() {
-                return first.to_string();
-            }
-        }
-    }
-    header(headers, X_REAL_IP)
-        .map(str::to_string)
-        .unwrap_or_else(|| "unknown".into())
 }
 
 #[cfg(test)]
@@ -69,17 +48,5 @@ mod tests {
     #[test]
     fn missing_credentials_are_none_not_empty_string() {
         assert_eq!(get_bearer(&HeaderMap::new()), None);
-    }
-
-    #[test]
-    fn client_ip_takes_the_first_forwarded_hop() {
-        let h = headers(&[("x-forwarded-for", "1.2.3.4, 5.6.7.8")]);
-        assert_eq!(client_ip(&h), "1.2.3.4");
-    }
-
-    #[test]
-    fn client_ip_falls_back_through_real_ip_to_unknown() {
-        assert_eq!(client_ip(&headers(&[("x-real-ip", "9.9.9.9")])), "9.9.9.9");
-        assert_eq!(client_ip(&HeaderMap::new()), "unknown");
     }
 }

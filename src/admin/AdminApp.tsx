@@ -9,10 +9,9 @@ import {
   MIME_TYPE,
   REPORT_STATUS_FILTER,
   ReportStatusFilter,
-  STORAGE_KEYS,
   TIMING_MS,
 } from '../../shared/constants'
-import { get, remove, set } from '../utils/storage'
+import { clearAdminKey, getAdminKey, setAdminKey } from '../utils/adminSession'
 import { Icon, icons } from '../components/icons'
 
 type Overview = {
@@ -60,8 +59,6 @@ type UserRow = {
   created_at: string
 }
 
-const keyStorage = STORAGE_KEYS.adminKey
-
 async function adminFetch<T>(path: string, key: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   headers.set(HTTP_HEADERS.xAdminKey, key)
@@ -74,7 +71,7 @@ async function adminFetch<T>(path: string, key: string, init?: RequestInit): Pro
 
 export function AdminApp() {
   const tr = translate(detectLocale()).admin
-  const [key, setKey] = useState(() => get(keyStorage) ?? '')
+  const [key, setKey] = useState(() => getAdminKey() ?? '')
   const [inputKey, setInputKey] = useState(key)
   const [error, setError] = useState('')
   const [overview, setOverview] = useState<Overview | null>(null)
@@ -87,9 +84,16 @@ export function AdminApp() {
   const [reportFilter, setReportFilter] = useState<ReportStatusFilter>(REPORT_STATUS_FILTER.open)
 
   const unlock = () => {
-    set(keyStorage, inputKey)
+    // Memory only: the key never touches localStorage.
+    setAdminKey(inputKey)
     setKey(inputKey)
     setError('')
+  }
+
+  const lock = () => {
+    clearAdminKey()
+    setKey('')
+    setInputKey('')
   }
 
   const load = useCallback(async () => {
@@ -229,10 +233,7 @@ export function AdminApp() {
           <button
             type="button"
             class="admin-btn ghost"
-            onClick={() => {
-              remove(keyStorage)
-              setKey('')
-            }}
+            onClick={lock}
           >
             {tr.lock}
           </button>

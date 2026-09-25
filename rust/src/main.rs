@@ -80,7 +80,25 @@ async fn main() {
         std::process::exit(healthcheck().await);
     }
 
-    let config = Arc::new(Config::from_env());
+    let config = Config::from_env();
+    // Non-production keeps an ergonomic admin default, but it must be loud:
+    // the `x-admin-key` gate reads the environment, so install the default
+    // there too. Production has no fallback and fails fast below instead.
+    let admin_unset = std::env::var("ADMIN_KEY")
+        .map(|v| v.trim().is_empty())
+        .unwrap_or(true);
+    if !config.is_prod && admin_unset {
+        eprintln!(
+            "WARNING: ADMIN_KEY is unset; using the documented dev-only default. \
+             Set ADMIN_KEY to a private value to silence this (production refuses to start without one)."
+        );
+        std::env::set_var("ADMIN_KEY", config.admin_key.clone());
+    }
+    if let Err(message) = config.validate() {
+        eprintln!("config error: {message}");
+        std::process::exit(1);
+    }
+    let config = Arc::new(config);
     infra::logger::init(&config.log_level);
     infra::metrics::init();
     infra::rate_limit::spawn_cleanup();

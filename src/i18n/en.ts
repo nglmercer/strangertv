@@ -310,7 +310,7 @@ Conversations are not private from your peer; treat strangers carefully.`,
   },
   admin: {
     consoleTitle: 'Moderation console',
-    consoleHint: 'Enter the server ADMIN_KEY. Stored only in this browser.',
+    consoleHint: 'Enter the server ADMIN_KEY. Kept in memory only, never stored.',
     adminKey: 'Admin key',
     unlock: 'Unlock',
     backToApp: 'Back to app',

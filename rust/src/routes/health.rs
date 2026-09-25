@@ -1,14 +1,15 @@
 //! Health, metrics, public config and ICE. Port of `server/routes/health.ts`.
 
-use axum::extract::State;
+use axum::extract::{ConnectInfo, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::{Json, Router};
 use serde_json::{json, Value};
+use std::net::SocketAddr;
 
 use crate::error::{ApiError, ApiResult};
-use crate::infra::http::client_ip;
+use crate::infra::client_ip::resolve_client_ip;
 use crate::infra::metrics::{prometheus_text, snapshot, uptime_sec};
 use crate::infra::rate_limit::rate_limit;
 use crate::infra::security::require_admin;
@@ -121,8 +122,12 @@ async fn config_public(State(state): State<AppState>) -> Json<Value> {
     }))
 }
 
-async fn ice(headers: HeaderMap) -> ApiResult<Json<Value>> {
-    let ip = client_ip(&headers);
+async fn ice(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     if !rate_limit(&format!("ice:{ip}"), 30, 60_000) {
         return Err(ApiError::too_many("Too many requests"));
     }

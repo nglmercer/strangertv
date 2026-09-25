@@ -4,18 +4,46 @@
 //! (multiple tabs), so lookups return all of them and "offline" means the last
 //! one closed.
 //!
-//! Each socket owns an unbounded sender feeding its write task; handlers push
+//! Each socket owns a bounded sender feeding its write task; handlers push
 //! frames into it rather than touching the socket directly, which keeps sending
 //! non-blocking and lets any module notify a user without holding a lock on the
 //! connection itself.
+//!
+//! Backpressure: sends use `try_send` and never block or grow memory without
+//! bound. A socket whose outbox is full is a wedged/slow consumer, so it is
+//! disconnected instead of buffered further (see `SOCKET_OUTGOING_CAPACITY`).
+//! No server-to-client message type is dropped or coalesced: every frame type
+//! (match lifecycle, signals, chat, presence, stats, errors) forms one ordered
+//! stream, and silently skipping even a `stats` update while later frames flow
+//! would desynchronize clients. Disconnecting forces a clean resync via
+//! reconnect. If a high-frequency loss-tolerant frame (e.g. quality pings) is
+//! ever added server-to-client, it could take a separate coalescing path, but
+//! none exists today: stats/presence are event-driven and infrequent.
+//!
+//! Per-socket buffer audit: the outbox channel below is the only queue tied to
+//! a socket. The registry maps hold one entry per live socket (removed on
+//! disconnect); `route.rs` processes inbound frames serially with no queue and
+//! holds no sender clone, so disconnecting here closes the channel and the
+//! write task drains at most `SOCKET_OUTGOING_CAPACITY` frames before the
+//! socket closes.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
 
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::error::TrySendError;
+use tokio::sync::mpsc::Sender;
 
 use crate::proto::ServerMessage;
+
+/// Maximum queued outbound frames per socket.
+///
+/// Rationale: legitimate bursts are small (a match fan-out is a handful of
+/// frames: match + stats + presence), so 64 absorbs bursts and slow readers
+/// while capping per-socket memory at 64 frames instead of growing without
+/// bound when a client stops reading. A peer that falls 64 frames behind is
+/// wedged; disconnecting it (so it reconnects fresh) is the correct recovery.
+pub const SOCKET_OUTGOING_CAPACITY: usize = 64;
 
 /// Server-assigned connection id, unique for the lifetime of the process.
 pub type SocketId = u64;
@@ -23,7 +51,7 @@ pub type SocketId = u64;
 #[derive(Clone)]
 pub struct SocketHandle {
     pub id: SocketId,
-    pub tx: UnboundedSender<String>,
+    pub tx: Sender<String>,
 }
 
 #[derive(Default)]
@@ -55,7 +83,7 @@ impl Hub {
         }
     }
 
-    pub fn connect(&self, tx: UnboundedSender<String>) -> SocketHandle {
+    pub fn connect(&self, tx: Sender<String>) -> SocketHandle {
         let id = self.next_id.fetch_add(1, Ordering::Relaxed);
         let handle = SocketHandle { id, tx };
         self.inner
@@ -140,20 +168,19 @@ impl Hub {
 
     pub fn send(&self, handle: &SocketHandle, message: &ServerMessage) {
         if let Ok(text) = serde_json::to_string(message) {
-            // A closed receiver just means the socket is gone; its teardown
-            // will clean up the registry.
-            let _ = handle.tx.send(text);
+            self.push(handle, text);
         }
     }
 
     /// Fan out to every socket the user has open. Silently does nothing when
-    /// they are offline, which is what the notification sites expect.
+    /// they are offline, which is what the notification sites expect. A slow
+    /// socket is disconnected without affecting the user's other sockets.
     pub fn send_to_user(&self, user_id: i64, message: &ServerMessage) {
         let Ok(text) = serde_json::to_string(message) else {
             return;
         };
         for handle in self.sockets_for_user(user_id) {
-            let _ = handle.tx.send(text.clone());
+            self.push(&handle, text.clone());
         }
     }
 
@@ -162,7 +189,23 @@ impl Hub {
             return;
         };
         for handle in self.all_sockets() {
-            let _ = handle.tx.send(text.clone());
+            self.push(&handle, text.clone());
+        }
+    }
+
+    /// Queues one frame without blocking. A full outbox means the peer is too
+    /// slow, so the socket is disconnected: callers hold only transient handle
+    /// clones and `route.rs` holds none, so dropping the registry entry closes
+    /// the channel and the write task finishes the socket.
+    fn push(&self, handle: &SocketHandle, text: String) {
+        match handle.tx.try_send(text) {
+            Ok(()) => {}
+            // A closed receiver just means the socket is gone; its teardown
+            // will clean up the registry.
+            Err(TrySendError::Closed(_)) => {}
+            Err(TrySendError::Full(_)) => {
+                self.disconnect(handle.id);
+            }
         }
     }
 }
@@ -170,10 +213,10 @@ impl Hub {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::sync::mpsc::unbounded_channel;
+    use tokio::sync::mpsc::{channel, Receiver};
 
-    fn hub_with_socket(hub: &Hub) -> (SocketHandle, tokio::sync::mpsc::UnboundedReceiver<String>) {
-        let (tx, rx) = unbounded_channel();
+    fn hub_with_socket(hub: &Hub) -> (SocketHandle, Receiver<String>) {
+        let (tx, rx) = channel(SOCKET_OUTGOING_CAPACITY);
         (hub.connect(tx), rx)
     }
 
@@ -228,5 +271,113 @@ mod tests {
         let (a, _ra) = hub_with_socket(&hub);
         assert_eq!(hub.user_of(a.id), None);
         assert_eq!(hub.disconnect(a.id), None);
+    }
+
+    /// A socket that keeps up stays connected and sees its frames in order,
+    /// even when the outbox fills exactly to capacity.
+    #[tokio::test]
+    async fn a_consumer_within_capacity_stays_connected() {
+        let hub = Hub::new();
+        let (a, mut ra) = hub_with_socket(&hub);
+        for _ in 0..SOCKET_OUTGOING_CAPACITY {
+            hub.send(&a, &ServerMessage::ReportAck);
+        }
+        assert!(
+            hub.socket_by_id(a.id).is_some(),
+            "a full-but-not-overflowing outbox must not disconnect"
+        );
+        for _ in 0..SOCKET_OUTGOING_CAPACITY {
+            assert_eq!(ra.recv().await.unwrap(), r#"{"type":"report:ack"}"#);
+        }
+        assert!(hub.socket_by_id(a.id).is_some());
+    }
+
+    /// A client that stops reading must not grow server memory without bound:
+    /// the outbox holds at most `SOCKET_OUTGOING_CAPACITY` frames, the next
+    /// send disconnects the socket, and the channel closes so the write task
+    /// drains the backlog and finishes the socket.
+    #[tokio::test]
+    async fn a_slow_consumer_is_disconnected_once_its_outbox_overflows() {
+        let hub = Hub::new();
+        let (tx, mut rx) = channel::<String>(SOCKET_OUTGOING_CAPACITY);
+        // No sender clone is retained here, mirroring route.rs: the registry
+        // holds the only one, so disconnecting closes the channel.
+        let id = hub.connect(tx).id;
+
+        for i in 0..=(SOCKET_OUTGOING_CAPACITY + 10) {
+            let Some(handle) = hub.socket_by_id(id) else {
+                assert!(
+                    i > SOCKET_OUTGOING_CAPACITY,
+                    "disconnected early at send {i} of capacity {SOCKET_OUTGOING_CAPACITY}"
+                );
+                break;
+            };
+            hub.send(&handle, &ServerMessage::ReportAck);
+        }
+        assert!(
+            hub.socket_by_id(id).is_none(),
+            "slow socket must be disconnected on overflow"
+        );
+
+        let mut buffered = 0;
+        while rx.try_recv().is_ok() {
+            buffered += 1;
+        }
+        assert_eq!(
+            buffered, SOCKET_OUTGOING_CAPACITY,
+            "outbox must be bounded no matter how much was pushed"
+        );
+        assert!(
+            rx.recv().await.is_none(),
+            "channel must close so the write task ends"
+        );
+    }
+
+    #[tokio::test]
+    async fn send_to_user_disconnects_only_the_slow_socket() {
+        let hub = Hub::new();
+        let (slow, _slow_rx) = hub_with_socket(&hub);
+        let (fast, mut fast_rx) = hub_with_socket(&hub);
+        hub.register_user(slow.id, 7);
+        hub.register_user(fast.id, 7);
+
+        for _ in 0..=(SOCKET_OUTGOING_CAPACITY + 8) {
+            hub.send_to_user(7, &ServerMessage::ReportAck);
+            // The healthy tab keeps draining, so it must never overflow.
+            fast_rx.recv().await.unwrap();
+        }
+
+        assert!(
+            hub.socket_by_id(slow.id).is_none(),
+            "slow socket must be disconnected"
+        );
+        assert!(
+            hub.socket_by_id(fast.id).is_some(),
+            "healthy socket must stay connected"
+        );
+        assert!(hub.is_online(7));
+        assert_eq!(hub.sockets_for_user(7).len(), 1);
+    }
+
+    #[tokio::test]
+    async fn broadcast_disconnects_slow_sockets_and_keeps_healthy_ones() {
+        let hub = Hub::new();
+        let (slow, _slow_rx) = hub_with_socket(&hub);
+        let (fast, mut fast_rx) = hub_with_socket(&hub);
+
+        for _ in 0..=(SOCKET_OUTGOING_CAPACITY + 8) {
+            hub.broadcast(&ServerMessage::ReportAck);
+            fast_rx.recv().await.unwrap();
+        }
+
+        assert!(
+            hub.socket_by_id(slow.id).is_none(),
+            "slow socket must be disconnected"
+        );
+        assert!(
+            hub.socket_by_id(fast.id).is_some(),
+            "healthy socket must stay connected"
+        );
+        assert_eq!(hub.all_sockets().len(), 1);
     }
 }

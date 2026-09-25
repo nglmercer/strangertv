@@ -9,9 +9,10 @@ import {
   setJSON,
   setAuthenticatedUser,
   setSession,
+  setStoredUser,
 } from './utils/storage'
 
-export { clearSession, getStoredUser, getToken, setAuthenticatedUser, setSession }
+export { clearSession, getStoredUser, getToken, setAuthenticatedUser, setSession, setStoredUser }
 
 export type { PublicUser }
 
@@ -32,6 +33,9 @@ export function emitGroupMessage(message: GroupMessage) {
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has(HTTP_HEADERS.contentType) && init?.body) headers.set(HTTP_HEADERS.contentType, MIME_TYPE.json)
+  // Cookie-primary auth: the HttpOnly session cookie (credentials: include)
+  // authenticates every request. The Authorization header below carries only
+  // the in-memory legacy fallback, present solely on compat sessions.
   const token = getToken()
   if (token) headers.set(HTTP_HEADERS.authorization, `Bearer ${token}`)
   const res = await fetch(path, { ...init, headers, credentials: init?.credentials ?? 'include' })

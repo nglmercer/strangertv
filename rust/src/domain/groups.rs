@@ -107,6 +107,20 @@ pub async fn get_group(db: &Db, group_id: i64, user_id: i64) -> GroupResult<Opti
     }
 }
 
+/// Member listing for the `members` route. The membership check lives here —
+/// not in the route — so every caller gets the same rule. Non-members get
+/// `Forbidden` and learn nothing about the roster.
+pub async fn get_group_members_for_user(
+    db: &Db,
+    group_id: i64,
+    user_id: i64,
+) -> GroupResult<Vec<GroupMember>> {
+    if !is_group_member(db, group_id, user_id).await? {
+        return Err(GroupError::Forbidden("Not a group member"));
+    }
+    get_group_members(db, group_id).await
+}
+
 pub async fn get_group_members(db: &Db, group_id: i64) -> GroupResult<Vec<GroupMember>> {
     let sql = format!(
         "SELECT gm.id, gm.group_id, gm.user_id, gm.role, gm.joined_at, {USER_COLS}
@@ -590,6 +604,22 @@ mod tests {
         ));
         assert!(matches!(
             get_group_messages(&db, gid, 4, 50, None).await,
+            Err(GroupError::Forbidden(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn only_members_can_enumerate_the_roster() {
+        let db = seeded_db().await;
+        let (group, _) = create_group(&db, 1, "Team", &[2]).await.unwrap();
+        let gid = group.unwrap().id;
+
+        let members = get_group_members_for_user(&db, gid, 1).await.unwrap();
+        assert_eq!(members.len(), 2);
+        assert!(members.iter().any(|m| m.user.email == "u2@test"));
+
+        assert!(matches!(
+            get_group_members_for_user(&db, gid, 4).await,
             Err(GroupError::Forbidden(_))
         ));
     }

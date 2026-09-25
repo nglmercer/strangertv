@@ -2,7 +2,9 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.ts'],
+    // Unit tests co-located with src/ run in the same node environment (they
+    // stub any browser globals they need); integration suites live in tests/.
+    include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
     environment: 'node',
     globals: false,
     testTimeout: 30_000,

@@ -16,6 +16,22 @@ long-form phased plan is [migration-plan.md](./migration-plan.md).
 - Session refresh: `POST /api/v1/auth/refresh`.
 - OpenAPI for the auth routes: `/api/v1/docs`.
 
+## Browser credential storage
+
+Auth is cookie-primary: the SPA sends `credentials: include` on every API
+call and the WebSocket upgrade carries the HttpOnly Better Auth cookie, so
+no script-readable credential is needed for normal operation.
+
+- The legacy bearer is **never persisted to localStorage**. The client holds
+  it in module state only, and only as a fallback for the legacy compat path
+  (servers without the Better Auth schema, where no cookie is ever issued).
+  It dies with the page and is cleared on logout. See `src/utils/storage.ts`.
+- The `ADMIN_KEY` is **memory-only** as well (`src/utils/adminSession.ts`):
+  entering it unlocks the console for the page lifetime, locking wipes it,
+  and a reload locks the console again.
+- Both modules purge the corresponding legacy localStorage keys on load so
+  credentials persisted by older clients cannot linger after upgrade.
+
 ## Google sign-in (optional)
 
 Set both variables and the "Continue with Google" button appears; leave either

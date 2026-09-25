@@ -311,7 +311,7 @@ Las conversaciones no son privadas frente a tu pareja; trata a los desconocidos 
   },
   admin: {
     consoleTitle: 'Consola de moderación',
-    consoleHint: 'Introduce el ADMIN_KEY del servidor. Solo se guarda en este navegador.',
+    consoleHint: 'Introduce el ADMIN_KEY del servidor. Solo se guarda en memoria, nunca se almacena.',
     adminKey: 'Clave de admin',
     unlock: 'Desbloquear',
     backToApp: 'Volver a la app',

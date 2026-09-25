@@ -311,7 +311,7 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   },
   admin: {
     consoleTitle: 'Console de moderação',
-    consoleHint: 'Digite o ADMIN_KEY do servidor. Guardado só neste navegador.',
+    consoleHint: 'Digite o ADMIN_KEY do servidor. Guardado só na memória, nunca armazenado.',
     adminKey: 'Chave de admin',
     unlock: 'Desbloquear',
     backToApp: 'Voltar ao app',

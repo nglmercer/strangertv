@@ -8,7 +8,9 @@ services:
       PORT: "8787"
       TURSO_DATABASE_URL: ${TURSO_DATABASE_URL:-file:/data/local.db}
       TURSO_AUTH_TOKEN: ${TURSO_AUTH_TOKEN:-}
-      ADMIN_KEY: ${ADMIN_KEY:-change-me}
+      # No default: production refuses to start without a strong ADMIN_KEY
+      # (>=16 chars, not a placeholder). The server validates this at boot.
+      ADMIN_KEY: ${ADMIN_KEY:?ADMIN_KEY must be set to a random value of at least 16 characters}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8787}
       APP_URL: ${APP_URL:-http://localhost:8787}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
@@ -35,7 +37,9 @@ services:
       - --fingerprint
       - --lt-cred-mech
       - --use-auth-secret
-      - --static-auth-secret=${TURN_SECRET:-dev-turn-secret-change-me}
+      # No default: the turn profile fails fast without a strong TURN_SECRET
+      # (>=32 chars). The server validates the same rule at boot.
+      - --static-auth-secret=${TURN_SECRET:?TURN_SECRET must be set to a random value of at least 32 characters to use the turn profile}
       - --realm=${TURN_REALM:-localhost}
       - --no-cli
       - --no-multicast-peers

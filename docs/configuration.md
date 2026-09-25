@@ -12,6 +12,21 @@ Every setting comes from the environment. Start from
 | `STATIC_DIR` | SPA directory the server serves (dev uses `../dist`) |
 | `LOG_LEVEL` | Log verbosity (`info` default) |
 | `APP_VERSION` | Reported on `/api/health` (set by `start:prod`) |
+| `TRUSTED_PROXIES` | Comma-separated proxy IPs/CIDRs whose `x-forwarded-for` / `x-real-ip` headers are honored (default: trust none; see below) |
+
+## Trusted proxies
+
+Rate limits, bans, reports, ratings, and login/reset limits are all keyed by
+client IP. Forwarded headers are honored **only** when the direct socket peer
+matches `TRUSTED_PROXIES`; otherwise the socket peer address is the client IP,
+so arbitrary clients cannot spoof their identity with an `x-forwarded-for`
+header.
+
+Set it to your load balancer / ingress addresses, e.g.
+`TRUSTED_PROXIES=10.0.0.0/8,192.168.1.10`. Behind no proxy, leave it empty and
+every request is attributed to its socket peer. When a trusted proxy is in
+play, the leftmost `x-forwarded-for` entry (else `x-real-ip`) becomes the
+client IP. Invalid entries are ignored (fail closed).
 
 ## URLs & origins
 
@@ -48,8 +63,8 @@ Auth behavior: [Authentication](./authentication.md).
 
 | Variable | Purpose |
 |----------|---------|
-| `TURN_SECRET` | Coturn-style REST secret |
-| `TURN_URLS` | Comma-separated `turn:`/`turns:` URLs |
+| `TURN_SECRET` | Coturn-style REST secret; required and strong (≥32 chars, not a placeholder) when `TURN_URLS` is set — the server refuses to start otherwise |
+| `TURN_URLS` | Comma-separated `turn:`/`turns:` URLs; empty disables TURN |
 
 Setup: [WebRTC / TURN](./webrtc.md).
 
@@ -57,7 +72,7 @@ Setup: [WebRTC / TURN](./webrtc.md).
 
 | Variable | Purpose |
 |----------|---------|
-| `ADMIN_KEY` | Moderation console + private metrics |
+| `ADMIN_KEY` | Moderation console + private metrics. Production requires a strong value (≥16 chars, not `change-me`/`secret`/`admin`/`test`/…); startup fails fast otherwise. Non-production falls back to a documented dev-only default with a loud warning |
 | `METRICS_PUBLIC` | `1` exposes `/api/v1/metrics` without `x-admin-key` |
 | `SHUTDOWN_DRAIN_MS` | Graceful WebSocket drain on shutdown |
 | `ALERT_WEBHOOK_URL` | Report-spike alert delivery |
@@ -69,7 +84,7 @@ Endpoints: [Operations](./operations.md).
 
 | Variable | Purpose |
 |----------|---------|
-| `FEATURE_ANONYMOUS_MATCH` | Allow matching without an account |
+| `FEATURE_ANONYMOUS_MATCH` | Allow matching without an account (default off — anonymous users have no server-verifiable age; see [Safety](./safety.md)) |
 | `FEATURE_GUEST_REPORTS` | Allow reports without an account |
 | `FEATURE_QUALITY_TELEMETRY` | Collect call-quality telemetry |
 | `FEATURE_REQUIRE_EMAIL_VERIFIED` | Require verified email for matching |

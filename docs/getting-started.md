@@ -39,15 +39,16 @@ API, WebSocket, and the built SPA share one port. From the repo root:
 ```bash
 npm run build:all
 NODE_ENV=production \
-BETTER_AUTH_SECRET='replace-with-at-least-32-random-bytes' \
-ADMIN_KEY=secret \
+BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+ADMIN_KEY="$(openssl rand -hex 16)" \
   CORS_ORIGINS=http://localhost:8787 \
   APP_URL=http://localhost:8787 \
   npm start
 ```
 
-Use a unique randomly generated `BETTER_AUTH_SECRET` in production; never use
-the example value above literally.
+Use unique randomly generated secrets in production; never use placeholders
+literally — the server refuses to start with a missing or weak `ADMIN_KEY`
+(≥16 chars) or `BETTER_AUTH_SECRET` (≥32 bytes).
 
 - App: http://localhost:8787
 - Admin: http://localhost:8787/admin
@@ -55,8 +56,8 @@ the example value above literally.
 ## Docker
 
 ```bash
-export ADMIN_KEY=your-long-secret
-export BETTER_AUTH_SECRET=your-at-least-32-byte-auth-secret
+export ADMIN_KEY="$(openssl rand -hex 16)"
+export BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
 docker compose up --build
 # with optional coturn profile:
 # docker compose --profile turn up --build

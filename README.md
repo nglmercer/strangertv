@@ -30,6 +30,7 @@ Anonymous 1:1 **live video chat** with random matching, text chat, preferences, 
 | [Safety](./docs/safety.md) | 18+ policy, reporting, moderation tooling |
 | [Roadmap](./docs/roadmap.md) | Product roadmap (phases, acceptance criteria) |
 | [Auth migration plan](./docs/migration-plan.md) | Phased StrangerTV → better-auth-rs plan |
+| [Vendoring](./docs/vendoring.md) | Pinned better-auth-rs updates + Rust dependency security |
 | [Contributing](./CONTRIBUTING.md) | Dev workflow, conventions, security |
 | [Changelog](./CHANGELOG.md) | Release notes |
 

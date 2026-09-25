@@ -9,6 +9,7 @@ use std::sync::Arc;
 use axum::http::{HeaderMap, HeaderValue};
 use libsql::params;
 
+use crate::age::is_adult;
 use crate::auth::resolver::resolve_authenticated_user_row;
 use crate::auth::session::{public_user, UserRow};
 use crate::db::Db;
@@ -49,6 +50,25 @@ fn err(code: &str, message: &str) -> ServerMessage {
 fn send(hub: &Hub, socket: SocketId, message: &ServerMessage) {
     if let Some(handle) = hub.socket_by_id(socket) {
         hub.send(&handle, message);
+    }
+}
+
+/// Server-side 18+ gate for matchmaking. Returns `None` when the stored
+/// profile proves adulthood, otherwise the error to send back. Unknown,
+/// missing, or unparseable birth dates fail closed — only a validated adult
+/// birth date admits the socket. The localStorage age gate is UX only and is
+/// never consulted here.
+fn matchmaking_age_error(birth_date: Option<&str>) -> Option<ServerMessage> {
+    match birth_date {
+        Some(date) if is_adult(date) => None,
+        Some(_) => Some(err(
+            "age_restricted",
+            "You must be 18 or older to use video matchmaking.",
+        )),
+        None => Some(err(
+            "age_restricted",
+            "Add a valid 18+ birthday to your account to use video matchmaking.",
+        )),
     }
 }
 
@@ -187,6 +207,10 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
             else {
                 return;
             };
+            if let Some(error) = matchmaking_age_error(user.birth_date.as_deref()) {
+                send(hub, socket, &error);
+                return;
+            }
             let Some(preferences) = crate::matchmaking::core::normalize_preferences(&preferences)
             else {
                 send(hub, socket, &err("bad_prefs", "Invalid preferences."));
@@ -257,12 +281,24 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
         }
 
         ClientMessage::GroupMatchJoin { room_id, token } => {
-            let mut user_id = None;
-            let mut email = None;
-            if let Some(user) = resolve_ws_user(state, ctx, token.as_deref()).await {
-                user_id = Some(user.id);
-                email = Some(user.email);
+            // Invite redemption requires an authenticated adult: guests have
+            // no server-verifiable age, and group rooms are video matchmaking.
+            let Some(user) = require_token(
+                state,
+                ctx,
+                token.as_deref(),
+                "Sign in to join group matches.",
+            )
+            .await
+            else {
+                return;
+            };
+            if let Some(error) = matchmaking_age_error(user.birth_date.as_deref()) {
+                send(hub, socket, &error);
+                return;
             }
+            let user_id = Some(user.id);
+            let email = Some(user.email);
             let Some(group) = engine.group_room_by_id(&room_id).await else {
                 send(hub, socket, &err("bad_prefs", "Group not found."));
                 return;
@@ -758,6 +794,10 @@ async fn join(
             send(hub, socket, &err("banned", "Access denied."));
             return;
         }
+        if let Some(error) = matchmaking_age_error(user.birth_date.as_deref()) {
+            send(hub, socket, &error);
+            return;
+        }
         if state.config.features.require_email_verified && user.email_verified == 0 {
             send(
                 hub,
@@ -808,6 +848,10 @@ async fn create_and_invite(
     else {
         return;
     };
+    if let Some(error) = matchmaking_age_error(user.birth_date.as_deref()) {
+        send(hub, ctx.socket, &error);
+        return;
+    }
 
     // Resolve the invite target BEFORE mutating match state: creating the room
     // tears down the current one, and in a degraded group match there is no 1:1
@@ -1037,4 +1081,26 @@ fn iso_now() -> String {
     time::OffsetDateTime::now_utc()
         .format(&Rfc3339)
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_adult_birth_date_passes_the_matchmaking_gate() {
+        assert!(matchmaking_age_error(Some("1990-02-02")).is_none());
+    }
+
+    #[test]
+    fn underage_unknown_and_unparseable_ages_are_rejected() {
+        for birth_date in [Some("2015-01-01"), None, Some("not-a-date"), Some("")] {
+            let error = matchmaking_age_error(birth_date)
+                .unwrap_or_else(|| panic!("{birth_date:?} must not join matchmaking"));
+            assert!(
+                matches!(error, ServerMessage::Error { code, .. } if code == "age_restricted"),
+                "{birth_date:?} must carry the age_restricted code"
+            );
+        }
+    }
 }

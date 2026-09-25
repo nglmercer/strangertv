@@ -228,6 +228,7 @@ export const SERVER_ERROR_CODE = {
   authRequired: 'auth_required',
   badPrefs: 'bad_prefs',
   emailUnverified: 'email_unverified',
+  ageRestricted: 'age_restricted',
   queueTimeout: 'queue_timeout',
 } as const
 

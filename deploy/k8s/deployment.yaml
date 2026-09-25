@@ -5,7 +5,10 @@ metadata:
   labels:
     app: stranger
 spec:
-  replicas: 2
+  # Single replica only: matchmaking, presence, and rate-limit state live in
+  # process memory, so horizontal scaling is unsupported until shared
+  # state/pub-sub exists. Do not raise this (see docs/deployment.md).
+  replicas: 1
   selector:
     matchLabels:
       app: stranger

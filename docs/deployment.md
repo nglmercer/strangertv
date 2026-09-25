@@ -8,20 +8,37 @@ day-2 operations in [Operations](./operations.md).
 
 ```bash
 npm run build:all   # SPA (vite) + server binary (cargo --release)
-NODE_ENV=production ADMIN_KEY=secret \
-  BETTER_AUTH_SECRET='replace-with-at-least-32-random-bytes' \
+NODE_ENV=production ADMIN_KEY="$(openssl rand -hex 16)" \
+  BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
   CORS_ORIGINS=http://localhost:8787 APP_URL=http://localhost:8787 npm start
 # open http://localhost:8787  and  http://localhost:8787/admin
 ```
+
+Generate real secrets — never use the documented placeholders literally.
+Production startup validates secrets and exits before opening the database
+when they are missing or weak:
+
+- `ADMIN_KEY`: required, at least 16 characters, and not an obvious
+  placeholder (`change-me`, `secret`, `admin`, `test`, …).
+- `TURN_SECRET`: required to be at least 32 characters and not a placeholder
+  whenever TURN is enabled (`TURN_URLS` set).
+- `BETTER_AUTH_SECRET`: required, at least 32 bytes (existing check).
+
+Non-production keeps an ergonomic `ADMIN_KEY` default and prints a loud
+warning when it is used, so local development works out of the box.
 
 The Rust server serves the Vite `dist/` SPA, `/api/v1/*`, and `/ws`.
 
 ## Docker
 
 ```bash
-export ADMIN_KEY=your-long-secret
-export BETTER_AUTH_SECRET=your-at-least-32-byte-auth-secret
+export ADMIN_KEY="$(openssl rand -hex 16)"
+export BETTER_AUTH_SECRET="$(openssl rand -hex 32)"
 docker compose up --build -d
+# with optional coturn profile (fails fast without a strong TURN_SECRET):
+# export TURN_SECRET="$(openssl rand -hex 32)"
+# export TURN_URLS="turn:turn.example.com:3478"
+# docker compose --profile turn up --build -d
 ```
 
 By default the compose file keeps a local SQLite at `file:/data/local.db` on
@@ -69,3 +86,18 @@ that origin in `CORS_ORIGINS`.
   user before first start.
 - `deploy/k8s/` — Kubernetes sample (liveness: `/api/v1/health/live`,
   readiness: `/api/v1/health/ready`)
+
+## Scaling
+
+Run exactly **one replica**. Matchmaking, presence, and rate-limit state live
+in process memory with no shared store or pub-sub between instances, so a
+second instance would split the waiting pool: two users landing on different
+pods can never be matched, presence diverges, and rate limits apply per pod.
+The sample manifest pins `replicas: 1`; do not raise it until shared
+state/pub-sub exists.
+
+Sticky sessions do **not** fix this. Pinning a user to one pod keeps their
+own requests consistent, but cross-instance presence and matchmaking still
+break: the two ends of a potential match sit on different pods with no shared
+view of each other, so matching, presence, and moderation state stay
+partitioned regardless of stickiness.

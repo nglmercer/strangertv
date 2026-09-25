@@ -216,11 +216,19 @@ async fn reports_csv(State(state): State<AppState>, headers: HeaderMap) -> Respo
 }
 
 /// `/[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s`, with null → "".
+///
+/// A leading `=`, `+`, `-`, `@`, tab, or CR is neutralized with a `'`
+/// prefix first, so spreadsheet apps never interpret the cell as a formula
+/// (OWASP CSV injection). Quoting then applies exactly as before.
 fn csv_escape(v: &Value) -> String {
     let s = match v {
         Value::Null => String::new(),
         Value::String(s) => s.clone(),
         other => other.to_string(),
+    };
+    let s = match s.chars().next() {
+        Some(c) if matches!(c, '=' | '+' | '-' | '@' | '\t' | '\r') => format!("'{s}"),
+        _ => s,
     };
     if s.contains('"') || s.contains(',') || s.contains('\n') {
         format!("\"{}\"", s.replace('"', "\"\""))
@@ -363,5 +371,30 @@ mod tests {
         assert_eq!(csv_escape(&json!("has\"quote")), "\"has\"\"quote\"");
         assert_eq!(csv_escape(&json!("has\nnewline")), "\"has\nnewline\"");
         assert_eq!(csv_escape(&json!(42)), "42");
+    }
+
+    #[test]
+    fn csv_cells_with_formula_prefixes_are_neutralized() {
+        // Every dangerous leading character gets a text-forcing quote.
+        for cell in ["=1+1", "+1+1", "-1+1", "@SUM(A1)", "\t1+1", "\r1+1"] {
+            let escaped = csv_escape(&json!(cell));
+            assert!(
+                escaped.starts_with('\''),
+                "{cell:?} must be neutralized, got {escaped:?}"
+            );
+            assert!(
+                !escaped.starts_with("'\"") || escaped.contains(cell),
+                "{cell:?} must keep its content, got {escaped:?}"
+            );
+        }
+        // Neutralization composes with quoting instead of replacing it.
+        assert_eq!(csv_escape(&json!("=a,\"b\"")), "\"'=a,\"\"b\"\"\"");
+        assert_eq!(csv_escape(&json!("-5,6")), "\"'-5,6\"");
+        // A leading dash is neutralized even when the cell is otherwise plain.
+        assert_eq!(csv_escape(&json!("-ok-inside")), "'-ok-inside");
+        // Safe cells are untouched.
+        assert_eq!(csv_escape(&json!("a=b")), "a=b");
+        assert_eq!(csv_escape(&json!("  =spaced")), "  =spaced");
+        assert_eq!(csv_escape(&json!("42")), "42");
     }
 }

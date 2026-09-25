@@ -2,9 +2,12 @@
 //! block in `server/index.ts`.
 //!
 //! Each connection splits into a read half (parsing client frames) and a write
-//! half fed by an unbounded channel. Handlers push into that channel rather than
-//! touching the socket, so a notification never blocks on a slow peer and any
-//! module can reach a user without holding the connection.
+//! half fed by a bounded channel (`SOCKET_OUTGOING_CAPACITY`). Handlers push
+//! into that channel rather than touching the socket, so a notification never
+//! blocks on a slow peer and any module can reach a user without holding the
+//! connection. When the outbox is full the hub disconnects the slow socket
+//! instead of buffering further, which closes the channel and lets the write
+//! task below drain the backlog and finish the socket.
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{ConnectInfo, State};
@@ -14,10 +17,11 @@ use axum::routing::any;
 use axum::Router;
 use sha2::{Digest, Sha256};
 use std::net::SocketAddr;
-use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::mpsc;
 
 use crate::auth::resolver::{resolve_authenticated_user, AuthenticatedUser};
-use crate::infra::http::client_ip;
+use crate::infra::client_ip::resolve_client_ip;
+use crate::matchmaking::sockets::SOCKET_OUTGOING_CAPACITY;
 use crate::proto::ServerMessage;
 use crate::ws::handlers::{handle_message, WsContext};
 use crate::AppState;
@@ -54,12 +58,9 @@ async fn upgrade(
     if !origin_is_allowed(&headers, &state.config.cors_origins) {
         return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
     }
-    // Proxy headers first, then the peer address — `client_ip` only knows about
-    // the former, and a direct connection has no `x-forwarded-for`.
-    let mut ip = client_ip(&headers);
-    if ip == "unknown" {
-        ip = peer.ip().to_string();
-    }
+    // Forwarded headers are honored only when the socket peer is a
+    // configured trusted proxy; otherwise the peer address is the client IP.
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     let authenticated_user = match resolve_authenticated_user(&headers, &state).await {
         Ok(user) => user,
         Err(error) => {
@@ -96,9 +97,10 @@ async fn connection(
     use futures_util::{SinkExt, StreamExt};
 
     let (mut sink, mut stream) = socket.split();
-    let (tx, mut rx) = unbounded_channel::<String>();
-    let handle = state.hub.connect(tx);
-    let socket_id = handle.id;
+    let (tx, mut rx) = mpsc::channel::<String>(SOCKET_OUTGOING_CAPACITY);
+    // Keep only the id: the registry must hold the sole sender clone so that
+    // a slow-consumer disconnect closes the channel and ends the write task.
+    let socket_id = state.hub.connect(tx).id;
 
     if let Some(user) = &authenticated_user {
         state.hub.register_user(socket_id, user.user_id);

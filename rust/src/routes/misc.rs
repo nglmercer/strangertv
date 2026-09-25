@@ -1,17 +1,18 @@
 //! Blocks, reports, ratings and user search. Port of `server/routes/misc.ts`.
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{ConnectInfo, Path, Query, State};
 use axum::http::HeaderMap;
 use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use libsql::params;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::net::SocketAddr;
 
 use crate::auth::resolver::resolve_authenticated_user_row;
 use crate::auth::session::{public_user, UserRow};
 use crate::error::{ApiError, ApiResult};
-use crate::infra::http::client_ip;
+use crate::infra::client_ip::resolve_client_ip;
 use crate::infra::metrics::inc;
 use crate::infra::rate_limit::rate_limit;
 use crate::AppState;
@@ -113,10 +114,11 @@ async fn remove_block(
 
 async fn create_report(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> ApiResult<Json<Value>> {
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     if !rate_limit(&format!("report:{ip}"), 15, 60_000) {
         return Err(ApiError::too_many("Too many reports"));
     }
@@ -159,10 +161,11 @@ async fn create_report(
 
 async fn create_rating(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> ApiResult<Json<Value>> {
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     if !rate_limit(&format!("rating:{ip}"), 40, 60_000) {
         return Err(ApiError::too_many("Too many requests"));
     }

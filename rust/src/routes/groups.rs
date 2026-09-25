@@ -11,8 +11,8 @@ use crate::auth::resolver::resolve_authenticated_user_row;
 use crate::auth::session::UserRow;
 use crate::domain::groups::{
     add_group_members, create_group, get_group, get_group_invite, get_group_invites,
-    get_group_members, get_group_messages, get_groups, leave_group, remove_group_member,
-    rename_group, respond_group_invite, send_group_message, GroupError,
+    get_group_members, get_group_members_for_user, get_group_messages, get_groups, leave_group,
+    remove_group_member, rename_group, respond_group_invite, send_group_message, GroupError,
 };
 use crate::error::{ApiError, ApiResult};
 use crate::infra::rate_limit::rate_limit;
@@ -155,11 +155,13 @@ async fn members(
     headers: HeaderMap,
     Path(group_id): Path<i64>,
 ) -> ApiResult<Json<Value>> {
-    require_user(&state, &headers).await?;
+    let user = require_user(&state, &headers).await?;
     if group_id == 0 {
         return Err(ApiError::bad_request("Invalid id"));
     }
-    let members: Vec<Value> = get_group_members(&state.db, group_id)
+    // Membership is enforced in the domain layer; non-members get a refusal
+    // with no roster data (reported as a 400 like the other group endpoints).
+    let members: Vec<Value> = get_group_members_for_user(&state.db, group_id, user.id)
         .await?
         .iter()
         .map(member_json)

@@ -1,3 +1,4 @@
+pub mod client_ip;
 pub mod http;
 pub mod logger;
 pub mod metrics;

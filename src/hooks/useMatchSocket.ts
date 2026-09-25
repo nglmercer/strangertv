@@ -91,6 +91,8 @@ export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
       heartbeatTimer.current = window.setInterval(() => {
         send({ type: WS_MESSAGE_TYPE.queueHeartbeat })
       }, TIMING_MS.wsHeartbeat)
+      // The upgrade cookies already authenticate Better Auth sessions; the
+      // protocol token below is the in-memory legacy fallback only.
       const token = getToken()
       if (token) ws.send(JSON.stringify({ type: WS_MESSAGE_TYPE.wsAuth, token }))
     }

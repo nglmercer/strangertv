@@ -1383,7 +1383,9 @@ fn compute_shared_interests(participants: &[SideParticipant]) -> Vec<String> {
 mod engine_tests {
     use super::*;
     use crate::proto::MatchMode;
-    use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+    use tokio::sync::mpsc::{channel, Receiver};
+
+    use crate::matchmaking::sockets::SOCKET_OUTGOING_CAPACITY;
 
     async fn engine() -> (Engine, Arc<Hub>) {
         let hub = Arc::new(Hub::new());
@@ -1392,8 +1394,8 @@ mod engine_tests {
         (Engine::new(Arc::clone(&hub), db), hub)
     }
 
-    fn socket(hub: &Hub) -> (SocketId, UnboundedReceiver<String>) {
-        let (tx, rx) = unbounded_channel();
+    fn socket(hub: &Hub) -> (SocketId, Receiver<String>) {
+        let (tx, rx) = channel(SOCKET_OUTGOING_CAPACITY);
         (hub.connect(tx).id, rx)
     }
 
@@ -1417,7 +1419,7 @@ mod engine_tests {
     }
 
     /// Drains a receiver into the list of frame `type` values seen so far.
-    fn frames(rx: &mut UnboundedReceiver<String>) -> Vec<String> {
+    fn frames(rx: &mut Receiver<String>) -> Vec<String> {
         let mut out = Vec::new();
         while let Ok(raw) = rx.try_recv() {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {

@@ -5,8 +5,8 @@ import {
   fetchHealth,
   fetchIceServers,
   getToken,
-  setAuthenticatedUser,
   setSession,
+  setStoredUser,
   type PublicUser,
 } from '../api'
 import { detectLocale, t as translate } from '../i18n'
@@ -72,12 +72,12 @@ export function useSessionBootstrap({
         .then(() => {
           setStatus(translate(detectLocale()).emailVerified)
           history.replaceState({}, '', location.pathname)
-          if (getToken()) {
-            void authApi
-              .me()
-              .then((r) => setUser(r.user))
-              .catch(() => undefined)
-          }
+          // Cookie sessions hold no bearer, so refresh unconditionally: the
+          // call simply fails when nobody is signed in.
+          void authApi
+            .me()
+            .then((r) => setUser(r.user))
+            .catch(() => undefined)
         })
         .catch(() => setStatus(translate(detectLocale()).emailVerifyFailed))
     }
@@ -91,7 +91,9 @@ export function useSessionBootstrap({
     void authApi
       .me()
       .then((r) => {
-        if (!getToken()) setAuthenticatedUser(r.user)
+        // Persist the profile but keep any in-memory legacy bearer: in
+        // legacy-only mode it is the sole credential and must survive.
+        setStoredUser(r.user)
         setUser(r.user)
       })
       .catch(() => {
@@ -99,6 +101,8 @@ export function useSessionBootstrap({
           setUser(null)
           return
         }
+        // Legacy compat path only: cookie sessions never hold a bearer, so a
+        // present one means a legacy session worth attempting to refresh.
         void authApi
           .refresh()
           .then((r) => {

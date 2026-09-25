@@ -4,7 +4,13 @@ Product safety rules and the moderation tooling that enforces them.
 
 ## Policy
 
-- **18+ only.** Age gate and registration enforce adulthood.
+- **18+ only, server-verified.** Video matchmaking requires an authenticated
+  user whose server-stored `birth_date` proves 18+. Under-18 and unknown-age
+  accounts receive an `age_restricted` error on `queue:join` / `room:next`
+  and on group-match create/join, and anonymous users are rejected while
+  `FEATURE_ANONYMOUS_MATCH` is off (the default), since guests have no
+  server-verifiable age. The localStorage age gate is UX only — it never
+  authorizes matchmaking.
 - Video/audio are **not recorded** by default.
 - Report and block tools feed the admin console.
 - Brand carefully if you go public — this product is **stranger**, not a

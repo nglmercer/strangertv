@@ -98,20 +98,47 @@ export function setBool(key: string, on: boolean) {
 
 // ---------------------------------------------------------------------------
 // Auth session (token + user)
+//
+// Browser auth is cookie-primary: the HttpOnly Better Auth session cookie
+// (sent with `credentials: include`) owns the session, and the legacy bearer
+// is NEVER persisted to localStorage - a persisted credential is readable by
+// any script on the page and survives logout-by-cookie-clear.
+// The only bearer the client holds is an in-memory fallback for the legacy
+// compat path (servers without the Better Auth schema, where no cookie is
+// ever issued). It dies with the page and is cleared on logout.
 // ---------------------------------------------------------------------------
 
+/** In-memory legacy bearer fallback. Never written to storage. */
+let memoryToken: string | null = null
+
+// One-time purge: drop a bearer persisted by an older client so it cannot
+// linger in localStorage after this upgrade.
+remove(STORAGE_KEYS.token)
+
+/** In-memory legacy bearer, or null when the cookie owns the session. */
 export function getToken(): string | null {
-  return read(STORAGE_KEYS.token)
+  return memoryToken
 }
 
+/**
+ * Legacy/compat session: hold the bearer in memory only, persist the profile.
+ * Used when the server reports `session: 'legacy'` (no cookie was issued).
+ */
 export function setSession(token: string, user: PublicUser) {
-  write(STORAGE_KEYS.token, token)
+  memoryToken = token
+  remove(STORAGE_KEYS.token)
   setJSON(STORAGE_KEYS.user, user)
 }
 
-/** Store the Better Auth-backed identity without creating a new bearer token. */
+/** Better Auth session: the cookie owns auth, so no bearer is kept at all. */
 export function setAuthenticatedUser(user: PublicUser) {
+  memoryToken = null
   remove(STORAGE_KEYS.token)
+  setJSON(STORAGE_KEYS.user, user)
+}
+
+/** Persist the profile without touching the bearer (session refresh path). */
+export function setStoredUser(user: PublicUser) {
   setJSON(STORAGE_KEYS.user, user)
 }
 
@@ -120,6 +147,7 @@ export function getStoredUser(): PublicUser | null {
 }
 
 export function clearSession() {
+  memoryToken = null
   remove(STORAGE_KEYS.token)
   remove(STORAGE_KEYS.user)
 }

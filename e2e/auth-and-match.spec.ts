@@ -42,7 +42,7 @@ test('register and login via API', async ({ request }) => {
   expect(login.ok()).toBeTruthy()
 })
 
-test('two clients match over websocket', async () => {
+test('two authenticated adults match over websocket', async ({ request }) => {
   const prefs = {
     country: 'any',
     language: 'any',
@@ -50,15 +50,25 @@ test('two clients match over websocket', async () => {
     lookingFor: 'any',
     interests: [],
   }
+  const register = async (tag: string) => {
+    const reg = await request.post('/api/v1/auth/register', {
+      data: { email: `match_${tag}_${Date.now()}@example.com`, password: 'password12', birthDate: '1990-01-15' },
+    })
+    expect(reg.status()).toBe(201)
+    return (await reg.json()) as { token: string }
+  }
+  const { token: tokenA } = await register('a')
+  const { token: tokenB } = await register('b')
+
   const port = process.env.E2E_PORT ?? '8797'
   const wsUrl = `ws://127.0.0.1:${port}/ws`
 
-  const open = () =>
+  const open = (token: string) =>
     new Promise<{ ws: WebSocket; role?: string; roomId?: string }>((resolve, reject) => {
       const ws = new WebSocket(wsUrl)
       const timer = setTimeout(() => reject(new Error('timeout')), 10_000)
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'queue:join', preferences: prefs }))
+        ws.send(JSON.stringify({ type: 'queue:join', preferences: prefs, token }))
       }
       ws.onmessage = (ev) => {
         const msg = JSON.parse(String(ev.data)) as { type: string; role?: string; roomId?: string }
@@ -73,12 +83,39 @@ test('two clients match over websocket', async () => {
       }
     })
 
-  const [a, b] = await Promise.all([open(), open()])
+  const [a, b] = await Promise.all([open(tokenA), open(tokenB)])
   expect(a.roomId).toBeTruthy()
   expect(a.roomId).toBe(b.roomId)
   expect(new Set([a.role, b.role])).toEqual(new Set(['offerer', 'answerer']))
   a.ws.close()
   b.ws.close()
+})
+
+test('anonymous queue join is rejected', async () => {
+  const port = process.env.E2E_PORT ?? '8797'
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
+  const msg = await new Promise<{ type: string; code?: string }>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), 10_000)
+    ws.onopen = () => {
+      ws.send(
+        JSON.stringify({
+          type: 'queue:join',
+          preferences: { country: 'any', language: 'any', gender: 'any', lookingFor: 'any', interests: [] },
+        }),
+      )
+    }
+    ws.onmessage = (ev) => {
+      clearTimeout(timer)
+      resolve(JSON.parse(String(ev.data)) as { type: string; code?: string })
+    }
+    ws.onerror = () => {
+      clearTimeout(timer)
+      reject(new Error('ws error'))
+    }
+  })
+  expect(msg.type).toBe('error')
+  expect(msg.code).toBe('auth_required')
+  ws.close()
 })
 
 test('landing shows brand and start control', async ({ page }) => {
@@ -98,6 +135,11 @@ test('admin page unlocks with key', async ({ page }) => {
   await expect(page.getByText(/Online|Users|Users|En línea|Usuarios|Aguardando|Report/i).first()).toBeVisible({
     timeout: 10_000,
   })
+  // The key is memory-only: unlocking must not persist it, and a reload
+  // locks the console again.
+  expect(await page.evaluate(() => localStorage.getItem('stranger-admin-key'))).toBeNull()
+  await page.reload()
+  await expect(page.locator('input[type="password"]')).toBeVisible()
 })
 
 test('admin overview requires key', async ({ request }) => {

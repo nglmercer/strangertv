@@ -3,7 +3,7 @@
 //! Error strings and status codes are copied verbatim — the client matches on
 //! some of them, and the integration suite asserts on others.
 
-use axum::extract::{Query, State};
+use axum::extract::{ConnectInfo, Query, State};
 use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{delete, get, patch, post};
@@ -12,6 +12,7 @@ use better_auth::core::DbAdapter;
 use better_auth::{EmailPasswordService, SignInInput};
 use libsql::params;
 use serde_json::{json, Value};
+use std::net::SocketAddr;
 
 use crate::age::is_adult;
 use crate::auth::password::{
@@ -27,7 +28,8 @@ use crate::email::{
     reset_email_body, send_email, verify_email_body, Mail, SUBJECT_RESET, SUBJECT_VERIFY,
 };
 use crate::error::{ApiError, ApiResult};
-use crate::infra::http::{client_ip, get_bearer};
+use crate::infra::client_ip::resolve_client_ip;
+use crate::infra::http::get_bearer;
 use crate::infra::metrics::inc;
 use crate::infra::rate_limit::{rate_limit, rate_limit_headers, rate_limit_info};
 use crate::AppState;
@@ -248,10 +250,11 @@ async fn create_better_auth_signup(
 
 async fn register(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> ApiResult<Response> {
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     let rl = rate_limit_info(
         &format!("register:{ip}"),
         register_limit(),
@@ -480,6 +483,7 @@ async fn verify_email(
 
 async fn resend_verification(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
 ) -> ApiResult<Json<Value>> {
     let user = resolve_authenticated_user_row(&headers, &state)
@@ -489,7 +493,7 @@ async fn resend_verification(
     if user.email_verified != 0 {
         return Ok(Json(json!({ "ok": true, "already": true })));
     }
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     if !rate_limit(&format!("reverify:{ip}"), 5, 15 * 60_000) {
         return Err(ApiError::too_many("Too many attempts."));
     }
@@ -540,10 +544,11 @@ async fn enforce_login_policy(
 
 async fn login(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> ApiResult<Response> {
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     let rl = rate_limit_info(&format!("login:{ip}"), 20, 15 * 60_000);
     if !rl.ok {
         return Err(ApiError::too_many("Too many attempts. Try later."));
@@ -885,10 +890,11 @@ async fn preferences(
 
 async fn reset_request(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> ApiResult<Json<Value>> {
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     if !rate_limit(&format!("reset:{ip}"), 5, 15 * 60_000) {
         return Err(ApiError::too_many("Too many attempts."));
     }
@@ -1368,15 +1374,14 @@ mod tests {
         birth_date: &str,
         ip: &str,
     ) -> ApiResult<Response> {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "x-forwarded-for",
-            HeaderValue::from_str(ip).expect("ascii ip"),
-        );
+        // The socket peer is the client identity; forwarded headers from an
+        // untrusted peer are ignored, so the peer carries the test address.
+        let peer: SocketAddr = format!("{ip}:5231").parse().expect("test peer");
         oauth_google_complete_impl(
             state.clone(),
-            headers,
+            HeaderMap::new(),
             json!({ "token": token, "birthDate": birth_date }),
+            peer,
         )
         .await
     }
@@ -1429,6 +1434,7 @@ fn oauth_error_redirect(state: &AppState, reason: &str) -> Response {
 /// `GET /api/v1/auth/oauth/google` — begin the authorization-code flow.
 async fn oauth_google_start(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
 ) -> ApiResult<Response> {
     let Some(google) = state.google_oauth.clone() else {
@@ -1437,7 +1443,7 @@ async fn oauth_google_start(
             "Google sign-in is not enabled.",
         ));
     };
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     if !rate_limit(&format!("oauth:{ip}"), 20, 15 * 60_000) {
         return Err(ApiError::too_many("Too many attempts. Try later."));
     }
@@ -1453,6 +1459,7 @@ async fn oauth_google_start(
 /// sign the user in or hand the browser a pending-signup token.
 async fn oauth_google_callback(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Query(query): Query<GoogleCallbackQuery>,
 ) -> Response {
@@ -1489,7 +1496,7 @@ async fn oauth_google_callback(
         return oauth_error_redirect(&state, "email_unverified");
     }
 
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     match is_banned(&state.db, None, Some(&ip)).await {
         Ok(true) => return oauth_error_redirect(&state, "banned"),
         Ok(false) => {}
@@ -1693,6 +1700,7 @@ async fn better_auth_user(state: &AppState, user_id: i64) -> anyhow::Result<bett
 /// into a real account once the client supplies the missing birth date.
 async fn oauth_google_complete(
     State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> ApiResult<Response> {
@@ -1702,7 +1710,7 @@ async fn oauth_google_complete(
             "Google sign-in is not enabled.",
         ));
     }
-    oauth_google_complete_impl(state, headers, body).await
+    oauth_google_complete_impl(state, headers, body, peer).await
 }
 
 /// The body of [`oauth_google_complete`], split out so tests can drive it
@@ -1711,8 +1719,9 @@ async fn oauth_google_complete_impl(
     state: AppState,
     headers: HeaderMap,
     body: Value,
+    peer: SocketAddr,
 ) -> ApiResult<Response> {
-    let ip = client_ip(&headers);
+    let ip = resolve_client_ip(&headers, Some(peer.ip()), &state.config.trusted_proxies);
     let rl = rate_limit_info(
         &format!("register:{ip}"),
         register_limit(),
