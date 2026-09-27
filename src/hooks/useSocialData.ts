@@ -154,10 +154,29 @@ export function useSocialData(currentUserId: number) {
     return group
   }, [])
 
-  const renameGroup = useCallback(async (groupId: number, name: string) => {
-    await groupsApi.rename(groupId, name)
-    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, name } : g)))
-  }, [])
+  const updateGroup = useCallback(
+    async (groupId: number, patch: { name?: string; description?: string; image?: number | null }) => {
+      await groupsApi.update(groupId, patch)
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId
+            ? {
+                ...g,
+                ...(patch.name !== undefined ? { name: patch.name } : {}),
+                ...(patch.description !== undefined ? { description: patch.description || undefined } : {}),
+                ...(patch.image !== undefined
+                  ? {
+                      imageId: patch.image ?? undefined,
+                      imageUrl: patch.image != null ? `/api/v1/media/${patch.image}` : undefined,
+                    }
+                  : {}),
+              }
+            : g,
+        ),
+      )
+    },
+    [],
+  )
 
   const addMembers = useCallback(async (groupId: number, userIds: number[]) => {
     const { members: list } = await groupsApi.addMembers(groupId, userIds)
@@ -243,7 +262,7 @@ export function useSocialData(currentUserId: number) {
 
     send,
     createGroup,
-    renameGroup,
+    updateGroup,
     addMembers,
     removeMember,
     leaveGroup,

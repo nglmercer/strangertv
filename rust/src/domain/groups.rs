@@ -4,9 +4,11 @@
 use libsql::{params, Row};
 
 use crate::db::Db;
+use crate::domain::media::{kind_for_owner, MediaError, KIND_GROUP};
 use crate::proto::{GroupMessage, PublicUser};
 
 const MAX_GROUP_NAME: usize = 100;
+pub const MAX_GROUP_DESCRIPTION: usize = 500;
 const MAX_MESSAGE_LENGTH: usize = 500;
 
 /// The joined user columns, in the order `public_user_from_row` expects.
@@ -62,6 +64,8 @@ type GroupResult<T> = Result<T, GroupError>;
 pub struct Group {
     pub id: i64,
     pub name: String,
+    pub description: Option<String>,
+    pub image_media_id: Option<i64>,
     pub created_by: i64,
     pub created_at: String,
     pub my_role: String,
@@ -78,7 +82,8 @@ pub struct GroupMember {
 }
 
 const GROUP_SELECT: &str = "SELECT g.id, g.name, g.created_by, g.created_at, gm.role,
-     (SELECT COUNT(*) FROM group_members WHERE group_id = g.id)
+     (SELECT COUNT(*) FROM group_members WHERE group_id = g.id),
+     g.description, g.image_media_id
      FROM groups g
      JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = ?";
 
@@ -90,6 +95,8 @@ fn group_from_row(row: &Row) -> GroupResult<Group> {
         created_at: row.get(3).unwrap_or_default(),
         my_role: row.get(4).unwrap_or_default(),
         member_count: row.get(5).unwrap_or(0),
+        description: row.get::<String>(6).ok().filter(|s| !s.is_empty()),
+        image_media_id: row.get::<i64>(7).ok().filter(|id| *id > 0),
     })
 }
 
@@ -213,6 +220,86 @@ pub async fn rename_group(db: &Db, group_id: i64, user_id: i64, new_name: &str) 
     db.conn()
         .execute("UPDATE groups SET name = ? WHERE id = ?", params![trimmed, group_id])
         .await?;
+    Ok(())
+}
+
+pub async fn set_group_description(
+    db: &Db,
+    group_id: i64,
+    user_id: i64,
+    description: &str,
+) -> GroupResult<()> {
+    require_admin(db, group_id, user_id, "Only admin can edit the group").await?;
+    let trimmed: String = description.trim().chars().take(MAX_GROUP_DESCRIPTION).collect();
+    if trimmed.is_empty() {
+        db.conn()
+            .execute("UPDATE groups SET description = NULL WHERE id = ?", params![group_id])
+            .await?;
+    } else {
+        db.conn()
+            .execute(
+                "UPDATE groups SET description = ? WHERE id = ?",
+                params![trimmed, group_id],
+            )
+            .await?;
+    }
+    Ok(())
+}
+
+fn media_err(e: MediaError) -> GroupError {
+    match e {
+        MediaError::NotFound(m) => GroupError::NotFound(m),
+        MediaError::Forbidden(m) => GroupError::Forbidden(m),
+        MediaError::UnsupportedType(m) | MediaError::TooLarge(m) | MediaError::Quota(m) => {
+            GroupError::Invalid(m)
+        }
+        MediaError::Db(err) => GroupError::Db(err),
+    }
+}
+
+/// Point the group image at an owned group-kind blob (`None` clears it).
+/// Admin-only; replacing deletes the previous blob like avatars do.
+pub async fn set_group_image(
+    db: &Db,
+    group_id: i64,
+    user_id: i64,
+    media_id: Option<i64>,
+) -> GroupResult<()> {
+    require_admin(db, group_id, user_id, "Only admin can change the group image").await?;
+    if let Some(id) = media_id {
+        let kind = kind_for_owner(db.conn(), id, user_id).await.map_err(media_err)?;
+        if kind != KIND_GROUP {
+            return Err(GroupError::Invalid("Not a group image upload"));
+        }
+    }
+    let mut rows = db
+        .conn()
+        .query("SELECT image_media_id FROM groups WHERE id = ?", params![group_id])
+        .await?;
+    let previous: Option<i64> = match rows.next().await? {
+        Some(row) => row.get(0).ok(),
+        None => None,
+    };
+    drop(rows);
+    match media_id {
+        Some(id) => {
+            db.conn()
+                .execute("UPDATE groups SET image_media_id = ? WHERE id = ?", params![id, group_id])
+                .await?;
+        }
+        None => {
+            db.conn()
+                .execute("UPDATE groups SET image_media_id = NULL WHERE id = ?", params![group_id])
+                .await?;
+        }
+    }
+    if let Some(old) = previous {
+        if Some(old) != media_id {
+            db.conn()
+                .execute("DELETE FROM media WHERE id = ?", params![old])
+                .await?;
+        }
+    }
     Ok(())
 }
 
@@ -718,5 +805,63 @@ mod tests {
         assert_eq!(msgs.len(), 2);
         assert_eq!(msgs[0].text, "first");
         assert_eq!(msgs[1].sender.as_ref().unwrap().id, 2);
+    }
+
+    #[tokio::test]
+    async fn description_is_admin_only_and_blank_clears() {
+        let db = seeded_db().await;
+        let (group, _) = create_group(&db, 1, "Team", &[2]).await.unwrap();
+        let gid = group.unwrap().id;
+
+        assert!(matches!(
+            set_group_description(&db, gid, 2, "Hi").await,
+            Err(GroupError::Forbidden(_))
+        ));
+        set_group_description(&db, gid, 1, "  Hello **there**  ").await.unwrap();
+        let g = get_group(&db, gid, 1).await.unwrap().expect("group");
+        assert_eq!(g.description.as_deref(), Some("Hello **there**"));
+        set_group_description(&db, gid, 1, "   ").await.unwrap();
+        let g = get_group(&db, gid, 1).await.unwrap().expect("group");
+        assert!(g.description.is_none());
+    }
+
+    #[tokio::test]
+    async fn group_image_validates_replaces_and_clears() {
+        use crate::domain::media::{get_media, store_media, KIND_AVATAR, KIND_GROUP};
+
+        /// 1x1 transparent PNG.
+        const PIXEL: &[u8] = &[
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+
+        let db = seeded_db().await;
+        let (group, _) = create_group(&db, 1, "Team", &[2]).await.unwrap();
+        let gid = group.unwrap().id;
+
+        let img1 = store_media(&db, 1, KIND_GROUP, "image/png", PIXEL).await.unwrap();
+        assert!(matches!(
+            set_group_image(&db, gid, 2, Some(img1)).await,
+            Err(GroupError::Forbidden(_))
+        ));
+        let avatar = store_media(&db, 1, KIND_AVATAR, "image/png", PIXEL).await.unwrap();
+        assert!(matches!(
+            set_group_image(&db, gid, 1, Some(avatar)).await,
+            Err(GroupError::Invalid(_))
+        ));
+        set_group_image(&db, gid, 1, Some(img1)).await.unwrap();
+        let g = get_group(&db, gid, 1).await.unwrap().expect("group");
+        assert_eq!(g.image_media_id, Some(img1));
+
+        let img2 = store_media(&db, 1, KIND_GROUP, "image/png", PIXEL).await.unwrap();
+        set_group_image(&db, gid, 1, Some(img2)).await.unwrap();
+        assert!(get_media(&db, img1).await.unwrap().is_none());
+
+        set_group_image(&db, gid, 1, None).await.unwrap();
+        let g = get_group(&db, gid, 1).await.unwrap().expect("group");
+        assert!(g.image_media_id.is_none());
     }
 }

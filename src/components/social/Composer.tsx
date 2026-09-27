@@ -51,6 +51,7 @@ export function Composer({ t, onSend }: { t: Messages; onSend: (text: string) =>
         maxLength={MAX}
         placeholder={t.typeMessage}
         aria-label={t.typeMessage}
+        title={t.markdownHint}
         onInput={(e) => {
           setText((e.target as HTMLTextAreaElement).value)
           resize()

@@ -6,9 +6,8 @@ import { socialStore, useSocialStore } from '../../store/socialStore'
 import { Icon, icons } from '../icons'
 import { Avatar } from './Avatar'
 import { EmptyState, ErrorState, ListSkeleton } from './States'
+import { userDisplayName } from './people'
 import type { ChatId, LoadState } from '../../hooks/useSocialData'
-
-export const displayName = (email: string) => email.split('@')[0] ?? email
 
 function match(haystack: string, needle: string) {
   return haystack.toLowerCase().includes(needle.toLowerCase())
@@ -58,6 +57,7 @@ export function ConversationList({
       key: `group:${g.id}`,
       chat: { kind: 'group' as const, id: g.id },
       name: g.name,
+      src: g.imageUrl ?? null,
       sub:
         g.memberCount === 1
           ? t.memberCountOne
@@ -70,10 +70,11 @@ export function ConversationList({
       return {
         key: `friend:${f.otherUser.id}`,
         chat: { kind: 'friend' as const, id: f.otherUser.id },
-        name: displayName(f.otherUser.email),
+        name: userDisplayName(f.otherUser),
         sub: online ? t.online : t.presenceOffline,
         kind: 'user' as const,
         presence: (online ? 'online' : 'offline') as 'online' | 'offline',
+        src: null,
       }
     })
     const all = [...groupRows, ...friendRows]
@@ -144,7 +145,7 @@ export function ConversationList({
                   aria-current={isActive}
                   onClick={() => onOpen(row.chat)}
                 >
-                  <Avatar name={row.name} kind={row.kind} presence={row.presence} />
+                  <Avatar name={row.name} kind={row.kind} presence={row.presence} src={row.src} />
                   <span class="social-row-text">
                     <span class="social-row-name">{row.name}</span>
                     <span class="social-row-sub">{row.sub}</span>

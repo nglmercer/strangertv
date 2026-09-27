@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'preact/hooks'
 import type { Messages } from '../../i18n'
 import { icons } from '../icons'
 import { Avatar } from './Avatar'
-import { displayName } from './ConversationList'
 import { EmptyState, ErrorState } from './States'
+import { userDisplayName } from './people'
+import { Markdown } from '../Markdown'
 import type { AnyMessage, LoadState } from '../../hooks/useSocialData'
 
 /** Same calendar day? Used for the date separators. */
@@ -41,10 +42,18 @@ export function MessageThread({
   showSenders: boolean
   onRetry: () => void
 }) {
+  const boxRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  const firstFill = useRef(true)
 
+  // Stick to the bottom on first fill and while the reader is already near
+  // it; never yank scroll position away from history being read.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
+    const box = boxRef.current
+    if (!box) return
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120
+    if (firstFill.current || nearBottom) endRef.current?.scrollIntoView({ block: 'end' })
+    firstFill.current = false
   }, [messages.length])
 
   if (state === 'error') {
@@ -64,7 +73,7 @@ export function MessageThread({
   }
 
   return (
-    <div class="thread" aria-live="polite">
+    <div class="thread" aria-live="polite" ref={boxRef}>
       {messages.map((msg, i) => {
         const date = new Date(msg.createdAt)
         const prev = messages[i - 1]
@@ -76,7 +85,7 @@ export function MessageThread({
           prev != null &&
           prev.senderId === msg.senderId &&
           date.getTime() - new Date(prev.createdAt).getTime() < GROUP_WINDOW_MS
-        const sender = 'sender' in msg && msg.sender ? displayName(msg.sender.email) : mine ? t.you : ''
+        const sender = 'sender' in msg && msg.sender ? userDisplayName(msg.sender) : mine ? t.you : ''
 
         return (
           <div key={`${msg.id}-${i}`}>
@@ -94,7 +103,7 @@ export function MessageThread({
               <div class="bubble-stack">
                 {!mine && showSenders && !grouped && sender && <span class="bubble-sender">{sender}</span>}
                 <div class="bubble">
-                  <span class="bubble-text">{msg.text}</span>
+                  <Markdown text={msg.text} className="bubble-text" />
                   <time class="bubble-time" dateTime={msg.createdAt}>
                     {clock(date)}
                   </time>

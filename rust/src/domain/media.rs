@@ -12,9 +12,15 @@ use crate::db::Db;
 
 pub const KIND_AVATAR: &str = "avatar";
 pub const KIND_ICON: &str = "icon";
+pub const KIND_GROUP: &str = "group";
 pub const MAX_AVATAR_BYTES: usize = 512 * 1024;
 pub const MAX_ICON_BYTES: usize = 256 * 1024;
+pub const MAX_GROUP_BYTES: usize = 512 * 1024;
 pub const MAX_ICONS_PER_USER: i64 = 20;
+
+pub fn is_valid_kind(kind: &str) -> bool {
+    matches!(kind, KIND_AVATAR | KIND_ICON | KIND_GROUP)
+}
 
 const ALLOWED_MIME: &[&str] = &["image/png", "image/jpeg", "image/webp"];
 
@@ -54,6 +60,7 @@ fn cap_for(kind: &str) -> Result<usize, MediaError> {
     match kind {
         KIND_AVATAR => Ok(MAX_AVATAR_BYTES),
         KIND_ICON => Ok(MAX_ICON_BYTES),
+        KIND_GROUP => Ok(MAX_GROUP_BYTES),
         _ => Err(MediaError::UnsupportedType("Unknown media kind")),
     }
 }
@@ -173,7 +180,13 @@ pub async fn list_media(
     Ok(out)
 }
 
-async fn kind_for_owner(conn: &Connection, id: i64, user_id: i64) -> Result<String, MediaError> {
+/// The blob's kind after proving ownership. Shared by avatar, icon, and
+/// group-image setters so every one enforces the same rule.
+pub async fn kind_for_owner(
+    conn: &Connection,
+    id: i64,
+    user_id: i64,
+) -> Result<String, MediaError> {
     let mut rows = conn
         .query(
             "SELECT user_id, kind FROM media WHERE id = ?",

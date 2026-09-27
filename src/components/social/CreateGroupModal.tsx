@@ -1,10 +1,8 @@
-import { useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import type { Friend } from '../../../shared/types'
 import type { Messages } from '../../i18n'
 import { Modal } from '../Modal'
-import { Icon, icons } from '../icons'
-import { Avatar } from './Avatar'
-import { displayName } from './ConversationList'
+import { MemberPicker } from './MemberPicker'
 
 /**
  * Create a group: name plus an optional set of friends.
@@ -25,6 +23,10 @@ export function CreateGroupModal({
 }) {
   const [name, setName] = useState('')
   const [picked, setPicked] = useState<Set<number>>(new Set())
+  const nameRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    nameRef.current?.focus()
+  }, [])
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
 
@@ -62,11 +64,11 @@ export function CreateGroupModal({
         <label>
           {t.newGroup}
           <input
+            ref={nameRef}
             type="text"
             value={name}
             placeholder={t.groupNamePlaceholder}
             maxLength={100}
-            autofocus
             onInput={(e) => setName((e.target as HTMLInputElement).value)}
           />
         </label>
@@ -75,28 +77,12 @@ export function CreateGroupModal({
           {t.selectFriends}
           {picked.size > 0 && <span class="count">{picked.size}</span>}
         </p>
-        {friends.length === 0 ? (
-          <p class="people-note">{t.noFriends}</p>
-        ) : (
-          <div class="pick-list">
-            {friends.map((f) => {
-              const on = picked.has(f.otherUser.id)
-              return (
-                <button
-                  type="button"
-                  key={f.id}
-                  class={`pick-row ${on ? 'on' : ''}`}
-                  aria-pressed={on}
-                  onClick={() => toggle(f.otherUser.id)}
-                >
-                  <Avatar name={displayName(f.otherUser.email)} size={30} />
-                  <span class="pick-name">{displayName(f.otherUser.email)}</span>
-                  <span class="pick-check">{on && <Icon d={icons.check} size={15} />}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
+        <MemberPicker
+          friends={friends}
+          picked={picked}
+          empty={<p class="people-note">{t.noFriends}</p>}
+          onToggle={toggle}
+        />
 
         {failed && <p class="people-note error">{t.genericError}</p>}
 

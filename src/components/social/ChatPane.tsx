@@ -4,8 +4,8 @@ import { useSocialStore } from '../../store/socialStore'
 import { Icon, icons } from '../icons'
 import { Avatar } from './Avatar'
 import { Composer } from './Composer'
-import { displayName } from './ConversationList'
 import { MessageThread } from './MessageThread'
+import { userDisplayName } from './people'
 import type { AnyMessage, ChatId, LoadState } from '../../hooks/useSocialData'
 
 /** Header + thread + composer for the open conversation. */
@@ -42,7 +42,7 @@ export function ChatPane({
 }) {
   const store = useSocialStore()
   const isGroup = chat.kind === 'group'
-  const name = isGroup ? group?.name ?? '' : displayName(friend?.otherUser.email ?? '')
+  const name = isGroup ? (group?.name ?? '') : friend ? userDisplayName(friend.otherUser) : ''
   const online = !isGroup && friend ? store.isOnline(friend.otherUser.id) : false
   const subtitle = isGroup
     ? memberCount === 1
@@ -63,6 +63,7 @@ export function ChatPane({
           kind={isGroup ? 'group' : 'user'}
           size={38}
           presence={isGroup ? undefined : online ? 'online' : 'offline'}
+          src={isGroup ? group?.imageUrl : undefined}
         />
         <span class="chat-top-text">
           <span class="chat-top-name">{name}</span>
@@ -88,6 +89,7 @@ export function ChatPane({
       </header>
 
       <MessageThread
+        key={`${chat.kind}:${chat.id}`}
         t={t}
         messages={messages}
         state={messagesState}

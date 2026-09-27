@@ -289,6 +289,8 @@ const CREATE_TABLES: &[&str] = &[
     "CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      description TEXT,
+      image_media_id INTEGER,
       created_by INTEGER NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (created_by) REFERENCES users(id)
@@ -360,6 +362,8 @@ const BEST_EFFORT: &[&str] = &[
     "ALTER TABLE users ADD COLUMN bio TEXT",
     "ALTER TABLE users ADD COLUMN website TEXT",
     "ALTER TABLE users ADD COLUMN avatar_media_id INTEGER",
+    "ALTER TABLE groups ADD COLUMN description TEXT",
+    "ALTER TABLE groups ADD COLUMN image_media_id INTEGER",
     "CREATE INDEX IF NOT EXISTS media_owner ON media (user_id, kind)",
     "CREATE UNIQUE INDEX IF NOT EXISTS users_username ON users (username COLLATE NOCASE)",
     "ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'open'",

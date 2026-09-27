@@ -4,6 +4,7 @@ import type { ProfileHeaderDTO, ReportReason } from '../../shared/types'
 import { errorStatus, getStoredUser, profilesApi, socialApi } from '../api'
 import { AuthModal } from '../components/AuthModal'
 import { Icon, icons } from '../components/icons'
+import { Markdown } from '../components/Markdown'
 import { FollowListsModal, type FollowTab } from '../components/profile/FollowLists'
 import { ProfileLinks } from '../components/profile/ProfileLinks'
 import { ReportModal } from '../components/ReportModal'
@@ -289,7 +290,7 @@ export function ProfilePage({ handle }: ProfilePageProps) {
             <h1 class="pd-name">{display}</h1>
             <p class="pd-handleline">@{name}</p>
           </div>
-          {header?.bio && <p class="pd-bio">{header.bio}</p>}
+          {header?.bio && <Markdown block text={header.bio} className="pd-bio" />}
           {header?.website && (
             <p class="pd-linkline">
               <a

@@ -110,7 +110,7 @@ export function SocialApp({
           onClose={() => setInfoOpen(false)}
           onAddMembers={(ids) => data.addMembers(data.activeGroup!.id, ids)}
           onRemoveMember={(id) => data.removeMember(data.activeGroup!.id, id)}
-          onRename={(name) => data.renameGroup(data.activeGroup!.id, name)}
+          onUpdate={(patch) => data.updateGroup(data.activeGroup!.id, patch)}
           onLeave={async () => {
             await data.leaveGroup(data.activeGroup!.id)
             setInfoOpen(false)

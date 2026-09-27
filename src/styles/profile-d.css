@@ -238,6 +238,41 @@
   color: #eee;
 }
 
+.pd-bio p {
+  margin: 0 0 8px;
+}
+
+.pd-bio p:last-child,
+.pd-bio ul:last-child,
+.pd-bio pre:last-child {
+  margin-bottom: 0;
+}
+
+.pd-bio ul {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.pd-bio pre {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #ffffff10;
+  overflow-x: auto;
+}
+
+.pd-bio pre code,
+.pd-bio p code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.pd-bio h3,
+.pd-bio h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
 .pd-linkline {
   margin: 0;
   font-size: 14px;

@@ -248,6 +248,7 @@ export const MEDIA_MIMES = ['image/png', 'image/jpeg', 'image/webp'] as const
 export const MEDIA_MAX_BYTES: Record<MediaKind, number> = {
   avatar: 512 * 1024,
   icon: 256 * 1024,
+  group: 512 * 1024,
 }
 
 export const mediaApi = {
@@ -298,10 +299,11 @@ export const groupsApi = {
       body: JSON.stringify({ name, memberIds }),
     }),
   get: (id: number) => api<{ group: Group }>(API_ROUTES.groupById(id)),
-  rename: (id: number, name: string) =>
+  /** Admin-only patch: any subset of name, description, image (id or null). */
+  update: (id: number, patch: { name?: string; description?: string; image?: number | null }) =>
     api<{ ok: boolean }>(API_ROUTES.groupById(id), {
       method: 'PATCH',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(patch),
     }),
   getMembers: (id: number) =>
     api<{ members: GroupMember[] }>(API_ROUTES.groupMembers(id)),

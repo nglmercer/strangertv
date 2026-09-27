@@ -113,7 +113,7 @@ async fn list_mine(
 ) -> ApiResult<Json<Value>> {
     let user = require_user(&state, &headers).await?;
     if let Some(kind) = query.kind.as_deref() {
-        if kind != crate::domain::media::KIND_AVATAR && kind != crate::domain::media::KIND_ICON {
+        if !crate::domain::media::is_valid_kind(kind) {
             return Err(ApiError::bad_request("Unknown media kind"));
         }
     }

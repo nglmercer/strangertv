@@ -72,6 +72,9 @@ export type Invitation = {
 export type Group = {
   id: number
   name: string
+  description?: string
+  imageUrl?: string
+  imageId?: number
   createdBy: number
   createdAt: string
   myRole?: GroupRole
@@ -129,7 +132,7 @@ export type ProfileHeaderDTO = {
   followingCount: number
 }
 
-export type MediaKind = 'avatar' | 'icon'
+export type MediaKind = 'avatar' | 'icon' | 'group'
 
 export type MediaMetaDTO = {
   id: number

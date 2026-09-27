@@ -12,7 +12,8 @@ use crate::auth::session::UserRow;
 use crate::domain::groups::{
     add_group_members, create_group, get_group, get_group_invite, get_group_invites,
     get_group_members, get_group_members_for_user, get_group_messages, get_groups, leave_group,
-    remove_group_member, rename_group, respond_group_invite, send_group_message, GroupError,
+    remove_group_member, rename_group, respond_group_invite, send_group_message,
+    set_group_description, set_group_image, GroupError,
 };
 use crate::error::{ApiError, ApiResult};
 use crate::infra::rate_limit::rate_limit;
@@ -22,7 +23,7 @@ use crate::AppState;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/v1/groups", get(list_groups).post(create))
-        .route("/api/v1/groups/{id}", get(show).patch(rename))
+        .route("/api/v1/groups/{id}", get(show).patch(update))
         .route(
             "/api/v1/groups/{id}/members",
             get(members).post(add_members),
@@ -66,6 +67,9 @@ fn group_json(g: &crate::domain::groups::Group) -> Value {
     json!({
         "id": g.id,
         "name": g.name,
+        "description": g.description,
+        "imageId": g.image_media_id,
+        "imageUrl": g.image_media_id.map(|id| format!("/api/v1/media/{id}")),
         "createdBy": g.created_by,
         "createdAt": g.created_at,
         "myRole": g.my_role,
@@ -132,7 +136,9 @@ async fn show(
     Ok(Json(json!({ "group": group_json(&group) })))
 }
 
-async fn rename(
+/// Admin-only patch: any subset of name, description, and image (a media
+/// id, or null to clear). Absent keys leave their column alone.
+async fn update(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(group_id): Path<i64>,
@@ -142,11 +148,26 @@ async fn rename(
     if group_id == 0 {
         return Err(ApiError::bad_request("Invalid id"));
     }
-    let name = body.get("name").and_then(Value::as_str).unwrap_or_default();
-    if name.trim().is_empty() {
-        return Err(ApiError::bad_request("Group name is required"));
+    if body.get("name").is_none() && body.get("description").is_none() && body.get("image").is_none()
+    {
+        return Err(ApiError::bad_request("Nothing to update"));
     }
-    rename_group(&state.db, group_id, user.id, name).await?;
+    if let Some(name) = body.get("name").and_then(Value::as_str) {
+        rename_group(&state.db, group_id, user.id, name).await?;
+    }
+    if let Some(description) = body.get("description").and_then(Value::as_str) {
+        set_group_description(&state.db, group_id, user.id, description).await?;
+    }
+    if let Some(image) = body.get("image") {
+        let media_id = if image.is_null() {
+            None
+        } else if let Some(id) = image.as_i64() {
+            Some(id)
+        } else {
+            return Err(ApiError::bad_request("Invalid image."));
+        };
+        set_group_image(&state.db, group_id, user.id, media_id).await?;
+    }
     Ok(Json(json!({ "ok": true })))
 }
 
