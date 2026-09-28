@@ -287,6 +287,17 @@ pub enum ServerMessage {
         activity: ActivityEntry,
     },
 
+    /// Another call participant invites the receiver to their game party.
+    /// The receiver joins with the normal instance join (they must already
+    /// be a member of the instance's group).
+    #[serde(rename = "activity:invited")]
+    ActivityInvited {
+        room_id: String,
+        instance: ActivityInstance,
+        activity: ActivityEntry,
+        inviter: PublicUser,
+    },
+
     #[serde(rename = "group-match:matched")]
     GroupMatchMatched {
         room_id: String,

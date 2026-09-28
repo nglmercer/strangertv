@@ -43,6 +43,7 @@ type Handlers = {
   onActivityPresence?: (instanceId: number, participants: ActivityParticipantEntry[]) => void
   onActivityEnded?: (instanceId: number) => void
   onActivityLaunched?: (instance: ActivityInstance, activity: ActivityEntry) => void
+  onActivityInvited?: (roomId: string, instance: ActivityInstance, activity: ActivityEntry, inviter: PublicUser) => void
 }
 
 export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
@@ -243,6 +244,9 @@ export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
         case WS_MESSAGE_TYPE.activityLaunched:
           h.onActivityLaunched?.(msg.instance, msg.activity)
           break
+        case WS_MESSAGE_TYPE.activityInvited:
+          h.onActivityInvited?.(msg.roomId, msg.instance, msg.activity, msg.inviter)
+          break
       }
     }
 
@@ -352,6 +356,13 @@ export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
   const activityLeave = useCallback(
     (instanceId: number) => {
       send({ type: WS_MESSAGE_TYPE.activityLeave, instanceId })
+    },
+    [send],
+  )
+
+  const activityInvite = useCallback(
+    (roomId: string, instanceId: number) => {
+      send({ type: WS_MESSAGE_TYPE.activityInvite, roomId, instanceId })
     },
     [send],
   )
@@ -467,6 +478,7 @@ export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
     invitationDecline,
     activityState,
     activityLeave,
+    activityInvite,
     connected,
     socket,
   }

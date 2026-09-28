@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n web,api -c cyan,magenta \"vite\" \"cd rust && STATIC_DIR=../dist cargo watch -x run\"",
-    "dev:once": "concurrently -k -n web,api -c cyan,magenta \"vite\" \"cd rust && STATIC_DIR=../dist cargo run\"",
+    "dev": "bash scripts/free-ports.sh && concurrently -k -n api,web -c magenta,cyan \"cd rust && STATIC_DIR=../dist cargo watch -x run\" \"node scripts/wait-for-port.mjs 8787 && vite\"",
+    "dev:once": "bash scripts/free-ports.sh && concurrently -k -n api,web -c magenta,cyan \"cd rust && STATIC_DIR=../dist cargo run\" \"node scripts/wait-for-port.mjs 8787 && vite\"",
     "free-ports": "bash scripts/free-ports.sh",
-    "dev:fresh": "bash scripts/free-ports.sh && concurrently -k -n web,api -c cyan,magenta \"vite\" \"cd rust && STATIC_DIR=../dist cargo watch -x run\"",
+    "dev:fresh": "FREE_PORTS_SWEEP=1 bash scripts/free-ports.sh && concurrently -k -n api,web -c magenta,cyan \"cd rust && STATIC_DIR=../dist cargo watch -x run\" \"node scripts/wait-for-port.mjs 8787 && vite\"",
     "build": "tsc -b && vite build",
     "build:server": "cd rust && cargo build --release",
     "build:all": "npm run build && npm run build:server",

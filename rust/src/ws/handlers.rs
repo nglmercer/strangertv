@@ -773,6 +773,91 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
             broadcast_activity_roster(state, instance.group_id, instance_id, ended).await;
         }
 
+        ClientMessage::ActivityInvite {
+            room_id,
+            instance_id,
+        } => {
+            let Some(me) = caller_user_id(state, ctx).await else {
+                send(hub, socket, &err("auth_required", "Sign in to invite."));
+                return;
+            };
+            if !crate::infra::rate_limit::rate_limit(&format!("wsinvite:{me}"), 10, 60_000) {
+                send(hub, socket, &err("rate_limit", "Slow down invites."));
+                return;
+            }
+            if room_id.is_empty() || instance_id == 0 {
+                send(hub, socket, &err("bad_prefs", "That invite is incomplete."));
+                return;
+            }
+            // The claimed room must be the caller's CURRENT room: invites
+            // never cross calls, and a stale room id fails closed.
+            if engine.room_id_of(socket).await.as_deref() != Some(room_id.as_str()) {
+                send(
+                    hub,
+                    socket,
+                    &err("bad_prefs", "You are not in that call."),
+                );
+                return;
+            }
+            let Ok(Some(instance)) =
+                activities_svc::get_instance(&state.db, instance_id).await
+            else {
+                send(hub, socket, &err("bad_prefs", "Game not found."));
+                return;
+            };
+            if instance.status != crate::proto::ActivityStatus::Active {
+                send(hub, socket, &err("bad_prefs", "That game has ended."));
+                return;
+            }
+            // Only a seated player may invite: the seat proves group
+            // membership, so no separate membership check is needed.
+            let seated = activities_svc::is_participant(&state.db, instance_id, me)
+                .await
+                .unwrap_or(false);
+            if !seated {
+                send(
+                    hub,
+                    socket,
+                    &err("bad_prefs", "Join the game before inviting."),
+                );
+                return;
+            }
+            let Ok(Some(activity)) =
+                activities_svc::get_activity(&state.db, instance.activity_id).await
+            else {
+                send(hub, socket, &err("bad_prefs", "Game not found."));
+                return;
+            };
+            // 1:1 partner first, else the rest of a group room — the same
+            // order `relay_chat` uses. Targets are sockets, not users, so an
+            // anonymous peer still gets the prompt (their client asks them
+            // to sign in before joining).
+            let mut targets = Vec::new();
+            if let Some(partner) = engine.partner_of(socket).await {
+                targets.push(partner);
+            } else {
+                targets.extend(engine.group_peers_of(socket).await);
+            }
+            if targets.is_empty() {
+                send(
+                    hub,
+                    socket,
+                    &err("bad_prefs", "Nobody else is in this call."),
+                );
+                return;
+            }
+            let inviter = profile_of(&state.db, me).await;
+            let message = ServerMessage::ActivityInvited {
+                room_id: room_id.clone(),
+                instance,
+                activity,
+                inviter,
+            };
+            for target in targets {
+                send(hub, target, &message);
+            }
+        }
+
         ClientMessage::GroupInviteSend { group_id, user_id } => {
             let Some(me) = caller_user_id(state, ctx).await else {
                 send(hub, socket, &err("auth_required", "Sign in to invite."));

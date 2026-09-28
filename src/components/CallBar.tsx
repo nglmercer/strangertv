@@ -35,6 +35,7 @@ type Props = {
   onStop: () => void
   onNext: () => void
   onOpenSocial: () => void
+  onActivities: () => void
   onApplySharedPrefs: () => void
   onDismissSharedPrefs: () => void
   onDeviceChange: (kind: 'video' | 'audio', id: string) => void
@@ -71,6 +72,7 @@ export function CallBar({
   onStop,
   onNext,
   onOpenSocial,
+  onActivities,
   onApplySharedPrefs,
   onDismissSharedPrefs,
   onDeviceChange,
@@ -367,6 +369,20 @@ export function CallBar({
               <Icon d={icons.fullscreen} size={18} />
               <span>{t.fullscreen}</span>
             </button>
+            {matched && user && (
+              <button
+                type="button"
+                role="menuitem"
+                class="call-menu-item"
+                onClick={() => {
+                  setMenu(null)
+                  onActivities()
+                }}
+              >
+                <Icon d={icons.game} size={18} />
+                <span>{t.activities}</span>
+              </button>
+            )}
             {user && (
               <button
                 type="button"

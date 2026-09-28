@@ -23,13 +23,14 @@ npm run dev
 | Vite SPA | http://localhost:5173 |
 | API + WebSocket | http://localhost:8787 |
 
-Open the SPA; it proxies API/WS to the backend in dev. `npm run dev` runs
-Vite plus `cargo watch -x run` in `rust/` (with `STATIC_DIR=../dist`).
-
-If a port is already taken (`EADDRINUSE`), a leftover process still owns it:
+Open the SPA; it proxies API/WS to the backend in dev. `npm run dev` frees
+ports 8787/5173, runs `cargo watch -x run` in `rust/` (with
+`STATIC_DIR=../dist`), then starts Vite once the API accepts connections —
+so a leftover process no longer blocks boot with `EADDRINUSE`.
 
 ```bash
-npm run free-ports   # or: npm run dev:fresh
+npm run free-ports   # free the ports without starting anything
+npm run dev:fresh    # free ports + kill all stale watchers, then start dev
 ```
 
 ## Production on one port

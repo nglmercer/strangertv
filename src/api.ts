@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences, Friend, Follow, FollowStateDTO, Invitation, Message, MediaKind, MediaMetaDTO, MediaUploadDTO, Group, GroupMember, GroupMessage, GroupInvite, ProfileDocDTO, ProfileLinkDTO, ProfileSectionDTO, UserFollowsDTO, ActivityEntry, ActivityInstance, ActivityParticipantEntry } from '../shared/types'
+import type { Gender, MatchPreferences, Friend, Follow, FollowStateDTO, Invitation, Message, MediaKind, MediaMetaDTO, MediaUploadDTO, Group, GroupMember, GroupMessage, GroupInvite, ProfileDocDTO, ProfileLinkDTO, ProfileSectionDTO, UserFollowsDTO, ActivityEntry, ActivityInstance, ActivityParticipantEntry, PublicUser as WirePublicUser } from '../shared/types'
 import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_MODE, DEFAULT_MATCH_POOL, DEFAULT_MATCH_SCOPE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
@@ -81,6 +81,26 @@ export function onActivityLaunched(listener: ActivityLaunchedListener): () => vo
 export function emitActivityLaunched(instance: ActivityInstance, activity: ActivityEntry) {
   for (const listener of activityLaunchedListeners) {
     listener(instance, activity)
+  }
+}
+
+export type ActivityInviteReceived = {
+  roomId: string
+  instance: ActivityInstance
+  activity: ActivityEntry
+  inviter: WirePublicUser
+}
+type ActivityInvitedListener = (invite: ActivityInviteReceived) => void
+const activityInvitedListeners = new Set<ActivityInvitedListener>()
+
+export function onActivityInvited(listener: ActivityInvitedListener): () => void {
+  activityInvitedListeners.add(listener)
+  return () => activityInvitedListeners.delete(listener)
+}
+
+export function emitActivityInvited(invite: ActivityInviteReceived) {
+  for (const listener of activityInvitedListeners) {
+    listener(invite)
   }
 }
 

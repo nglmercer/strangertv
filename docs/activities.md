@@ -72,3 +72,29 @@ user-info-only identity — it never sees the user's session.
 
 Contract details: [Architecture](./architecture.md) ·
 API reference: `/api/v1/docs` · Wire types: `shared/generated/`.
+
+## In-call parties
+
+The call bar's more menu (⋯) offers **Activities** during a matched call
+(signed-in host only). Picking a game provisions one party group for the
+call — named `Game with <peer>` with every authenticated peer as a member —
+launches the instance there, and sends `activity:invite` over the match
+socket. Each other call participant gets a join prompt; accepting joins the
+instance and opens the same iframe session, declining just dismisses it.
+
+- `src/hooks/useCallParty.ts` — party state: lazy group provisioning,
+  launch + auto-invite, invite prompt, auto-join on accept, seat give-back
+  when the call ends;
+- `src/components/social/ActivityInviteModal.tsx` — the peer-side prompt
+  (anonymous receivers get a sign-in hint; seats need an account);
+- the launcher and session views are the shared `ActivityLauncher` /
+  `ActivitySession` from group chat.
+
+Server side, `activity:invite` is validated like any other relay: the
+sender must be authenticated, currently in the claimed room, and seated at
+an active instance. Targets are sockets, not users, so 1:1 partners and
+group rooms both work — covered by `tests/activity-invite.test.ts`.
+
+Limits: one party group per call (reused across launches), anonymous peers
+cannot play until they sign in, and the party group stays behind as a
+regular group after the call — delete-or-archive for parties is future work.

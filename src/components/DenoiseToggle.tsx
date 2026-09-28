@@ -1,4 +1,5 @@
 import type { Messages } from '../i18n'
+import { Switch } from './Switch'
 
 /**
  * Enable/disable switch for mic noise reduction. Renders nothing where the
@@ -16,10 +17,5 @@ export function DenoiseToggle({
   onToggle: () => void
 }) {
   if (!supported) return null
-  return (
-    <label class="toggle-label" title={t.denoiseHint}>
-      <input type="checkbox" checked={enabled} onChange={onToggle} />
-      <span>{t.denoise}</span>
-    </label>
-  )
+  return <Switch label={t.denoise} hint={t.denoiseHint} checked={enabled} onToggle={onToggle} />
 }

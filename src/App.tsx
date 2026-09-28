@@ -5,11 +5,15 @@ import type { GroupVisibility, Locale, MatchMode, MatchPreferences, PublicUser a
 import { PREFS_TAB, PrefsTab, GENDER, SERVER_ERROR_CODE, STORAGE_KEYS } from '../shared/constants'
 const SocialPage = lazy(() => import('./pages/SocialPage').then((m) => ({ default: m.SocialPage })))//import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
-import { authApi, clearSession, economyApi, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, emitActivityState, emitActivityPresence, emitActivityEnded, emitActivityLaunched, type PublicUser } from './api'
+import { authApi, clearSession, economyApi, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, emitActivityState, emitActivityPresence, emitActivityEnded, emitActivityLaunched, emitActivityInvited, type PublicUser } from './api'
 import type { UiSettings } from './types/ui'
 import { loadUiSettings, saveUiSettings } from './utils/uiSettings'
 import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
+import { Modal } from './components/Modal'
+import { ActivityInviteModal } from './components/social/ActivityInviteModal'
+import { ActivityLauncher } from './components/social/ActivityLauncher'
+import { ActivitySession } from './components/social/ActivitySession'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
 import { EconomyPanel } from './components/EconomyPanel'
@@ -19,6 +23,7 @@ import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
 import { VideoStage } from './components/VideoStage'
 import { useCallKeyboard } from './hooks/useCallKeyboard'
+import { useCallParty } from './hooks/useCallParty'
 import { useMatchSession } from './hooks/useMatchSession'
 import { socialStore } from './store/socialStore'
 import { useSessionBootstrap } from './hooks/useSessionBootstrap'
@@ -171,6 +176,8 @@ export function App(_props: AppProps) {
     onActivityPresence: (instanceId, participants) => emitActivityPresence(instanceId, participants),
     onActivityEnded: (instanceId) => emitActivityEnded(instanceId),
     onActivityLaunched: (instance, activity) => emitActivityLaunched(instance, activity),
+    onActivityInvited: (roomId, instance, activity, inviter) =>
+      emitActivityInvited({ roomId, instance, activity, inviter }),
     onSocialEvent: handleSocialEvent,
     onPresenceList: (userIds) => socialStore.setOnlineFriends(userIds),
     onPresenceChange: (userId, online) =>
@@ -242,8 +249,21 @@ export function App(_props: AppProps) {
     }
   }
 
+  const party = useCallParty({
+    t: tr,
+    userId: user?.id ?? null,
+    roomId: session.roomId,
+    matched: session.matched,
+    peerUserId: session.peerUserId,
+    peerEmail: session.peerEmail,
+    groupParticipants: session.groupParticipants,
+    socket: session.match,
+  })
+
+  const partyModalOpen = party.launcherOpen || party.pendingInvite != null || party.session != null
+
   const anyModalOpen =
-    showStart || preferences || authActive || settings || reportOpen || friendManager.open || economyOpen || profileNeeded || Boolean(page)
+    showStart || preferences || authActive || settings || reportOpen || friendManager.open || economyOpen || partyModalOpen || profileNeeded || Boolean(page)
 
   const isGroupMatch = session.matched && session.groupPeers.length > 0
 
@@ -505,6 +525,7 @@ export function App(_props: AppProps) {
                   onOpenSocial={() => {
                     route('/social')
                   }}
+                  onActivities={() => void party.openLauncher()}
                   onApplySharedPrefs={handleApplySharedPrefs}
                   onDismissSharedPrefs={() => setShowSharedPrefs(false)}
                   onDeviceChange={onDeviceChange}
@@ -545,6 +566,52 @@ export function App(_props: AppProps) {
               t={tr}
               onClose={() => setEconomyOpen(false)}
               onBalance={setPoints}
+            />
+          )}
+          {party.launcherOpen && !party.session && (
+            party.peers.length === 0 ? (
+              <Modal onClose={party.closeLauncher} className="modal social-modal" labelledBy="party-login-title">
+                <button type="button" class="modal-close" onClick={party.closeLauncher} aria-label={tr.close}>
+                  ×
+                </button>
+                <h2 id="party-login-title">{tr.activities}</h2>
+                <p class="people-note">{tr.partyLoginRequired}</p>
+              </Modal>
+            ) : (
+              <ActivityLauncher
+                t={tr}
+                catalog={party.catalog}
+                instances={party.instances}
+                state={party.launcherState}
+                busy={party.busy}
+                failed={party.launcherFailed}
+                onLaunch={(id) => void party.launch(id)}
+                onJoin={(id) => void party.join(id)}
+                onClose={party.closeLauncher}
+                onRetry={party.retryLauncher}
+              />
+            )
+          )}
+          {party.pendingInvite && (
+            <ActivityInviteModal
+              t={tr}
+              inviter={party.pendingInvite.inviter}
+              activityName={party.pendingInvite.activity.name}
+              canJoin={user != null}
+              onJoin={party.acceptInvite}
+              onDecline={party.declineInvite}
+            />
+          )}
+          {party.session && (
+            <ActivitySession
+              t={tr}
+              session={party.session}
+              currentUserId={user?.id ?? 0}
+              socket={session.match}
+              busy={party.busy}
+              onLeave={() => party.leaveSession()}
+              onEnd={() => party.endSession()}
+              onClose={party.closeSession}
             />
           )}
           {session.pendingGroupInvite && (

@@ -254,6 +254,16 @@ pub enum ClientMessage {
         instance_id: i64,
     },
 
+    /// Invite the other call participant(s) to an activity instance. The
+    /// sender must be in `room_id` and seated at the instance; the server
+    /// relays `activity:invited` to every other socket in the room.
+    #[serde(rename = "activity:invite")]
+    ActivityInvite {
+        room_id: String,
+        #[ts(type = "number")]
+        instance_id: i64,
+    },
+
     #[serde(rename = "telemetry:quality")]
     TelemetryQuality {
         #[serde(skip_serializing_if = "Option::is_none", default)]

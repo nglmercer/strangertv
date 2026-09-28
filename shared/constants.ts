@@ -218,10 +218,12 @@ export const WS_MESSAGE_TYPE = {
   // Activities: client -> server
   activityState: 'activity:state',
   activityLeave: 'activity:leave',
+  activityInvite: 'activity:invite',
   // Activities: server -> client
   activityPresence: 'activity:presence',
   activityEnded: 'activity:ended',
   activityLaunched: 'activity:launched',
+  activityInvited: 'activity:invited',
 } as const
 
 export type WsMessageType = (typeof WS_MESSAGE_TYPE)[keyof typeof WS_MESSAGE_TYPE]

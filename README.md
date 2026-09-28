@@ -43,9 +43,7 @@ Anonymous 1:1 **live video chat** with random matching, text chat, preferences, 
 ```bash
 npm install
 cp .env.example .env   # optional for local defaults
-npm run dev
-# if port 8787/5173 is already taken (EADDRINUSE):
-npm run free-ports   # or: npm run dev:fresh
+npm run dev   # frees 8787/5173 first, then starts the API + Vite
 ```
 
 | Service | URL |

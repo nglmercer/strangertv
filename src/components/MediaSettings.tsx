@@ -5,6 +5,7 @@ import { deviceName } from '../utils/deviceLabels'
 import { mediaErrorHelp, mediaErrorMessage, type MediaErrorCode } from '../utils/mediaErrors'
 import { Icon, icons } from './icons'
 import { DenoiseToggle } from './DenoiseToggle'
+import { MicMonitor } from './MicMonitor'
 import { Select } from './Select'
 
 type Devices = { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
@@ -218,6 +219,7 @@ export function MediaSettings({
       )}
 
       <DenoiseToggle t={t} supported={denoiseSupported} enabled={denoiseEnabled} onToggle={onToggleDenoise} />
+      <MicMonitor t={t} stream={stream} streamVersion={streamVersion} muted={muted} />
 
       <div class="device-actions">
         <button type="button" class="device-btn" disabled={acquiring} onClick={onRetry}>

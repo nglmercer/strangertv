@@ -22,6 +22,7 @@ type Options = {
   onActivityPresence?: (instanceId: number, participants: ActivityParticipantEntry[]) => void
   onActivityEnded?: (instanceId: number) => void
   onActivityLaunched?: (instance: ActivityInstance, activity: ActivityEntry) => void
+  onActivityInvited?: (roomId: string, instance: ActivityInstance, activity: ActivityEntry, inviter: PublicUser) => void
   onSocialEvent?: (msg: SocialWsEvent) => void
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
@@ -61,7 +62,7 @@ export type MatchBlocked = {
   message: string
 }
 
-export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onActivityState, onActivityPresence, onActivityEnded, onActivityLaunched, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange, onInsufficientFunds }: Options) {
+export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onActivityState, onActivityPresence, onActivityEnded, onActivityLaunched, onActivityInvited, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange, onInsufficientFunds }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -353,6 +354,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     onActivityPresence: (instanceId, participants) => onActivityPresence?.(instanceId, participants),
     onActivityEnded: (instanceId) => onActivityEnded?.(instanceId),
     onActivityLaunched: (instance, activity) => onActivityLaunched?.(instance, activity),
+    onActivityInvited: (roomId, instance, activity, inviter) => onActivityInvited?.(roomId, instance, activity, inviter),
     onPresenceList: (userIds) => onPresenceList?.(userIds),
     onPresenceChange: (userId, online) => onPresenceChange?.(userId, online),
     onFriendRequest: (friendId, from) => onSocialEvent?.({ type: 'friend:request', friendId, from }),
