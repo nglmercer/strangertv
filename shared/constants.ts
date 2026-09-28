@@ -100,6 +100,17 @@ export const API_ROUTES = {
   mediaMine: (kind?: string) => (kind ? `/api/v1/media?kind=${encodeURIComponent(kind)}` : '/api/v1/media'),
   mediaById: (id: number | string) => `/api/v1/media/${id}`,
   usersMeUsername: '/api/v1/users/me/username',
+  // Activities (embeddable minigames)
+  activities: '/api/v1/activities',
+  activityById: (id: number | string) => `/api/v1/activities/${id}`,
+  activityLaunch: (id: number | string) => `/api/v1/activities/${id}/launch`,
+  activityInstances: (groupId: number | string) => `/api/v1/activities/instances?groupId=${groupId}`,
+  activityInstanceById: (id: number | string) => `/api/v1/activities/instances/${id}`,
+  activityInstanceJoin: (id: number | string) => `/api/v1/activities/instances/${id}/join`,
+  activityInstanceToken: (id: number | string) => `/api/v1/activities/instances/${id}/token`,
+  activityInstanceLeave: (id: number | string) => `/api/v1/activities/instances/${id}/leave`,
+  activityInstanceEnd: (id: number | string) => `/api/v1/activities/instances/${id}/end`,
+  activitiesMe: '/api/v1/activities/me',
 } as const
 
 export const API_PREFIX = '/api/v1'
@@ -197,6 +208,13 @@ export const WS_MESSAGE_TYPE = {
   groupMatchInviteDecline: 'group-match:invite-decline',
   groupMatchInviteDeclined: 'group-match:invite-declined',
   groupMatchMatched: 'group-match:matched',
+  // Activities: client -> server
+  activityState: 'activity:state',
+  activityLeave: 'activity:leave',
+  // Activities: server -> client
+  activityPresence: 'activity:presence',
+  activityEnded: 'activity:ended',
+  activityLaunched: 'activity:launched',
 } as const
 
 export type WsMessageType = (typeof WS_MESSAGE_TYPE)[keyof typeof WS_MESSAGE_TYPE]

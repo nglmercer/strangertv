@@ -2,6 +2,9 @@
 name = "stranger-server"
 version = "1.0.0"
 edition = "2021"
+# `cargo run` / `cargo watch -x run` target: without this, the migrate-*
+# binaries in src/bin/ make a bare run ambiguous and `npm run dev` fails.
+default-run = "stranger-server"
 
 [dependencies]
 axum = { version = "0.8", features = ["ws", "macros"] }

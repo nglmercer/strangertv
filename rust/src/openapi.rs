@@ -142,6 +142,31 @@ pub fn open_api_document(app_url: &str) -> Value {
                 "get": get("Serve a media blob", false, ok("Image bytes")),
                 "delete": get("Delete own upload", true, ok("OK"))
             },
+            "/api/v1/activities": { "get": get("Activity catalog", true, ok("Activities")) },
+            "/api/v1/activities/me": {
+                "get": get("Scoped game identity (instance token only)", true, ok("Identity"))
+            },
+            "/api/v1/activities/{id}/launch": {
+                "post": get("Launch a game into a group", true, ok("Instance"))
+            },
+            "/api/v1/activities/instances": {
+                "get": get("Active games in a group (?groupId=)", true, ok("Instances"))
+            },
+            "/api/v1/activities/instances/{id}": {
+                "get": get("Game detail + roster (group members)", true, ok("Instance"))
+            },
+            "/api/v1/activities/instances/{id}/join": {
+                "post": get("Join a game, mint a launch code", true, ok("Code"))
+            },
+            "/api/v1/activities/instances/{id}/token": {
+                "post": get("Exchange a launch code for an instance token", false, ok("Token"))
+            },
+            "/api/v1/activities/instances/{id}/leave": {
+                "post": get("Leave a game", true, ok("OK"))
+            },
+            "/api/v1/activities/instances/{id}/end": {
+                "post": get("End a game (host or group admin)", true, ok("OK"))
+            },
         },
         "components": {
             "securitySchemes": {

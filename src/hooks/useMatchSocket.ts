@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { getToken, wsUrl } from '../api'
-import type { ClientMessage, GroupMatchPeer, GroupMessage, GroupVisibility, MatchPreferences, MatchScope, Message, PublicUser, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
+import type { ActivityEntry, ActivityInstance, ActivityParticipantEntry, ClientMessage, GroupMatchPeer, GroupMessage, GroupVisibility, MatchPreferences, MatchScope, Message, PublicUser, RelationshipStatus, Role, ServerMessage } from '../../shared/types'
 import { WS_MESSAGE_TYPE, TIMING_MS } from '../../shared/constants'
 
 type Handlers = {
@@ -39,6 +39,10 @@ type Handlers = {
   onGroupMatchMatched?: (roomId: string, role: Role, peers: GroupMatchPeer[], sharedInterests: string[], peerId: number) => void
   onPresenceList?: (userIds: number[]) => void
   onPresenceChange?: (userId: number, online: boolean) => void
+  onActivityState?: (instanceId: number, userId: number, state: unknown) => void
+  onActivityPresence?: (instanceId: number, participants: ActivityParticipantEntry[]) => void
+  onActivityEnded?: (instanceId: number) => void
+  onActivityLaunched?: (instance: ActivityInstance, activity: ActivityEntry) => void
 }
 
 export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
@@ -227,6 +231,18 @@ export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
         case WS_MESSAGE_TYPE.groupMatchMatched:
           h.onGroupMatchMatched?.(msg.roomId, msg.role, msg.peers, msg.sharedInterests, msg.peerId)
           break
+        case WS_MESSAGE_TYPE.activityState:
+          h.onActivityState?.(msg.instanceId, msg.userId, msg.state)
+          break
+        case WS_MESSAGE_TYPE.activityPresence:
+          h.onActivityPresence?.(msg.instanceId, msg.participants)
+          break
+        case WS_MESSAGE_TYPE.activityEnded:
+          h.onActivityEnded?.(msg.instanceId)
+          break
+        case WS_MESSAGE_TYPE.activityLaunched:
+          h.onActivityLaunched?.(msg.instance, msg.activity)
+          break
       }
     }
 
@@ -322,6 +338,20 @@ export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
   const groupInviteDecline = useCallback(
     (inviteId: number) => {
       send({ type: WS_MESSAGE_TYPE.groupInviteDecline, inviteId })
+    },
+    [send],
+  )
+
+  const activityState = useCallback(
+    (instanceId: number, state: unknown) => {
+      send({ type: WS_MESSAGE_TYPE.activityState, instanceId, state })
+    },
+    [send],
+  )
+
+  const activityLeave = useCallback(
+    (instanceId: number) => {
+      send({ type: WS_MESSAGE_TYPE.activityLeave, instanceId })
     },
     [send],
   )
@@ -435,6 +465,8 @@ export function useMatchSocket(handlers: Handlers, authUserId: number | null) {
     invitationSend,
     invitationAccept,
     invitationDecline,
+    activityState,
+    activityLeave,
     connected,
     socket,
   }

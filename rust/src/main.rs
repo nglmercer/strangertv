@@ -256,6 +256,7 @@ fn build_router(state: AppState) -> Router {
         .merge(routes::media::router(state.clone()))
         .merge(routes::social::router(state.clone()))
         .merge(routes::groups::router(state.clone()))
+        .merge(routes::activities::router(state.clone()))
         .merge(ws::route::router(state.clone()))
         .merge(routes::admin::router(state.clone()))
         // The merged routers already carry their state, so this router is

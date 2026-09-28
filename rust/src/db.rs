@@ -345,6 +345,55 @@ const CREATE_TABLES: &[&str] = &[
       FOREIGN KEY (room_id) REFERENCES group_match_rooms(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )",
+    "CREATE TABLE IF NOT EXISTS activities (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      entry_url TEXT NOT NULL,
+      max_players INTEGER NOT NULL DEFAULT 8,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )",
+    "CREATE TABLE IF NOT EXISTS activity_instances (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      activity_id INTEGER NOT NULL,
+      group_id INTEGER NOT NULL,
+      created_by INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      ended_at TEXT,
+      FOREIGN KEY (activity_id) REFERENCES activities(id),
+      FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )",
+    "CREATE TABLE IF NOT EXISTS activity_participants (
+      instance_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (instance_id, user_id),
+      FOREIGN KEY (instance_id) REFERENCES activity_instances(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )",
+    "CREATE TABLE IF NOT EXISTS activity_launch_codes (
+      code_hash TEXT PRIMARY KEY,
+      instance_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      expires_at TEXT NOT NULL,
+      used INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (instance_id) REFERENCES activity_instances(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )",
+    "CREATE TABLE IF NOT EXISTS activity_tokens (
+      token_hash TEXT PRIMARY KEY,
+      instance_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (instance_id) REFERENCES activity_instances(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )",
 ];
 
 /// Statements whose failure is expected and ignored, exactly as in `db.ts`.
@@ -371,4 +420,6 @@ const BEST_EFFORT: &[&str] = &[
     // several participants, so the reporter names one.
     "ALTER TABLE reports ADD COLUMN reported_id INTEGER",
     "ALTER TABLE invitations ADD COLUMN context TEXT DEFAULT 'match'",
+    "CREATE INDEX IF NOT EXISTS activity_instances_group ON activity_instances (group_id, status)",
+    "INSERT OR IGNORE INTO activities (slug, name, description, entry_url, max_players) VALUES ('tictactoe', 'Tic-Tac-Toe', 'Classic 3-in-a-row for two players.', '/activities/tictactoe', 2)",
 ];

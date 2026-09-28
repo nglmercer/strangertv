@@ -1,4 +1,4 @@
-import type { Gender, MatchPreferences, Friend, Follow, FollowStateDTO, Invitation, Message, MediaKind, MediaMetaDTO, MediaUploadDTO, Group, GroupMember, GroupMessage, GroupInvite, ProfileDocDTO, ProfileLinkDTO, ProfileSectionDTO, UserFollowsDTO } from '../shared/types'
+import type { Gender, MatchPreferences, Friend, Follow, FollowStateDTO, Invitation, Message, MediaKind, MediaMetaDTO, MediaUploadDTO, Group, GroupMember, GroupMessage, GroupInvite, ProfileDocDTO, ProfileLinkDTO, ProfileSectionDTO, UserFollowsDTO, ActivityEntry, ActivityInstance, ActivityParticipantEntry } from '../shared/types'
 import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_MODE, DEFAULT_MATCH_SCOPE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
@@ -27,6 +27,60 @@ export function onGroupMessage(listener: GroupMessageListener): () => void {
 export function emitGroupMessage(message: GroupMessage) {
   for (const listener of groupMessageListeners) {
     listener(message)
+  }
+}
+
+type ActivityStateListener = (instanceId: number, userId: number, state: unknown) => void
+type ActivityPresenceListener = (instanceId: number, participants: ActivityParticipantEntry[]) => void
+type ActivityEndedListener = (instanceId: number) => void
+type ActivityLaunchedListener = (instance: ActivityInstance, activity: ActivityEntry) => void
+
+const activityStateListeners = new Set<ActivityStateListener>()
+const activityPresenceListeners = new Set<ActivityPresenceListener>()
+const activityEndedListeners = new Set<ActivityEndedListener>()
+const activityLaunchedListeners = new Set<ActivityLaunchedListener>()
+
+export function onActivityState(listener: ActivityStateListener): () => void {
+  activityStateListeners.add(listener)
+  return () => activityStateListeners.delete(listener)
+}
+
+export function emitActivityState(instanceId: number, userId: number, state: unknown) {
+  for (const listener of activityStateListeners) {
+    listener(instanceId, userId, state)
+  }
+}
+
+export function onActivityPresence(listener: ActivityPresenceListener): () => void {
+  activityPresenceListeners.add(listener)
+  return () => activityPresenceListeners.delete(listener)
+}
+
+export function emitActivityPresence(instanceId: number, participants: ActivityParticipantEntry[]) {
+  for (const listener of activityPresenceListeners) {
+    listener(instanceId, participants)
+  }
+}
+
+export function onActivityEnded(listener: ActivityEndedListener): () => void {
+  activityEndedListeners.add(listener)
+  return () => activityEndedListeners.delete(listener)
+}
+
+export function emitActivityEnded(instanceId: number) {
+  for (const listener of activityEndedListeners) {
+    listener(instanceId)
+  }
+}
+
+export function onActivityLaunched(listener: ActivityLaunchedListener): () => void {
+  activityLaunchedListeners.add(listener)
+  return () => activityLaunchedListeners.delete(listener)
+}
+
+export function emitActivityLaunched(instance: ActivityInstance, activity: ActivityEntry) {
+  for (const listener of activityLaunchedListeners) {
+    listener(instance, activity)
   }
 }
 
@@ -332,4 +386,28 @@ export const groupsApi = {
       method: 'POST',
       body: JSON.stringify({ text }),
     }),
+}
+
+/**
+ * Host-side activity calls (full session). The launch-code exchange and the
+ * scoped identity lookup are intentionally NOT here: the game performs them
+ * with `credentials: 'omit'` through the SDK in `src/activities/client.ts`,
+ * which keeps the two credential realms visibly separate.
+ */
+export const activitiesApi = {
+  list: () => api<{ activities: ActivityEntry[] }>(API_ROUTES.activities),
+  launch: (activityId: number, groupId: number) =>
+    api<{ instance: ActivityInstance }>(API_ROUTES.activityLaunch(activityId), {
+      method: 'POST',
+      body: JSON.stringify({ groupId }),
+    }),
+  instances: (groupId: number) => api<{ instances: ActivityInstance[] }>(API_ROUTES.activityInstances(groupId)),
+  show: (id: number) =>
+    api<{ instance: ActivityInstance; activity: ActivityEntry | null; participants: ActivityParticipantEntry[] }>(
+      API_ROUTES.activityInstanceById(id),
+    ),
+  /** Returns the single-use launch code the iframe exchanges for its token. */
+  join: (id: number) => api<{ code: string }>(API_ROUTES.activityInstanceJoin(id), { method: 'POST' }),
+  leave: (id: number) => api<{ ok: boolean; ended: boolean }>(API_ROUTES.activityInstanceLeave(id), { method: 'POST' }),
+  end: (id: number) => api<{ ok: boolean }>(API_ROUTES.activityInstanceEnd(id), { method: 'POST' }),
 }

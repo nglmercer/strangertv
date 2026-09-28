@@ -5,7 +5,7 @@ import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { SocialPage } from './pages/SocialPage'
 //import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
-import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, type PublicUser } from './api'
+import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, emitActivityState, emitActivityPresence, emitActivityEnded, emitActivityLaunched, type PublicUser } from './api'
 import type { UiSettings } from './types/ui'
 import { loadUiSettings, saveUiSettings } from './utils/uiSettings'
 import { AppModals } from './components/AppModals'
@@ -163,6 +163,10 @@ export function App(_props: AppProps) {
     prefs,
     onStatus: setStatus,
     onGroupMessage: (message) => emitGroupMessage(message),
+    onActivityState: (instanceId, userId, state) => emitActivityState(instanceId, userId, state),
+    onActivityPresence: (instanceId, participants) => emitActivityPresence(instanceId, participants),
+    onActivityEnded: (instanceId) => emitActivityEnded(instanceId),
+    onActivityLaunched: (instance, activity) => emitActivityLaunched(instance, activity),
     onSocialEvent: handleSocialEvent,
     onPresenceList: (userIds) => socialStore.setOnlineFriends(userIds),
     onPresenceChange: (userId, online) =>

@@ -1,9 +1,12 @@
 import { useState } from 'preact/hooks'
 import type { Messages } from '../../i18n'
 import type { useMatchSocket } from '../../hooks/useMatchSocket'
+import { useActivities } from '../../hooks/useActivities'
 import { useSocialData, type ChatId } from '../../hooks/useSocialData'
 import { icons } from '../icons'
 import { GroupInviteModal } from '../socialchat/GroupInviteModal'
+import { ActivityLauncher } from './ActivityLauncher'
+import { ActivitySession } from './ActivitySession'
 import { ChatPane } from './ChatPane'
 import { ConversationList } from './ConversationList'
 import { CreateGroupModal } from './CreateGroupModal'
@@ -32,6 +35,8 @@ export function SocialApp({
   const [creating, setCreating] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
   const [invitingFriendId, setInvitingFriendId] = useState<number | null>(null)
+  const [activitiesOpen, setActivitiesOpen] = useState(false)
+  const activities = useActivities(data.activeGroup?.id ?? null)
 
   const open = (chat: ChatId) => {
     data.openChat(chat)
@@ -89,6 +94,7 @@ export function SocialApp({
             setInfoOpen(false)
           }}
           onToggleInfo={() => setInfoOpen((v) => !v)}
+          onOpenActivities={data.activeGroup ? () => setActivitiesOpen(true) : undefined}
           onInviteToGroup={data.activeFriend ? () => setInvitingFriendId(data.activeFriend!.otherUser.id) : undefined}
           onSend={data.send}
           onRetry={() => void data.reloadMessages()}
@@ -116,6 +122,34 @@ export function SocialApp({
             setInfoOpen(false)
           }}
           onRetry={() => void data.reloadRoster()}
+        />
+      )}
+
+      {activitiesOpen && data.activeGroup && !activities.session && (
+        <ActivityLauncher
+          t={t}
+          catalog={activities.catalog}
+          instances={activities.instances}
+          state={activities.state}
+          busy={activities.busy}
+          failed={activities.failed}
+          onLaunch={(id) => void activities.launch(id)}
+          onJoin={(id) => void activities.join(id)}
+          onClose={() => setActivitiesOpen(false)}
+          onRetry={() => void activities.reload()}
+        />
+      )}
+
+      {activities.session && (
+        <ActivitySession
+          t={t}
+          session={activities.session}
+          currentUserId={currentUserId}
+          socket={match}
+          busy={activities.busy}
+          onLeave={() => activities.leaveSession()}
+          onEnd={() => activities.endSession()}
+          onClose={activities.closeSession}
         />
       )}
 

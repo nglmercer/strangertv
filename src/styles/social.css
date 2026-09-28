@@ -1300,3 +1300,145 @@
     position: relative;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Activities (launcher + session + reference game)
+   -------------------------------------------------------------------------- */
+.activity-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.activity-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.activity-row:last-child {
+  border-bottom: 0;
+}
+
+.activity-row-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--bg-surface-3);
+  color: var(--text-secondary);
+  flex: none;
+}
+
+.activity-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-row .social-btn {
+  flex: none;
+}
+
+.modal.activity-session-modal {
+  width: min(720px, 100%);
+}
+
+.activity-frame-wrap {
+  position: relative;
+  margin: 8px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-surface-2);
+}
+
+.activity-frame {
+  display: block;
+  width: 100%;
+  height: min(480px, 60vh);
+  border: 0;
+  background: var(--bg-page);
+}
+
+.activity-session-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Reference game page (rendered inside the iframe). */
+.activity-game {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 20px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--text-primary);
+}
+
+.activity-game-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activity-game-top h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.activity-game-status {
+  margin: 0;
+  min-height: 22px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.activity-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.activity-cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text-strong);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.activity-cell:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.activity-cell:disabled {
+  cursor: default;
+}
+
+.activity-cell.mark-x {
+  color: var(--accent);
+}
+
+@media (max-width: 560px) {
+  .activity-frame {
+    height: 64vh;
+  }
+}

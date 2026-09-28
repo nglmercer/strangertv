@@ -13,6 +13,7 @@ use crate::age::is_adult;
 use crate::auth::resolver::resolve_authenticated_user_row;
 use crate::auth::session::{public_user, UserRow};
 use crate::db::Db;
+use crate::domain::activities as activities_svc;
 use crate::domain::friends as friends_svc;
 use crate::domain::groups as groups_svc;
 use crate::domain::messages as messages_svc;
@@ -27,6 +28,10 @@ const REASON_USER_LEFT: &str = "user_left";
 const REASON_REPORTED: &str = "reported";
 const REASON_BLOCKED: &str = "blocked";
 const REASON_GROUP_INVITE: &str = "group_invite";
+
+/// Cap on one relayed game-state payload. Games sync small snapshots; a 16 KB
+/// ceiling stops an instance from becoming a file tunnel.
+const MAX_ACTIVITY_STATE_BYTES: usize = 16 * 1024;
 
 /// Per-connection context.
 pub struct WsContext {
@@ -133,6 +138,45 @@ async fn load_user(db: &Db, user_id: i64) -> Option<UserRow> {
         bio: row.get(10).ok(),
         website: row.get(11).ok(),
     })
+}
+
+/// Fan out an activity roster change to every member of the group: the
+/// fresh presence list, or `activity:ended` when the last seat left. Group
+/// members are all entitled to the launcher view, so roster events go wider
+/// than state relay (which stays player-only). Shared with the HTTP routes,
+/// which mutate instances outside the socket.
+pub async fn broadcast_activity_roster(
+    state: &AppState,
+    group_id: i64,
+    instance_id: i64,
+    ended: bool,
+) {
+    let Ok(members) = groups_svc::get_group_members(&state.db, group_id).await else {
+        return;
+    };
+    if members.is_empty() {
+        return;
+    }
+    if ended {
+        let message = ServerMessage::ActivityEnded {
+            instance_id,
+        };
+        for member in &members {
+            state.hub.send_to_user(member.user_id, &message);
+        }
+        return;
+    }
+    let Ok(participants) = activities_svc::instance_participants(&state.db, instance_id).await
+    else {
+        return;
+    };
+    let message = ServerMessage::ActivityPresence {
+        instance_id,
+        participants,
+    };
+    for member in &members {
+        state.hub.send_to_user(member.user_id, &message);
+    }
 }
 
 pub async fn handle_message(state: &AppState, ctx: &WsContext, raw: &str) {
@@ -648,6 +692,81 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
                     },
                 );
             }
+        }
+
+        ClientMessage::ActivityState {
+            instance_id,
+            state: game_state,
+        } => {
+            let Some(me) = caller_user_id(state, ctx).await else {
+                return;
+            };
+            if instance_id == 0 {
+                return;
+            }
+            // Games sync small snapshots, not assets; oversized frames are
+            // dropped silently like any other malformed frame.
+            let Ok(text) = serde_json::to_string(&game_state) else {
+                return;
+            };
+            if text.is_empty() || text.len() > MAX_ACTIVITY_STATE_BYTES {
+                return;
+            }
+            if !crate::infra::rate_limit::rate_limit(
+                &format!("actstate:{me}:{instance_id}"),
+                60,
+                60_000,
+            ) {
+                send(hub, socket, &err("rate_limit", "Slow down game updates."));
+                return;
+            }
+            let Ok(Some(instance)) =
+                activities_svc::get_instance(&state.db, instance_id).await
+            else {
+                return;
+            };
+            if instance.status != crate::proto::ActivityStatus::Active {
+                return;
+            }
+            let Ok(true) =
+                activities_svc::is_participant(&state.db, instance_id, me).await
+            else {
+                return;
+            };
+            let Ok(seats) = activities_svc::participant_ids(&state.db, instance_id).await
+            else {
+                return;
+            };
+            // State goes to players only; presence/launch events go wider.
+            for user_id in seats {
+                hub.send_to_user(
+                    user_id,
+                    &ServerMessage::ActivityState {
+                        instance_id,
+                        user_id: me,
+                        state: game_state.clone(),
+                    },
+                );
+            }
+        }
+
+        ClientMessage::ActivityLeave { instance_id } => {
+            let Some(me) = caller_user_id(state, ctx).await else {
+                return;
+            };
+            if instance_id == 0 {
+                return;
+            }
+            let Ok(Some(instance)) =
+                activities_svc::get_instance(&state.db, instance_id).await
+            else {
+                return;
+            };
+            let Ok(ended) = activities_svc::leave_instance(&state.db, instance_id, me).await
+            else {
+                return;
+            };
+            broadcast_activity_roster(state, instance.group_id, instance_id, ended).await;
         }
 
         ClientMessage::GroupInviteSend { group_id, user_id } => {

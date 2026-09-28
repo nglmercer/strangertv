@@ -257,6 +257,36 @@ pub enum ServerMessage {
         room_id: String,
     },
 
+    #[serde(rename = "activity:state")]
+    ActivityState {
+        #[ts(type = "number")]
+        instance_id: i64,
+        #[ts(type = "number")]
+        user_id: i64,
+        #[ts(type = "unknown")]
+        state: serde_json::Value,
+    },
+
+    #[serde(rename = "activity:presence")]
+    ActivityPresence {
+        #[ts(type = "number")]
+        instance_id: i64,
+        participants: Vec<ActivityParticipantEntry>,
+    },
+
+    #[serde(rename = "activity:ended")]
+    ActivityEnded {
+        #[ts(type = "number")]
+        instance_id: i64,
+    },
+
+    /// A new game launched in a group the receiver belongs to.
+    #[serde(rename = "activity:launched")]
+    ActivityLaunched {
+        instance: ActivityInstance,
+        activity: ActivityEntry,
+    },
+
     #[serde(rename = "group-match:matched")]
     GroupMatchMatched {
         room_id: String,

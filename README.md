@@ -18,6 +18,7 @@ Anonymous 1:1 **live video chat** with random matching, text chat, preferences, 
 |---------|----------|
 | [Getting started](./docs/getting-started.md) | Dev setup, URLs, production single-port, Docker |
 | [Features](./docs/features.md) | Matching, calls, accounts, safety, platform |
+| [Activities](./docs/activities.md) | Embeddable group games, game login, trust boundaries |
 | [Architecture](./docs/architecture.md) | Stack, request flow, project layout, data |
 | [Development](./docs/development.md) | Scripts, Make targets, PR checks, conventions |
 | [Configuration](./docs/configuration.md) | Full environment-variable reference |

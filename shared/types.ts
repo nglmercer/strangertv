@@ -28,6 +28,10 @@ export type { Message } from './generated/Message'
 export type { GroupMessage } from './generated/GroupMessage'
 export type { ClientMessage } from './generated/ClientMessage'
 export type { ServerMessage } from './generated/ServerMessage'
+export type { ActivityStatus } from './generated/ActivityStatus'
+export type { ActivityEntry } from './generated/ActivityEntry'
+export type { ActivityInstance } from './generated/ActivityInstance'
+export type { ActivityParticipantEntry } from './generated/ActivityParticipantEntry'
 
 // Re-imported locally because the DTOs below reference them.
 import type { FriendStatus } from './generated/FriendStatus'

@@ -58,6 +58,8 @@ str_enum!(ReportReason {
 
 str_enum!(SignalKind { Offer => "offer", Answer => "answer", Candidate => "candidate" });
 
+str_enum!(ActivityStatus { Active => "active", Ended => "ended" });
+
 str_enum!(Quality {
     Connecting => "connecting", Good => "good", Poor => "poor", Failed => "failed"
 });
@@ -205,6 +207,55 @@ pub struct FollowEntry {
     #[ts(type = "number")]
     pub id: i64,
     pub user: PublicUser,
+}
+
+/// One entry of the activity catalog (`GET /api/v1/activities`).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ActivityEntry {
+    #[ts(type = "number")]
+    pub id: i64,
+    pub slug: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[ts(optional)]
+    pub description: Option<String>,
+    /// Same-origin path the host embeds, e.g. `/activities/tictactoe`.
+    pub entry_url: String,
+    #[ts(type = "number")]
+    pub max_players: i64,
+}
+
+/// One running game bound to a group chat.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ActivityInstance {
+    #[ts(type = "number")]
+    pub id: i64,
+    #[ts(type = "number")]
+    pub activity_id: i64,
+    #[ts(type = "number")]
+    pub group_id: i64,
+    #[ts(type = "number")]
+    pub created_by: i64,
+    pub status: ActivityStatus,
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[ts(optional)]
+    pub ended_at: Option<String>,
+}
+
+/// One participant of an `activity:presence` roster.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct ActivityParticipantEntry {
+    #[ts(type = "number")]
+    pub user_id: i64,
+    pub user: PublicUser,
+    pub joined_at: String,
 }
 
 /// One entry of `invitation:list`.

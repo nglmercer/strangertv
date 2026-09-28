@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
-import type { GroupMatchPeer, GroupMessage, GroupVisibility, MatchMode, MatchPreferences, PublicUser, RelationshipStatus } from '../../shared/types'
+import type { ActivityEntry, ActivityInstance, ActivityParticipantEntry, GroupMatchPeer, GroupMessage, GroupVisibility, MatchMode, MatchPreferences, PublicUser, RelationshipStatus } from '../../shared/types'
 import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
@@ -17,6 +17,10 @@ type Options = {
   authUserId: number | null
   onStatus: (s: string) => void
   onGroupMessage?: (message: GroupMessage) => void
+  onActivityState?: (instanceId: number, userId: number, state: unknown) => void
+  onActivityPresence?: (instanceId: number, participants: ActivityParticipantEntry[]) => void
+  onActivityEnded?: (instanceId: number) => void
+  onActivityLaunched?: (instance: ActivityInstance, activity: ActivityEntry) => void
   onSocialEvent?: (msg: SocialWsEvent) => void
   onGroupInvite?: (inviteId: number, groupId: number, groupName: string, inviter: PublicUser) => void
   onGroupInviteAccepted?: (inviteId: number, groupId: number, userId: number) => void
@@ -49,7 +53,7 @@ export type GroupMatchParticipant = {
   country?: string
 }
 
-export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange }: Options) {
+export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onActivityState, onActivityPresence, onActivityEnded, onActivityLaunched, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -305,6 +309,10 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
       }
     },
     onGroupMessage: onGroupMessage,
+    onActivityState: (instanceId, userId, state) => onActivityState?.(instanceId, userId, state),
+    onActivityPresence: (instanceId, participants) => onActivityPresence?.(instanceId, participants),
+    onActivityEnded: (instanceId) => onActivityEnded?.(instanceId),
+    onActivityLaunched: (instance, activity) => onActivityLaunched?.(instance, activity),
     onPresenceList: (userIds) => onPresenceList?.(userIds),
     onPresenceChange: (userId, online) => onPresenceChange?.(userId, online),
     onFriendRequest: (friendId, from) => onSocialEvent?.({ type: 'friend:request', friendId, from }),

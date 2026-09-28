@@ -10,14 +10,25 @@ pub const X_ADMIN_KEY: &str = "x-admin-key";
 /// Applied to every response. `tower` layers run inside-out, so this sets its
 /// headers after the handler has produced a response, matching the Node
 /// middleware that awaits `next()` before writing.
+/// Paths the host app may embed. Activity games run in a same-origin
+/// iframe; every other page stays unframble. Note the API lives under
+/// `/api/v1/activities/*`, so this prefix only ever matches game pages.
+fn allows_framing(path: &str) -> bool {
+    path.starts_with("/activities/")
+}
+
 pub async fn security_headers(req: Request, next: Next) -> Response {
+    let frameable = allows_framing(req.uri().path());
     let mut res = next.run(req).await;
     let h = res.headers_mut();
     h.insert(
         "x-content-type-options",
         HeaderValue::from_static("nosniff"),
     );
-    h.insert("x-frame-options", HeaderValue::from_static("DENY"));
+    h.insert(
+        "x-frame-options",
+        HeaderValue::from_static(if frameable { "SAMEORIGIN" } else { "DENY" }),
+    );
     h.insert(
         "referrer-policy",
         HeaderValue::from_static("strict-origin-when-cross-origin"),
@@ -34,19 +45,27 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
         // Allow same-origin WS + media; tighten further behind a reverse proxy.
         // `lh3.googleusercontent.com` is where Google serves the avatars
         // stored on OAuth users; without it those images silently fail.
-        h.insert(
-            "content-security-policy",
-            HeaderValue::from_static(
-                "default-src 'self'; \
-                 script-src 'self'; \
-                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
-                 font-src 'self' https://fonts.gstatic.com; \
-                 img-src 'self' data: https://lh3.googleusercontent.com; \
-                 connect-src 'self' ws: wss:; \
-                 media-src 'self' blob:; \
-                 frame-ancestors 'none'",
-            ),
-        );
+        // Activity game pages — and only they — may be framed by the host.
+        let csp = if frameable {
+            "default-src 'self'; \
+             script-src 'self'; \
+             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+             font-src 'self' https://fonts.gstatic.com; \
+             img-src 'self' data: https://lh3.googleusercontent.com; \
+             connect-src 'self' ws: wss:; \
+             media-src 'self' blob:; \
+             frame-ancestors 'self'"
+        } else {
+            "default-src 'self'; \
+             script-src 'self'; \
+             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+             font-src 'self' https://fonts.gstatic.com; \
+             img-src 'self' data: https://lh3.googleusercontent.com; \
+             connect-src 'self' ws: wss:; \
+             media-src 'self' blob:; \
+             frame-ancestors 'none'"
+        };
+        h.insert("content-security-policy", HeaderValue::from_static(csp));
     }
     res
 }
@@ -70,6 +89,17 @@ pub fn require_admin(headers: &HeaderMap) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_game_pages_may_be_framed() {
+        assert!(allows_framing("/activities/tictactoe"));
+        assert!(allows_framing("/activities/tictactoe/"));
+        assert!(!allows_framing("/"));
+        assert!(!allows_framing("/activities"));
+        assert!(!allows_framing("/admin"));
+        assert!(!allows_framing("/api/v1/activities/me"));
+        assert!(!allows_framing("/api/v1/activities/instances/1/token"));
+    }
 
     #[test]
     fn admin_denied_when_no_key_is_configured() {

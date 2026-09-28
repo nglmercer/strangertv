@@ -14,7 +14,18 @@ const isAdmin =
   location.pathname.startsWith(`${ADMIN_PATH}/`) ||
   location.hash === ADMIN_HASH
 
-if (isAdmin) {
+const isActivity = location.pathname.startsWith('/activities/')
+
+if (isActivity) {
+  // Dynamic import keeps the game shell out of the admin check below and
+  // makes the branch obvious in the bundle graph.
+  void import('./activities/ActivityGame').then(({ ActivityGame }) => {
+    render(
+      <ErrorBoundary><ActivityGame /></ErrorBoundary>,
+      document.getElementById('root')!,
+    )
+  })
+} else if (isAdmin) {
   render(
     <ErrorBoundary><AdminApp /></ErrorBoundary>,
     document.getElementById('root')!,

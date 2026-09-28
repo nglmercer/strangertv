@@ -22,6 +22,7 @@ export function ChatPane({
   onBack,
   onToggleInfo,
   onInviteToGroup,
+  onOpenActivities,
   onSend,
   onRetry,
 }: {
@@ -37,6 +38,7 @@ export function ChatPane({
   onBack: () => void
   onToggleInfo: () => void
   onInviteToGroup?: () => void
+  onOpenActivities?: () => void
   onSend: (text: string) => Promise<void>
   onRetry: () => void
 }) {
@@ -72,6 +74,17 @@ export function ChatPane({
         {!isGroup && onInviteToGroup && (
           <button type="button" class="icon-btn" onClick={onInviteToGroup} title={t.inviteToGroup} aria-label={t.inviteToGroup}>
             <Icon d={icons.users} size={18} />
+          </button>
+        )}
+        {isGroup && onOpenActivities && (
+          <button
+            type="button"
+            class="icon-btn"
+            onClick={onOpenActivities}
+            title={t.activities}
+            aria-label={t.activities}
+          >
+            <Icon d={icons.game} size={18} />
           </button>
         )}
         {isGroup && (

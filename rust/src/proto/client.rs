@@ -238,6 +238,22 @@ pub enum ClientMessage {
         room_id: String,
     },
 
+    /// Game state update relayed to every participant of the instance. The
+    /// payload is game-defined JSON, capped by the handler.
+    #[serde(rename = "activity:state")]
+    ActivityState {
+        #[ts(type = "number")]
+        instance_id: i64,
+        #[ts(type = "unknown")]
+        state: serde_json::Value,
+    },
+
+    #[serde(rename = "activity:leave")]
+    ActivityLeave {
+        #[ts(type = "number")]
+        instance_id: i64,
+    },
+
     #[serde(rename = "telemetry:quality")]
     TelemetryQuality {
         #[serde(skip_serializing_if = "Option::is_none", default)]
