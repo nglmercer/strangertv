@@ -394,6 +394,35 @@ export const groupsApi = {
  * with `credentials: 'omit'` through the SDK in `src/activities/client.ts`,
  * which keeps the two credential realms visibly separate.
  */
+export type EconomyLedgerEntry = {
+  delta: number
+  reason: string
+  refId?: string | null
+  note?: string | null
+  createdAt: string
+}
+
+export type EconomyLeader = {
+  userId: number
+  username?: string | null
+  displayName?: string | null
+  balance: number
+}
+
+export const economyApi = {
+  me: () => api<{ balance: number; recent: EconomyLedgerEntry[] }>(API_ROUTES.economyMe),
+  leaderboard: () => api<{ leaders: EconomyLeader[] }>(API_ROUTES.economyLeaderboard),
+  claimAd: () =>
+    api<{ balance: number; granted: boolean; nextClaimAt: number }>(API_ROUTES.economyAdClaim, {
+      method: 'POST',
+    }),
+  gift: (userId: number, amount: number) =>
+    api<{ ok: boolean; balance: number }>(API_ROUTES.economyGift, {
+      method: 'POST',
+      body: JSON.stringify({ userId, amount }),
+    }),
+}
+
 export const activitiesApi = {
   list: () => api<{ activities: ActivityEntry[] }>(API_ROUTES.activities),
   launch: (activityId: number, groupId: number) =>

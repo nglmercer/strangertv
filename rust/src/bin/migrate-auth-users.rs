@@ -121,7 +121,7 @@ async fn run() -> anyhow::Result<()> {
                 let credential = ImportCredential {
                     id: Some(user.id.to_string()),
                     email: user.email.trim().to_ascii_lowercase(),
-                    name: display_name(&user.email),
+                    name: password::credential_display_name(&user.email),
                     email_verified: user.email_verified,
                     password_hash: user.password_hash,
                     additional_fields: Map::new(),
@@ -309,16 +309,6 @@ fn same_identity(record: &JsonValue, id: &str, email: &str) -> bool {
             .map(|value| value.trim().to_ascii_lowercase())
             .as_deref()
             == Some(email)
-}
-
-fn display_name(email: &str) -> String {
-    let local = email.split('@').next().unwrap_or(email).trim();
-    let name: String = local.chars().take(200).collect();
-    if name.is_empty() {
-        "StrangerTV user".into()
-    } else {
-        name
-    }
 }
 
 #[cfg(test)]

@@ -116,6 +116,19 @@ pub fn is_legacy_hash_format(encoded: &str) -> bool {
         && key.chars().all(|ch| ch.is_ascii_hexdigit())
 }
 
+/// Display name for an imported Better Auth credential: the email local
+/// part, capped, with a neutral fallback. Shared by the batch importer and
+/// lazy login import so both produce identical identities.
+pub fn credential_display_name(email: &str) -> String {
+    let local = email.split('@').next().unwrap_or(email).trim();
+    let name: String = local.chars().take(200).collect();
+    if name.is_empty() {
+        "StrangerTV user".into()
+    } else {
+        name
+    }
+}
+
 /// Stand-in for `crypto.timingSafeEqual`.
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     if a.len() != b.len() {

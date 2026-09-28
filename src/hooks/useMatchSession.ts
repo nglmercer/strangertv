@@ -4,7 +4,7 @@ import type { Messages } from '../i18n'
 import type { ChatMessage } from '../types/ui'
 import { mediaErrorMessage } from '../utils/mediaErrors'
 import { notifyMatch, playMatchSound } from '../utils/notify'
-import { GROUP_VISIBILITY, MATCH_MODE, PEER_LEFT_REASON, QUALITY_TIER, SignalKind, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
+import { GROUP_VISIBILITY, MATCH_MODE, PEER_LEFT_REASON, QUALITY_TIER, SERVER_ERROR_CODE, SignalKind, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
 import { isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
 import { messagesApi } from '../api'
 import { useMatchSocket } from './useMatchSocket'
@@ -29,6 +29,7 @@ type Options = {
   onPresenceChange?: (userId: number, online: boolean) => void
   onInvitationAccepted?: (invitationId: number, roomId: string) => void
   onInvitationDeclined?: (invitationId: number) => void
+  onInsufficientFunds?: () => void
 }
 
 export type SocialWsEvent =
@@ -53,7 +54,7 @@ export type GroupMatchParticipant = {
   country?: string
 }
 
-export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onActivityState, onActivityPresence, onActivityEnded, onActivityLaunched, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange }: Options) {
+export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onActivityState, onActivityPresence, onActivityEnded, onActivityLaunched, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange, onInsufficientFunds }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
   const [queuePos, setQueuePos] = useState<number | undefined>()
@@ -274,9 +275,10 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
       setOnline(onl)
       setWaitingCount(wait)
     },
-    onError: (_code, message) => {
+    onError: (code, message) => {
       onStatus(message)
       setFinding(false)
+      if (code === SERVER_ERROR_CODE.insufficientFunds) onInsufficientFunds?.()
     },
     // Reporting or blocking takes us out of the room for good — including a
     // group room, which the server drops us from — so clear the group tiles too.

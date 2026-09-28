@@ -13,3 +13,20 @@ pub const DEFAULT_COUNTRY: &str = "any";
 pub const DEFAULT_LANGUAGE: &str = "any";
 
 pub const CONSENT_KIND_TERMS_AGE: &str = "terms_age";
+
+// ---------------------------------------------------------------------------
+// Points economy tuning (authenticated users only; no real money).
+// Kept as constants for v1 — promote to env when ops needs runtime tuning.
+// ---------------------------------------------------------------------------
+/// Starting balance for new registrations and one-time backfill.
+pub const ECONOMY_START_BALANCE: i64 = 100;
+/// Cost of one solo queue join / room:next / group-match create.
+pub const ECONOMY_MATCH_COST: i64 = 5;
+/// Points per ad-reward claim.
+pub const ECONOMY_AD_REWARD: i64 = 10;
+/// Seconds between ad claims per user.
+pub const ECONOMY_AD_COOLDOWN_SECS: i64 = 60;
+/// Max ad claims per user per UTC day.
+pub const ECONOMY_AD_DAILY_CAP: i64 = 5;
+/// Max leaderboard rows served.
+pub const ECONOMY_LEADERBOARD_MAX: i64 = 50;

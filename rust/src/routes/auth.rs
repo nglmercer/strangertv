@@ -9,14 +9,15 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{delete, get, patch, post};
 use axum::{Json, Router};
 use better_auth::core::DbAdapter;
-use better_auth::{EmailPasswordService, SignInInput};
+use better_auth::{EmailPasswordService, ImportCredential, SignInInput};
 use libsql::params;
-use serde_json::{json, Value};
+use serde_json::{Map, Value, json};
 use std::net::SocketAddr;
 
 use crate::age::is_adult;
 use crate::auth::password::{
-    hash_password, hash_token, random_token, valid_credentials, verify_password,
+    credential_display_name, hash_password, hash_token, is_legacy_hash_format, random_token,
+    valid_credentials, verify_password,
 };
 use crate::auth::resolver::{better_auth_schema_not_ready, resolve_authenticated_user_row};
 use crate::auth::session::{
@@ -121,6 +122,11 @@ fn interests_json(body: &Value) -> String {
 }
 
 async fn rollback_new_legacy_user(state: &AppState, user_id: i64) {
+    let _ = state
+        .db
+        .conn()
+        .execute("DELETE FROM point_ledger WHERE user_id = ?", params![user_id])
+        .await;
     let _ = state
         .db
         .conn()
@@ -373,6 +379,10 @@ async fn register(
         rollback_signup(&state, user_id, Some(&token), better_auth_result.as_ref()).await;
         return Err(ApiError::from(error));
     }
+    if let Err(error) = crate::domain::economy::signup_grant(state.db.conn(), user_id).await {
+        rollback_signup(&state, user_id, Some(&token), better_auth_result.as_ref()).await;
+        return Err(ApiError::from(error));
+    }
 
     let verify_token = match create_email_verification_token(&state, user_id).await {
         Ok(token) => token,
@@ -554,6 +564,132 @@ async fn enforce_login_policy(
     Ok(())
 }
 
+/// The cookie-issuing login path, shared by already-imported accounts and
+/// legacy accounts that were just imported by [`try_lazy_import`].
+async fn better_auth_login_inner(
+    state: &AppState,
+    user_id: i64,
+    email: &str,
+    password: &str,
+    birth_date: Option<&str>,
+    email_verified: i64,
+    ip: &str,
+) -> ApiResult<Response> {
+    let invalid = || ApiError::new(StatusCode::UNAUTHORIZED, "Invalid email or password.");
+    let legacy_better_auth_hash =
+        match state.better_auth.credential_uses_legacy_hash(user_id).await {
+            Ok(uses_legacy) => uses_legacy,
+            Err(error) if better_auth_schema_not_ready(&error.to_string()) => false,
+            Err(error) => return Err(ApiError::from(error)),
+        };
+    let service = EmailPasswordService::new(state.better_auth.context.clone())
+        .map_err(|error| ApiError::from(anyhow::anyhow!(error.to_string())))?;
+    let result = match service
+        .sign_in(
+            SignInInput {
+                email: email.to_owned(),
+                password: password.to_owned(),
+            },
+            state.config.app_url.starts_with("https://"),
+        )
+        .await
+    {
+        Ok(result) => result,
+        Err(better_auth::core::AuthError::Unauthorized) => {
+            inc("auth_login_better_auth_failed", 1);
+            return Err(invalid());
+        }
+        Err(error) => return Err(ApiError::from(anyhow::anyhow!(error.to_string()))),
+    };
+    if let Err(error) =
+        enforce_login_policy(state, user_id, birth_date, email_verified, ip).await
+    {
+        // Better Auth creates its session as part of sign-in. Do not leave
+        // a session behind when application policy rejects the account.
+        let _ = state
+            .better_auth
+            .sessions
+            .revoke_token(&result.session_token)
+            .await;
+        return Err(error);
+    }
+    let token = match create_session(&state.db, user_id).await {
+        Ok(token) => token,
+        Err(error) => {
+            let _ = state
+                .better_auth
+                .sessions
+                .revoke_token(&result.session_token)
+                .await;
+            return Err(ApiError::from(error));
+        }
+    };
+    let user = user_from_id(&state.db, user_id)
+        .await
+        .map_err(ApiError::from)?;
+    inc("auth_login_better_auth_success", 1);
+    if legacy_better_auth_hash {
+        inc("auth_password_legacy_verified", 1);
+        inc("auth_password_legacy_rehashed", 1);
+    }
+    inc("auth_session_better_auth", 1);
+    inc("auth_session_legacy_issued", 1);
+    inc("auth_login_ok", 1);
+    better_auth_cookie_response(
+        StatusCode::OK,
+        json!({
+            "user": user.as_ref().map(public_user),
+            "token": token,
+            "session": "better-auth",
+        }),
+        &result.cookie,
+    )
+}
+
+/// Import a missing Better Auth credential after the legacy password
+/// verified. Returns true when the caller should continue down the
+/// cookie-issuing path. Any failure (conflicting identity, race lost,
+/// unimportable hash) returns false and the login keeps today's legacy
+/// token behavior — a correct password must never fail because migration
+/// did. Mapping mirrors `migrate-auth-users` exactly (same id, normalized
+/// email, display name, verified flag, and untouched legacy hash).
+async fn try_lazy_import(
+    state: &AppState,
+    user_id: i64,
+    email_lower: &str,
+    stored_hash: &str,
+    email_verified: i64,
+) -> bool {
+    if !is_legacy_hash_format(stored_hash) {
+        return false;
+    }
+    let credential = ImportCredential {
+        id: Some(user_id.to_string()),
+        email: email_lower.to_string(),
+        name: credential_display_name(email_lower),
+        email_verified: email_verified != 0,
+        password_hash: stored_hash.to_string(),
+        additional_fields: Map::new(),
+    };
+    match state.better_auth.credentials.import(credential).await {
+        Ok(_) => {
+            inc("auth_login_lazy_imported", 1);
+            true
+        }
+        Err(_) => {
+            // A concurrent login (or the batch importer) may have won the
+            // race; re-check before giving up on the cookie path.
+            match state.better_auth.credential_account_exists(user_id).await {
+                Ok(true) => true,
+                _ => {
+                    inc("auth_login_lazy_import_failed", 1);
+                    false
+                }
+            }
+        }
+    }
+}
+
 async fn login(
     State(state): State<AppState>,
     ConnectInfo(peer): ConnectInfo<SocketAddr>,
@@ -585,7 +721,8 @@ async fn login(
         .conn()
         .query(
             "SELECT id, password_hash, birth_date, email_verified FROM users WHERE email = ?",
-            params![email_lower],
+            // Cloned: lazy import below needs the normalized email too.
+            params![email_lower.clone()],
         )
         .await?;
     let row = rows.next().await?;
@@ -612,79 +749,40 @@ async fn login(
         Err(error) => return Err(ApiError::from(error)),
     };
     if better_auth_account == Some(true) {
-        let legacy_better_auth_hash =
-            match state.better_auth.credential_uses_legacy_hash(user_id).await {
-                Ok(uses_legacy) => uses_legacy,
-                Err(error) if better_auth_schema_not_ready(&error.to_string()) => false,
-                Err(error) => return Err(ApiError::from(error)),
-            };
-        let service = EmailPasswordService::new(state.better_auth.context.clone())
-            .map_err(|error| ApiError::from(anyhow::anyhow!(error.to_string())))?;
-        let result = match service
-            .sign_in(
-                SignInInput {
-                    email: email.to_owned(),
-                    password: password.to_owned(),
-                },
-                state.config.app_url.starts_with("https://"),
-            )
-            .await
-        {
-            Ok(result) => result,
-            Err(better_auth::core::AuthError::Unauthorized) => {
-                inc("auth_login_better_auth_failed", 1);
-                return Err(invalid());
-            }
-            Err(error) => return Err(ApiError::from(anyhow::anyhow!(error.to_string()))),
-        };
-        if let Err(error) =
-            enforce_login_policy(&state, user_id, birth_date.as_deref(), email_verified, &ip).await
-        {
-            // Better Auth creates its session as part of sign-in. Do not leave
-            // a session behind when application policy rejects the account.
-            let _ = state
-                .better_auth
-                .sessions
-                .revoke_token(&result.session_token)
-                .await;
-            return Err(error);
-        }
-        let token = match create_session(&state.db, user_id).await {
-            Ok(token) => token,
-            Err(error) => {
-                let _ = state
-                    .better_auth
-                    .sessions
-                    .revoke_token(&result.session_token)
-                    .await;
-                return Err(ApiError::from(error));
-            }
-        };
-        let user = user_from_id(&state.db, user_id)
-            .await
-            .map_err(ApiError::from)?;
-        inc("auth_login_better_auth_success", 1);
-        if legacy_better_auth_hash {
-            inc("auth_password_legacy_verified", 1);
-            inc("auth_password_legacy_rehashed", 1);
-        }
-        inc("auth_session_better_auth", 1);
-        inc("auth_session_legacy_issued", 1);
-        inc("auth_login_ok", 1);
-        return better_auth_cookie_response(
-            StatusCode::OK,
-            json!({
-                "user": user.as_ref().map(public_user),
-                "token": token,
-                "session": "better-auth",
-            }),
-            &result.cookie,
-        );
+        return better_auth_login_inner(
+            &state,
+            user_id,
+            email,
+            password,
+            birth_date.as_deref(),
+            email_verified,
+            &ip,
+        )
+        .await;
     }
 
     if !verify_password(password, &stored) {
         inc("auth_login_better_auth_failed", 1);
         return Err(invalid());
+    }
+
+    // Self-healing migration: the password just verified, so this request is
+    // a safe moment to import a missing Better Auth credential. Without it
+    // the user stays on the legacy token, which lives only in page memory
+    // and dies on refresh (this path issues no cookie).
+    if better_auth_account == Some(false)
+        && try_lazy_import(&state, user_id, &email_lower, &stored, email_verified).await
+    {
+        return better_auth_login_inner(
+            &state,
+            user_id,
+            email,
+            password,
+            birth_date.as_deref(),
+            email_verified,
+            &ip,
+        )
+        .await;
     }
     enforce_login_policy(&state, user_id, birth_date.as_deref(), email_verified, &ip).await?;
 
@@ -1088,6 +1186,7 @@ async fn delete_legacy_account_data(state: &AppState, user_id: i64) -> anyhow::R
         format!("DELETE FROM follows WHERE follower_id = {user_id} OR followed_id = {user_id}"),
         format!("DELETE FROM blocks WHERE blocker_id = {user_id} OR blocked_id = {user_id}"),
         format!("DELETE FROM sessions WHERE user_id = {user_id}"),
+        format!("DELETE FROM point_ledger WHERE user_id = {user_id}"),
         format!("DELETE FROM password_reset_tokens WHERE user_id = {user_id}"),
         format!("DELETE FROM email_verification_tokens WHERE user_id = {user_id}"),
         format!("DELETE FROM consents WHERE user_id = {user_id}"),
@@ -1396,6 +1495,172 @@ mod tests {
             peer,
         )
         .await
+    }
+
+    async fn login_call(
+        state: &AppState,
+        peer: &str,
+        email: &str,
+        password: &str,
+    ) -> ApiResult<Response> {
+        let addr: SocketAddr = format!("{peer}:5231").parse().expect("test peer");
+        login(
+            State(state.clone()),
+            ConnectInfo(addr),
+            HeaderMap::new(),
+            Json(json!({ "email": email, "password": password })),
+        )
+        .await
+    }
+
+    async fn login_json(response: Response) -> (StatusCode, Option<String>, Value) {
+        let status = response.status();
+        let cookie = response
+            .headers()
+            .get(header::SET_COOKIE)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        let body = axum::body::to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .expect("response body");
+        let json: Value = serde_json::from_slice(&body).expect("json body");
+        (status, cookie, json)
+    }
+
+    async fn seed_legacy_user(state: &AppState, id: i64, email: &str) {
+        state
+            .db
+            .conn()
+            .execute(
+                "INSERT INTO users (id, email, password_hash, birth_date) VALUES (?, ?, ?, ?)",
+                params![id, email, hash_password("password12"), "1990-01-01"],
+            )
+            .await
+            .expect("legacy user");
+    }
+
+    #[tokio::test]
+    async fn legacy_login_self_migrates_to_a_cookie_session() {
+        let (state, path) = test_state("lazy-import").await;
+        seed_legacy_user(&state, 11, "lazy@example.com").await;
+        assert!(
+            !state
+                .better_auth
+                .credential_account_exists(11)
+                .await
+                .expect("preflight"),
+            "the fixture starts un-imported"
+        );
+
+        let (status, cookie, body) = login_json(
+            login_call(&state, "198.51.100.11", "lazy@example.com", "password12")
+                .await
+                .expect("login runs"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            body.get("session").and_then(Value::as_str),
+            Some("better-auth")
+        );
+        assert!(
+            cookie.as_deref().is_some_and(|c| c.contains("better-auth")),
+            "the migrated login must set a session cookie that survives refresh"
+        );
+        assert!(
+            state
+                .better_auth
+                .credential_account_exists(11)
+                .await
+                .expect("imported"),
+            "the credential now exists"
+        );
+
+        // A second login takes the already-imported path with identical results.
+        let (status, cookie, body) = login_json(
+            login_call(&state, "198.51.100.11", "lazy@example.com", "password12")
+                .await
+                .expect("second login"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            body.get("session").and_then(Value::as_str),
+            Some("better-auth")
+        );
+        assert!(cookie.is_some());
+
+        drop(state);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn legacy_login_with_conflicting_identity_keeps_token_fallback() {
+        let (state, path) = test_state("lazy-conflict").await;
+        // Someone else already owns this email inside Better Auth.
+        state
+            .better_auth
+            .credentials
+            .import(ImportCredential {
+                id: Some("99".into()),
+                email: "clash@example.com".into(),
+                name: "Other".into(),
+                email_verified: false,
+                password_hash: "not-a-real-hash".into(),
+                additional_fields: Map::new(),
+            })
+            .await
+            .expect("seed conflict");
+        seed_legacy_user(&state, 12, "clash@example.com").await;
+
+        let (status, cookie, body) = login_json(
+            login_call(&state, "198.51.100.12", "clash@example.com", "password12")
+                .await
+                .expect("login runs"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            body.get("session").and_then(Value::as_str),
+            Some("legacy")
+        );
+        assert!(
+            cookie.is_none(),
+            "a conflicted import must not mint a session"
+        );
+        assert!(
+            !state
+                .better_auth
+                .credential_account_exists(12)
+                .await
+                .expect("preflight"),
+            "nothing was imported over the conflict"
+        );
+
+        drop(state);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn failed_legacy_login_imports_nothing() {
+        let (state, path) = test_state("lazy-denied").await;
+        seed_legacy_user(&state, 13, "denied@example.com").await;
+
+        let error = login_call(&state, "198.51.100.13", "denied@example.com", "wrong-password")
+            .await
+            .expect_err("wrong password fails");
+        assert_eq!(error.status, StatusCode::UNAUTHORIZED);
+        assert!(
+            !state
+                .better_auth
+                .credential_account_exists(13)
+                .await
+                .expect("preflight"),
+            "a failed password must not import anything"
+        );
+
+        drop(state);
+        let _ = std::fs::remove_file(path);
     }
 }
 
@@ -1821,6 +2086,12 @@ async fn oauth_google_complete_impl(
         &crate::domain::profiles::suggest_username(&pending.email),
     )
     .await
+    {
+        rollback_new_legacy_user(&state, user_id).await;
+        return Err(ApiError::from(error));
+    }
+    if let Err(error) =
+        crate::domain::economy::signup_grant(state.db.conn(), user_id).await
     {
         rollback_new_legacy_user(&state, user_id).await;
         return Err(ApiError::from(error));

@@ -665,4 +665,166 @@ describe('API integration', () => {
     }
     expect(after.groups.some((g) => g.id === group.id)).toBe(false)
   })
+
+  it('economy grants a starting balance and serves me plus leaderboard', async () => {
+    const stamp = Date.now()
+    const reg = async (tag: string) => {
+      const res = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: `eco_${tag}_${stamp}@example.com`, password: 'password12', birthDate: '1990-01-01' }),
+      })
+      expect(res.status).toBe(201)
+      return (await res.json()) as { token: string; user: { id: number } }
+    }
+    const auth = (token: string) => ({ authorization: `Bearer ${token}` })
+
+    const a = await reg('a')
+    const b = await reg('b')
+
+    const me = await fetch(`${BASE}${API_ROUTES.economyMe}`, { headers: auth(a.token) })
+    expect(me.status).toBe(200)
+    const meBody = (await me.json()) as { balance: number; recent: Array<{ reason: string; delta: number }> }
+    expect(meBody.balance).toBe(100)
+    expect(meBody.recent[0]).toMatchObject({ reason: 'signup_grant', delta: 100 })
+
+    const anon = await fetch(`${BASE}${API_ROUTES.economyMe}`)
+    expect(anon.status).toBe(401)
+
+    // Admin top-up moves the leaderboard; the key gate holds.
+    const noKey = await fetch(`${BASE}${API_ROUTES.adminEconomyAdjust}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ userId: a.user.id, delta: 500, note: 'nope' }),
+    })
+    expect(noKey.status).toBe(403)
+
+    const topped = await fetch(`${BASE}${API_ROUTES.adminEconomyAdjust}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-admin-key': 'itest-admin' },
+      body: JSON.stringify({ userId: b.user.id, delta: 500, note: 'test reward' }),
+    })
+    expect(topped.status).toBe(200)
+    expect(((await topped.json()) as { balance: number }).balance).toBe(600)
+
+    const board = await fetch(`${BASE}${API_ROUTES.economyLeaderboard}`, { headers: auth(a.token) })
+    expect(board.status).toBe(200)
+    const leaders = ((await board.json()) as { leaders: Array<{ userId: number; balance: number; username: string | null }> }).leaders
+    expect(leaders[0]).toMatchObject({ userId: b.user.id, balance: 600 })
+    expect(leaders.find((l) => l.userId === a.user.id)?.balance).toBe(100)
+  })
+
+  it('economy charges queue joins and rejects broke users without charging', async () => {
+    const stamp = Date.now()
+    const res = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: `ecojoin_${stamp}@example.com`, password: 'password12', birthDate: '1990-01-01' }),
+    })
+    expect(res.status).toBe(201)
+    const { token, user } = (await res.json()) as { token: string; user: { id: number } }
+    const auth = { authorization: `Bearer ${token}` }
+    const prefs = {
+      country: 'any', language: 'any', gender: 'any', lookingFor: 'any',
+      interests: [], allowMatchWithSameUsers: true, mode: 'solo', matchScope: 'all',
+    }
+    const joinOnce = () =>
+      new Promise<Record<string, unknown>>((resolve, reject) => {
+        const ws = new WebSocket(`ws://127.0.0.1:${PORT}/ws`)
+        const timer = setTimeout(() => {
+          ws.close()
+          reject(new Error('timed out waiting for join result'))
+        }, 5000)
+        ws.on('open', () => ws.send(JSON.stringify({ type: 'queue:join', preferences: prefs, token })))
+        ws.on('message', (data) => {
+          const msg = JSON.parse(String(data)) as Record<string, unknown>
+          // Either outcome proves the join path ran; the balance read below
+          // is the real charge assertion.
+          if (msg.type !== 'queue:waiting' && msg.type !== 'room:matched' && msg.type !== 'error') return
+          clearTimeout(timer)
+          ws.close()
+          resolve(msg)
+        })
+        ws.on('error', (error) => {
+          clearTimeout(timer)
+          ws.close()
+          reject(error)
+        })
+      })
+
+    const queued = await joinOnce()
+    expect(['queue:waiting', 'room:matched']).toContain(queued.type)
+    const afterJoin = (await (await fetch(`${BASE}${API_ROUTES.economyMe}`, { headers: auth })).json()) as { balance: number }
+    expect(afterJoin.balance).toBe(95)
+
+    // Drain to zero through the admin penalty path, then join must fail free.
+    const drained = await fetch(`${BASE}${API_ROUTES.adminEconomyAdjust}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-admin-key': 'itest-admin' },
+      body: JSON.stringify({ userId: user.id, delta: -95, note: 'test penalty' }),
+    })
+    expect(drained.status).toBe(200)
+    const broke = await joinOnce()
+    expect(broke).toMatchObject({ type: 'error', code: 'insufficient_funds' })
+    const stillBroke = (await (await fetch(`${BASE}${API_ROUTES.economyMe}`, { headers: auth })).json()) as { balance: number }
+    expect(stillBroke.balance).toBe(0)
+  })
+
+  it('economy moves gifts and caps ad claims', async () => {
+    const stamp = Date.now()
+    const reg = async (tag: string) => {
+      const res = await fetch(`${BASE}${API_ROUTES.authRegister}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: `ecog_${tag}_${stamp}@example.com`, password: 'password12', birthDate: '1990-01-01' }),
+      })
+      expect(res.status).toBe(201)
+      return (await res.json()) as { token: string; user: { id: number } }
+    }
+    const auth = (token: string) => ({ 'content-type': 'application/json', authorization: `Bearer ${token}` })
+
+    const from = await reg('from')
+    const to = await reg('to')
+
+    const sent = await fetch(`${BASE}${API_ROUTES.economyGift}`, {
+      method: 'POST',
+      headers: auth(from.token),
+      body: JSON.stringify({ userId: to.user.id, amount: 30 }),
+    })
+    expect(sent.status).toBe(200)
+    expect(((await sent.json()) as { balance: number }).balance).toBe(70)
+    const got = (await (await fetch(`${BASE}${API_ROUTES.economyMe}`, { headers: auth(to.token) })).json()) as { balance: number }
+    expect(got.balance).toBe(130)
+
+    const selfGift = await fetch(`${BASE}${API_ROUTES.economyGift}`, {
+      method: 'POST',
+      headers: auth(from.token),
+      body: JSON.stringify({ userId: from.user.id, amount: 1 }),
+    })
+    expect(selfGift.status).toBe(400)
+
+    const ghost = await fetch(`${BASE}${API_ROUTES.economyGift}`, {
+      method: 'POST',
+      headers: auth(from.token),
+      body: JSON.stringify({ userId: 999999999, amount: 1 }),
+    })
+    expect(ghost.status).toBe(404)
+
+    const claimed = await fetch(`${BASE}${API_ROUTES.economyAdClaim}`, {
+      method: 'POST',
+      headers: auth(from.token),
+    })
+    expect(claimed.status).toBe(200)
+    const claimBody = (await claimed.json()) as { balance: number; granted: boolean; nextClaimAt: number }
+    expect(claimBody.granted).toBe(true)
+    expect(claimBody.balance).toBe(80)
+    expect(claimBody.nextClaimAt).toBeGreaterThan(Date.now() / 1000)
+
+    const again = await fetch(`${BASE}${API_ROUTES.economyAdClaim}`, {
+      method: 'POST',
+      headers: auth(from.token),
+    })
+    expect(again.status).toBe(429)
+    expect(((await again.json()) as { code: string }).code).toBe('ad_cooldown')
+  })
 })

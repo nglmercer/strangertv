@@ -23,6 +23,8 @@ export function ControlDeck({
   onNext,
   onChangeCountry,
   onChangeLookingFor,
+  points,
+  onOpenEconomy,
 }: {
   t: Messages
   prefs: MatchPreferences
@@ -36,6 +38,8 @@ export function ControlDeck({
   onOpenPrefs?: () => void
   onChangeCountry: (country: string) => void
   onChangeLookingFor: (gender: Gender) => void
+  points?: number | null
+  onOpenEconomy?: () => void
 }) {
   const isActive = finding || matched
   const [copied, setCopied] = useState(false)
@@ -120,6 +124,20 @@ export function ControlDeck({
         </span>
         <small>{copied ? t.sharePrefsCopied : t.sharePrefs}</small>
       </button>
+      {onOpenEconomy && (
+        <button
+          type="button"
+          class="deck-card deck-share"
+          onClick={onOpenEconomy}
+          title={t.points}
+          aria-label={t.points}
+        >
+          <span class="deck-emoji" aria-hidden="true">
+            <Icon d={icons.star} size={18} />
+          </span>
+          <small>{points ?? '…'}</small>
+        </button>
+      )}
     </div>
   )
 }

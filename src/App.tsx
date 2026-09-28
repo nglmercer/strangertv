@@ -5,13 +5,14 @@ import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
 import { SocialPage } from './pages/SocialPage'
 //import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
-import { authApi, clearSession, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, emitActivityState, emitActivityPresence, emitActivityEnded, emitActivityLaunched, type PublicUser } from './api'
+import { authApi, clearSession, economyApi, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, emitActivityState, emitActivityPresence, emitActivityEnded, emitActivityLaunched, type PublicUser } from './api'
 import type { UiSettings } from './types/ui'
 import { loadUiSettings, saveUiSettings } from './utils/uiSettings'
 import { AppModals } from './components/AppModals'
 import { CallBar } from './components/CallBar'
 import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
+import { EconomyPanel } from './components/EconomyPanel'
 import { FriendManager } from './components/FriendManager'
 import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
@@ -78,6 +79,8 @@ export function App(_props: AppProps) {
   const [reportOpen, setReportOpen] = useState(false)
   const [reportTarget, setReportTarget] = useState<number | undefined>()
   const [friendManager, setFriendManager] = useState<{ open: boolean; inviteMode: boolean }>({ open: false, inviteMode: false })
+  const [economyOpen, setEconomyOpen] = useState(false)
+  const [points, setPoints] = useState<number | null>(null)
   const [page, setPage] = useState<PageId>(null)
   const [authActive, setAuthActive] = useState(false)
   const [user, setUser] = useState<PublicUser | null>(getStoredUser)
@@ -171,7 +174,22 @@ export function App(_props: AppProps) {
     onPresenceList: (userIds) => socialStore.setOnlineFriends(userIds),
     onPresenceChange: (userId, online) =>
       online ? socialStore.addOnlineFriend(userId) : socialStore.removeOnlineFriend(userId),
+    onInsufficientFunds: () => {
+      setStatus(tr.notEnoughPoints)
+      setEconomyOpen(true)
+    },
   })
+
+  useEffect(() => {
+    if (!user) {
+      setPoints(null)
+      return
+    }
+    void economyApi
+      .me()
+      .then((r) => setPoints(r.balance))
+      .catch(() => setPoints(null))
+  }, [user])
 
   const { appVersion, sharedPrefs } = useSessionBootstrap({
     setUser: applyUser,
@@ -211,7 +229,7 @@ export function App(_props: AppProps) {
   }
 
   const anyModalOpen =
-    showStart || preferences || authActive || settings || reportOpen || friendManager.open || profileNeeded || Boolean(page)
+    showStart || preferences || authActive || settings || reportOpen || friendManager.open || economyOpen || profileNeeded || Boolean(page)
 
   const isGroupMatch = session.matched && session.groupPeers.length > 0
 
@@ -494,6 +512,13 @@ export function App(_props: AppProps) {
               match={session.match}
             />
           )}
+          {economyOpen && user && (
+            <EconomyPanel
+              t={tr}
+              onClose={() => setEconomyOpen(false)}
+              onBalance={setPoints}
+            />
+          )}
           {session.pendingGroupInvite && (
             <GroupMatchInviteModal
               t={tr}
@@ -524,6 +549,8 @@ export function App(_props: AppProps) {
               onChangeLookingFor={(lookingFor) => {
                 setPrefs({ ...prefs, lookingFor })
               }}
+              points={points}
+              onOpenEconomy={user ? () => setEconomyOpen(true) : undefined}
             />
             <ChatPanel
               t={tr}

@@ -14,6 +14,7 @@ use crate::auth::resolver::resolve_authenticated_user_row;
 use crate::auth::session::{public_user, UserRow};
 use crate::db::Db;
 use crate::domain::activities as activities_svc;
+use crate::domain::economy as economy_svc;
 use crate::domain::friends as friends_svc;
 use crate::domain::groups as groups_svc;
 use crate::domain::messages as messages_svc;
@@ -268,6 +269,9 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
                 send(hub, socket, &err("bad_prefs", "Invalid preferences."));
                 return;
             };
+            if !charge_match(state, socket, user.id).await {
+                return;
+            }
             engine
                 .create_group_match_room(
                     socket,
@@ -841,6 +845,41 @@ async fn dispatch(state: &AppState, ctx: &WsContext, message: ClientMessage) {
 // Handlers that need more than a few lines
 // ---------------------------------------------------------------------------
 
+/// Charge one matchmaking attempt. Returns false when the operation must
+/// stop: insufficient funds and unexpected ledger failures are both
+/// reported to the socket here. Guests never reach this — the auth gate
+/// above rejects them first.
+async fn charge_match(state: &AppState, socket: SocketId, user_id: i64) -> bool {
+    let hub = &state.hub;
+    match economy_svc::spend(
+        state.db.conn(),
+        user_id,
+        crate::constants::ECONOMY_MATCH_COST,
+        economy_svc::REASON_MATCH_SPEND,
+        None,
+    )
+    .await
+    {
+        Ok(economy_svc::SpendOutcome::Paid { .. }) => {
+            crate::infra::metrics::inc("economy_match_spent", 1);
+            true
+        }
+        Ok(economy_svc::SpendOutcome::Insufficient { .. }) => {
+            send(
+                hub,
+                socket,
+                &err("insufficient_funds", "Not enough points to match."),
+            );
+            false
+        }
+        Err(error) => {
+            crate::log_error!("economy.spend_failed", { "message": error.to_string() });
+            send(hub, socket, &err("error", "Could not start matchmaking."));
+            false
+        }
+    }
+}
+
 async fn require_token(
     state: &AppState,
     ctx: &WsContext,
@@ -937,6 +976,15 @@ async fn join(
         user_email = Some(user.email);
     }
 
+    // Authenticated users spend one match credit per queue attempt
+    // (`queue:join` and `room:next` share this path). Guests were already
+    // rejected above when anonymous matching is off, and are never charged.
+    if let Some(id) = user_id {
+        if !charge_match(state, socket, id).await {
+            return;
+        }
+    }
+
     if is_next {
         state
             .engine
@@ -1005,6 +1053,9 @@ async fn create_and_invite(
         });
     prefs.mode = MatchMode::Group;
 
+    if !charge_match(state, socket, user.id).await {
+        return;
+    }
     let room_id = state
         .engine
         .create_group_match_room(

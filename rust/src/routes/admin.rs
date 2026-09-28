@@ -41,6 +41,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/admin/users", get(users))
         .route("/api/v1/admin/ban", post(ban))
         .route("/api/v1/admin/ban/{id}", delete(unban))
+        .route("/api/v1/admin/economy/adjust", post(economy_adjust))
         .with_state(state)
 }
 
@@ -357,6 +358,43 @@ async fn unban(
         .execute("DELETE FROM bans WHERE id = ?", params![id])
         .await?;
     Ok(Json(json!({ "ok": true })))
+}
+
+/// Manual points adjustment (reward or penalty). The `note` is required so
+/// the ledger always explains a balance change; penalties have no floor.
+async fn economy_adjust(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> ApiResult<Json<Value>> {
+    gate(&headers)?;
+    let user_id = body.get("userId").and_then(Value::as_i64).unwrap_or(0);
+    let delta = body.get("delta").and_then(Value::as_i64).unwrap_or(0);
+    let note = body
+        .get("note")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    if user_id == 0 || delta == 0 || note.is_empty() {
+        return Err(ApiError::bad_request("userId, nonzero delta, and note are required."));
+    }
+    if note.chars().count() > 280 {
+        return Err(ApiError::bad_request("Keep the note under 280 characters."));
+    }
+    let mut rows = state
+        .db
+        .conn()
+        .query("SELECT id FROM users WHERE id = ?", params![user_id])
+        .await?;
+    if rows.next().await?.is_none() {
+        return Err(ApiError::new(StatusCode::NOT_FOUND, "User not found."));
+    }
+    drop(rows);
+    let balance = crate::domain::economy::adjust(state.db.conn(), user_id, delta, note)
+        .await
+        .map_err(ApiError::from)?;
+    crate::infra::metrics::inc("economy_admin_adjusted", 1);
+    Ok(Json(json!({ "ok": true, "balance": balance })))
 }
 
 #[cfg(test)]

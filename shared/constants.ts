@@ -111,6 +111,12 @@ export const API_ROUTES = {
   activityInstanceLeave: (id: number | string) => `/api/v1/activities/instances/${id}/leave`,
   activityInstanceEnd: (id: number | string) => `/api/v1/activities/instances/${id}/end`,
   activitiesMe: '/api/v1/activities/me',
+  // Points economy (authenticated users only; no real money)
+  economyMe: '/api/v1/economy/me',
+  economyLeaderboard: '/api/v1/economy/leaderboard',
+  economyAdClaim: '/api/v1/economy/ads/claim',
+  economyGift: '/api/v1/economy/gift',
+  adminEconomyAdjust: '/api/v1/admin/economy/adjust',
 } as const
 
 export const API_PREFIX = '/api/v1'
@@ -258,6 +264,7 @@ export const SERVER_ERROR_CODE = {
   emailUnverified: 'email_unverified',
   ageRestricted: 'age_restricted',
   queueTimeout: 'queue_timeout',
+  insufficientFunds: 'insufficient_funds',
 } as const
 
 export type ServerErrorCode = (typeof SERVER_ERROR_CODE)[keyof typeof SERVER_ERROR_CODE]

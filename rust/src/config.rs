@@ -5,6 +5,8 @@
 
 use std::env;
 
+use rand::{distributions::Alphanumeric, Rng};
+
 use crate::infra::client_ip::{parse_trusted_proxies, TrustedProxy};
 
 fn bool_env(name: &str, fallback: bool) -> bool {
@@ -35,11 +37,17 @@ pub struct Features {
     pub require_email_verified: bool,
 }
 
-/// Documented dev default for `ADMIN_KEY`. Non-production only; production
-/// validation rejects it (it contains `change-me`). The server startup path
-/// installs it into the environment so the `x-admin-key` gate honors it, and
-/// logs a loud warning.
-pub const DEV_ADMIN_KEY: &str = "dev-only-admin-key-change-me-localhost";
+/// Mint a fresh admin key for one non-production boot. There is deliberately
+/// no documented dev default: a well-known key ends up in screenshots,
+/// shell history, and (worst) production-likes. The startup path prints the
+/// generated key once so it can be pasted into the admin unlock screen.
+fn generate_dev_admin_key() -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect()
+}
 
 /// Values that are never acceptable as production secrets, matched
 /// case-insensitively after trimming. Length floors apply on top.
@@ -70,14 +78,14 @@ fn is_weak_secret(value: &str) -> bool {
     v.contains("change-me") || v.contains("changeme")
 }
 
-/// Resolve the effective admin key without side effects. Production has no
-/// fallback (an empty result fails [`Config::validate`]); any other
-/// environment falls back to [`DEV_ADMIN_KEY`] so local development works
-/// out of the box.
+/// Resolve the effective admin key. An explicit `ADMIN_KEY` always wins.
+/// Production has no fallback (an empty result fails [`Config::validate`]);
+/// any other environment mints a random per-boot key so local development
+/// works out of the box without a well-known default to leak.
 pub fn resolve_admin_key(is_prod: bool, raw: Option<String>) -> String {
     match raw {
         Some(v) if !v.trim().is_empty() => v,
-        _ if !is_prod => DEV_ADMIN_KEY.into(),
+        _ if !is_prod => generate_dev_admin_key(),
         _ => String::new(),
     }
 }
@@ -253,21 +261,19 @@ mod tests {
     }
 
     #[test]
-    fn dev_resolves_an_admin_default_but_production_has_none() {
-        assert_eq!(
+    fn dev_mints_a_random_admin_key_but_production_has_none() {
+        for raw in [None, Some("".into()), Some("  ".into())] {
+            let key = resolve_admin_key(false, raw);
+            assert_eq!(key.len(), 32, "dev fallback is a 32-char key");
+            assert!(
+                key.chars().all(|c| c.is_ascii_alphanumeric()),
+                "dev fallback is paste-friendly alphanumeric"
+            );
+        }
+        assert_ne!(
             resolve_admin_key(false, None),
-            DEV_ADMIN_KEY,
-            "non-production keeps an ergonomic default"
-        );
-        assert_eq!(
-            resolve_admin_key(false, Some("".into())),
-            DEV_ADMIN_KEY,
-            "empty dev key falls back to the default"
-        );
-        assert_eq!(
-            resolve_admin_key(false, Some("  ".into())),
-            DEV_ADMIN_KEY,
-            "blank dev key falls back to the default"
+            resolve_admin_key(false, None),
+            "every dev boot gets its own key"
         );
         assert_eq!(
             resolve_admin_key(false, Some("my-key".into())),
@@ -283,10 +289,6 @@ mod tests {
             resolve_admin_key(true, Some("".into())),
             "",
             "empty production key stays empty so validation fails fast"
-        );
-        assert!(
-            is_weak_secret(DEV_ADMIN_KEY),
-            "the dev default must never pass production validation"
         );
     }
 

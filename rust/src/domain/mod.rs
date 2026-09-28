@@ -2,6 +2,7 @@
 //! WebSocket handlers. Port of `server/{messages,friends,groups}.ts`.
 
 pub mod activities;
+pub mod economy;
 pub mod friends;
 pub mod groups;
 pub mod media;

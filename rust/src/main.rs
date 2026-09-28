@@ -81,16 +81,22 @@ async fn main() {
     }
 
     let config = Config::from_env();
-    // Non-production keeps an ergonomic admin default, but it must be loud:
-    // the `x-admin-key` gate reads the environment, so install the default
-    // there too. Production has no fallback and fails fast below instead.
+    // Non-production mints a random admin key per boot (no well-known dev
+    // default to leak). The `x-admin-key` gate reads the environment, so
+    // install the minted key there too, and print it once: the admin unlock
+    // screen needs it pasted in. Production has no fallback and fails fast
+    // below instead.
     let admin_unset = std::env::var("ADMIN_KEY")
         .map(|v| v.trim().is_empty())
         .unwrap_or(true);
     if !config.is_prod && admin_unset {
         eprintln!(
-            "WARNING: ADMIN_KEY is unset; using the documented dev-only default. \
-             Set ADMIN_KEY to a private value to silence this (production refuses to start without one)."
+            "ADMIN_KEY is unset; generated a random dev-only admin key for this boot: {}",
+            config.admin_key
+        );
+        eprintln!(
+            "(set ADMIN_KEY to your own value for a stable key across restarts; \
+             production refuses to start without one)"
         );
         std::env::set_var("ADMIN_KEY", config.admin_key.clone());
     }
@@ -265,6 +271,7 @@ fn build_router(state: AppState) -> Router {
     Router::new()
         .merge(routes::health::router(state.clone()))
         .merge(routes::auth::router(state.clone()))
+        .merge(routes::economy::router(state.clone()))
         .merge(routes::misc::router(state.clone()))
         .merge(routes::profiles::router(state.clone()))
         .merge(routes::media::router(state.clone()))

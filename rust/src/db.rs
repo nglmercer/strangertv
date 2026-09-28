@@ -137,6 +137,9 @@ impl Db {
         // Existing databases predate usernames: every account gets a stable
         // /u/:handle derived from its email. A no-op once all rows have one.
         crate::domain::profiles::backfill_usernames(self.conn()).await?;
+        // Existing databases predate the points economy: grant the starting
+        // balance once to accounts that never received it.
+        crate::domain::economy::backfill_balances(self.conn()).await?;
         Ok(())
     }
 }
@@ -394,6 +397,16 @@ const CREATE_TABLES: &[&str] = &[
       FOREIGN KEY (instance_id) REFERENCES activity_instances(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
     )",
+    "CREATE TABLE IF NOT EXISTS point_ledger (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      delta INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      ref_id TEXT,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )",
 ];
 
 /// Statements whose failure is expected and ignored, exactly as in `db.ts`.
@@ -422,4 +435,6 @@ const BEST_EFFORT: &[&str] = &[
     "ALTER TABLE invitations ADD COLUMN context TEXT DEFAULT 'match'",
     "CREATE INDEX IF NOT EXISTS activity_instances_group ON activity_instances (group_id, status)",
     "INSERT OR IGNORE INTO activities (slug, name, description, entry_url, max_players) VALUES ('tictactoe', 'Tic-Tac-Toe', 'Classic 3-in-a-row for two players.', '/activities/tictactoe', 2)",
+    "ALTER TABLE users ADD COLUMN points_balance INTEGER NOT NULL DEFAULT 0",
+    "CREATE INDEX IF NOT EXISTS ledger_user ON point_ledger (user_id, created_at)",
 ];
