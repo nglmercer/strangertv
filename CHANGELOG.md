@@ -10,6 +10,9 @@
 - Points moved from the match deck into the Account modal; banned/disabled matchmaking now shows an explanatory banner with server logs
 
 ### Added
+- Mic noise reduction: RNNoise (nnnoiseless WASM) in an AudioWorklet, on by default with raw-mic fallback; browser-native EC/AGC/NS constraints as baseline (`npm run test:denoise`, `npm run build:wasm`)
+- `DenoiseToggle` component (settings panels) + noise-reduction checkbox in the in-call mic menu
+- Smaller initial bundle: route-level lazy loading (admin/profile/social) + vendor chunk split; `index-*.js` ~331 KB → ~168 KB
 - Gzip compression, `.dockerignore`, WS signal status in header
 - `useCallKeyboard` hook; admin underage open count
 - Admin report status filter (open/resolved/all); peer-left reason messages

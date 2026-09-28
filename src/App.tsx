@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
+import { lazy, Suspense } from 'preact/compat'
 import { route } from 'preact-router'
 import type { GroupVisibility, Locale, MatchMode, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
 import { PREFS_TAB, PrefsTab, GENDER, SERVER_ERROR_CODE, STORAGE_KEYS } from '../shared/constants'
-import { SocialPage } from './pages/SocialPage'
-//import { getFlag, setFlag } from './utils/storage'
+const SocialPage = lazy(() => import('./pages/SocialPage').then((m) => ({ default: m.SocialPage })))//import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
 import { authApi, clearSession, economyApi, followsApi, friendsApi, getStoredUser, loadPrefs, savePrefs, socialApi, emitGroupMessage, emitActivityState, emitActivityPresence, emitActivityEnded, emitActivityLaunched, type PublicUser } from './api'
 import type { UiSettings } from './types/ui'
@@ -416,7 +416,9 @@ export function App(_props: AppProps) {
         </div>
       )}
       {isSocialPage ? (
-        <SocialPage />
+        <Suspense fallback={null}>
+          <SocialPage />
+        </Suspense>
       ) : (
         <main class="app">
           <OfflineBanner label={tr.offline} />
@@ -489,6 +491,8 @@ export function App(_props: AppProps) {
                   devices={session.media.devices}
                   videoId={session.media.videoId}
                   audioId={session.media.audioId}
+                  denoiseSupported={session.denoiseSupported}
+                  denoiseEnabled={session.denoiseEnabled}
                   user={user}
                   fullscreen={fullscreen}
                   sharedPrefs={sharedPrefs}
@@ -496,6 +500,7 @@ export function App(_props: AppProps) {
                   onStart={onStartClick}
                   onMute={() => session.media.setMutedTrack(!session.media.muted)}
                   onCamera={() => session.media.setCameraTrack(!session.media.cameraOn)}
+                  onToggleDenoise={() => void session.setDenoiseEnabled(!session.denoiseEnabled).catch(() => undefined)}
                   onRetryIce={() => void session.webrtc.restartIce()}
                   onOpenSocial={() => {
                     route('/social')
@@ -646,13 +651,10 @@ export function App(_props: AppProps) {
           cameraOn: session.media.cameraOn,
           onToggleMute: () => session.media.setMutedTrack(!session.media.muted),
           onToggleCamera: () => session.media.setCameraTrack(!session.media.cameraOn),
-          ensureStream: async (force?: boolean) => {
-            const s = await session.media.ensureStream({ force })
-            session.setStreamTick((n) => n + 1)
-            if (session.localVideo.current) session.localVideo.current.srcObject = s
-            session.webrtc.replaceTracks(s)
-            return s
-          },
+          denoiseSupported: session.denoiseSupported,
+          denoiseEnabled: session.denoiseEnabled,
+          onToggleDenoise: () => void session.setDenoiseEnabled(!session.denoiseEnabled).catch(() => undefined),
+          ensureStream: (force?: boolean) => session.bumpStream(force),
         }}
         onBeginMatch={() => {
           void session.beginMatch().then((ok) => {

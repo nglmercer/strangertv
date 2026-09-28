@@ -44,6 +44,9 @@ export function StartMatchModal({
   cameraOn,
   onToggleMute,
   onToggleCamera,
+  denoiseSupported,
+  denoiseEnabled,
+  onToggleDenoise,
   onConfirm,
   onClose,
 }: {
@@ -68,6 +71,9 @@ export function StartMatchModal({
   cameraOn: boolean
   onToggleMute: () => void
   onToggleCamera: () => void
+  denoiseSupported: boolean
+  denoiseEnabled: boolean
+  onToggleDenoise: () => void
   onConfirm: (mode: MatchMode, visibility?: GroupVisibility) => void
   onClose: () => void
 }) {
@@ -175,6 +181,9 @@ export function StartMatchModal({
             cameraOn={cameraOn}
             onToggleMute={onToggleMute}
             onToggleCamera={onToggleCamera}
+            denoiseSupported={denoiseSupported}
+            denoiseEnabled={denoiseEnabled}
+            onToggleDenoise={onToggleDenoise}
             onRetry={() => retryStream()}
             onRefresh={() => void refreshDevices()}
           />

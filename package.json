@@ -19,6 +19,8 @@
     "rust:test": "cd rust && cargo test",
     "migrate:auth": "cd rust && cargo run --bin migrate-auth",
     "migrate:auth-users": "cd rust && cargo run --bin migrate-auth-users",
+    "build:wasm": "bash scripts/build-denoiser-wasm.sh",
+    "test:denoise": "node scripts/smoke-denoiser.mjs",
     "test": "npm run build:server && vitest run",
     "test:integration": "npm run build:server && vitest run tests/api.integration.test.ts",
     "test:e2e": "playwright test",

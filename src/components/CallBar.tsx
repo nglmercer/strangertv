@@ -20,12 +20,15 @@ type Props = {
   devices: Devices
   videoId: string
   audioId: string
+  denoiseSupported: boolean
+  denoiseEnabled: boolean
   user: PublicUser | null
   fullscreen: boolean
   sharedPrefs: Partial<MatchPreferences> | null
   showSharedPrefs: boolean
   onMute: () => void
   onCamera: () => void
+  onToggleDenoise: () => void
   onRetryIce: () => void
   onFullscreen: () => void
   onStart: () => void
@@ -53,12 +56,15 @@ export function CallBar({
   devices,
   videoId,
   audioId,
+  denoiseSupported,
+  denoiseEnabled,
   user,
   fullscreen,
   sharedPrefs,
   showSharedPrefs,
   onMute,
   onCamera,
+  onToggleDenoise,
   onRetryIce,
   onFullscreen,
   onStart,
@@ -169,6 +175,19 @@ export function CallBar({
                 </button>
               )
             })}
+            {denoiseSupported && (
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={denoiseEnabled}
+                class={`call-menu-item ${denoiseEnabled ? 'is-selected' : ''}`}
+                onClick={onToggleDenoise}
+                title={t.denoiseHint}
+              >
+                <span class="call-menu-check">{denoiseEnabled ? <Icon d={icons.check} size={16} /> : null}</span>
+                <span class="call-menu-label">{t.denoise}</span>
+              </button>
+            )}
             <div class="call-menu-sep" />
             <button type="button" role="menuitem" class="call-menu-item" onClick={openSettings}>
               <Icon d={icons.settings} size={18} />

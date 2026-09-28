@@ -16,6 +16,9 @@ blob-report/
 invitation_**.db
 presence_**.db
 group_**.db
+# Regenerable nnnoiseless checkout (pinned rev, see scripts/build-denoiser-wasm.sh).
+# The built wasm in src/denoise/pkg*/ IS committed so builds need no Rust WASM toolchain.
+vendor/
 # NOTE: rust/tests/fixtures/node-users.db is deliberately TRACKED. It is the
 # Node->Rust compatibility oracle (Node scrypt hash + schema) consumed by
 # `cargo test` and cannot be regenerated now that the Node server is gone.

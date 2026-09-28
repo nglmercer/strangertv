@@ -1,0 +1,13 @@
+{
+  "name": "nnnoiseless",
+  "description": "Pure-Rust RNNoise-style real-time audio denoising",
+  "version": "0.2.0",
+  "license": "BSD-3-Clause",
+  "files": [
+    "nnnoiseless_bg.wasm",
+    "nnnoiseless.js",
+    "nnnoiseless.d.ts"
+  ],
+  "browser": "nnnoiseless.js",
+  "types": "nnnoiseless.d.ts"
+}

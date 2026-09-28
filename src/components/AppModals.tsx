@@ -28,6 +28,9 @@ type MediaSlice = {
   cameraOn: boolean
   onToggleMute: () => void
   onToggleCamera: () => void
+  denoiseSupported: boolean
+  denoiseEnabled: boolean
+  onToggleDenoise: () => void
 }
 
 export function AppModals({
@@ -133,6 +136,9 @@ export function AppModals({
           cameraOn={media.cameraOn}
           onToggleMute={media.onToggleMute}
           onToggleCamera={media.onToggleCamera}
+          denoiseSupported={media.denoiseSupported}
+          denoiseEnabled={media.denoiseEnabled}
+          onToggleDenoise={media.onToggleDenoise}
           acquiring={media.acquiring}
           refreshDevices={media.refreshDevices}
           onConfirm={(mode, visibility) => {
@@ -172,6 +178,9 @@ export function AppModals({
           cameraOn={media.cameraOn}
           onToggleMute={media.onToggleMute}
           onToggleCamera={media.onToggleCamera}
+          denoiseSupported={media.denoiseSupported}
+          denoiseEnabled={media.denoiseEnabled}
+          onToggleDenoise={media.onToggleDenoise}
           initialTab={prefsInitialTab}
           isAnonymous={!user}
           onClose={() => {

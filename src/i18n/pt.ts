@@ -105,6 +105,8 @@ export const pt: Messages = {
   deviceCam: 'Câmera',
   deviceMic: 'Microfone',
   micLevel: 'Nível do microfone',
+  denoise: 'Redução de ruído',
+  denoiseHint: 'Remove o ruído de fundo do seu microfone antes de chegar à outra pessoa.',
   deviceDisconnected: 'Esse dispositivo foi desconectado. Reconecte-o ou escolha outro.',
   reportTitle: 'Denunciar usuário',
   reportSubmit: 'Enviar denúncia',

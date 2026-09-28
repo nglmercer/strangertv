@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'preact/hooks'
+import '../admin.css'
 import { detectLocale, t as translate } from '../i18n'
 import {
   ADMIN_TAB,

@@ -1,5 +1,5 @@
 import type { Gender, MatchPool, MatchPreferences } from '../../shared/types'
-import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_POOL, GENDERS, MATCH_POOL, STORAGE_KEYS } from '../../shared/constants'
+import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_POOL, GENDERS, MATCH_POOL, STORAGE_BOOL, STORAGE_KEYS } from '../../shared/constants'
 import { parseInterests, parseJson } from '../../shared/json'
 import { type PublicUser, get, getBool, getFlag, set, setBool, setFlag } from './storage'
 
@@ -79,6 +79,17 @@ export function saveVideoDeviceId(id: string) {
 
 export function saveAudioDeviceId(id: string) {
   set(storageKeys.audioDevice, id)
+}
+
+/** Mic noise reduction (WASM denoiser). On by default; silent no-op where unsupported. */
+export function isDenoiseEnabled(): boolean {
+  const v = get(storageKeys.denoise)
+  if (v == null) return true
+  return v === STORAGE_BOOL.true
+}
+
+export function setDenoiseEnabled(on: boolean) {
+  setBool(storageKeys.denoise, on)
 }
 
 /** First incomplete wizard step (0 devices, 1 prefs). Age/terms are handled by the age gate. */

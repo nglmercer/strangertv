@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { loadDeviceIds, saveAudioDeviceId, saveVideoDeviceId } from '../utils/clientStorage'
+import { buildAudioConstraints } from '../denoise/denoiser'
 import { classifyMediaError, type MediaErrorCode } from '../utils/mediaErrors'
 
 export type MediaDevicesState = { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
@@ -35,7 +36,7 @@ function trackDeviceId(track: MediaStreamTrack | undefined): string {
   }
 }
 
-export function useMedia() {
+export function useMedia(opts?: { denoiseOn?: boolean }) {
   const streamRef = useRef<MediaStream | null>(null)
   const [devices, setDevices] = useState<MediaDevicesState>({ video: [], audio: [] })
   const initialDevices = loadDeviceIds()
@@ -57,8 +58,10 @@ export function useMedia() {
   const audioIdRef = useRef(audioId)
   const mutedRef = useRef(muted)
   const cameraOnRef = useRef(cameraOn)
+  const denoiseRef = useRef(opts?.denoiseOn ?? false)
   mutedRef.current = muted
   cameraOnRef.current = cameraOn
+  denoiseRef.current = opts?.denoiseOn ?? false
 
   const setVideoId = useCallback((id: string) => {
     // Sync ref immediately — callers often ensureStream() in the same tick.
@@ -184,17 +187,24 @@ export function useMedia() {
       }
 
       // Prefer exact so a user selection is honored; ideal allows browser to ignore the pick.
+      // Audio always carries the processing constraints (Layer 0); the
+      // browser's own noise suppression stays on only while the WASM
+      // denoiser is off, so the two stacks never double-suppress.
+      const denoise = denoiseRef.current
       const preferred: MediaStreamConstraints = {
         video: vId ? { deviceId: { exact: vId } } : { facingMode: { ideal: 'user' } },
-        audio: aId ? { deviceId: { exact: aId } } : true,
+        audio: buildAudioConstraints(aId, { deviceIdMode: 'exact', denoiseOn: denoise }),
       }
 
       const soft: MediaStreamConstraints = {
         video: vId ? { deviceId: { ideal: vId } } : true,
-        audio: aId ? { deviceId: { ideal: aId } } : true,
+        audio: buildAudioConstraints(aId, { deviceIdMode: 'ideal', denoiseOn: denoise }),
       }
 
-      const loose: MediaStreamConstraints = { video: true, audio: true }
+      const loose: MediaStreamConstraints = {
+        video: true,
+        audio: buildAudioConstraints('', { deviceIdMode: 'ideal', denoiseOn: denoise }),
+      }
 
       // If user locked a device, try preferred first then soft (not loose — that undoes the choice).
       const attempts = vId || aId ? [preferred, soft] : [preferred, soft, loose]
@@ -230,7 +240,7 @@ export function useMedia() {
             streamRef.current = null
             const stream = await openStream({
               video: { deviceId: { exact: cam.deviceId } },
-              audio: aId ? { deviceId: { ideal: aId } } : true,
+              audio: buildAudioConstraints(aId, { deviceIdMode: 'ideal', denoiseOn: denoiseRef.current }),
             })
             videoIdRef.current = cam.deviceId
             setVideoIdState(cam.deviceId)
@@ -311,7 +321,7 @@ export function useMedia() {
         // audio
         const media = await navigator.mediaDevices.getUserMedia({
           video: false,
-          audio: id ? { deviceId: { exact: id } } : true,
+          audio: buildAudioConstraints(id, { deviceIdMode: 'exact', denoiseOn: denoiseRef.current }),
         })
         const nextTrack = media.getAudioTracks()[0]
         if (!nextTrack) throw new Error('no audio track')
@@ -361,6 +371,22 @@ export function useMedia() {
     streamRef.current?.getVideoTracks().forEach((t) => {
       t.enabled = value
     })
+  }, [])
+
+  /**
+   * Best-effort live flip of the browser's own noise suppression, used when
+   * the WASM denoiser toggles so both stacks never run at once. Engines that
+   * reject it keep their previous state; double suppression then is an
+   * acceptable fallback.
+   */
+  const setBrowserNoiseSuppression = useCallback(async (on: boolean) => {
+    const track = streamRef.current?.getAudioTracks()[0]
+    if (!track?.applyConstraints) return
+    try {
+      await track.applyConstraints({ noiseSuppression: on } as MediaTrackConstraints)
+    } catch {
+      /* engine ignored or rejected it */
+    }
   }, [])
 
   const stopStream = useCallback(() => {
@@ -413,6 +439,7 @@ export function useMedia() {
     cameraOn,
     setMutedTrack,
     setCameraTrack,
+    setBrowserNoiseSuppression,
     ensureStream,
     switchDevice,
     stopStream,

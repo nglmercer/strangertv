@@ -103,6 +103,8 @@ export const en = {
   deviceCam: 'Camera',
   deviceMic: 'Microphone',
   micLevel: 'Mic level',
+  denoise: 'Noise reduction',
+  denoiseHint: 'Remove background noise from your mic before it reaches the other person.',
   deviceDisconnected: 'That device disconnected. Reconnect it or pick another one.',
   reportTitle: 'Report this user',
   reportSubmit: 'Submit report',

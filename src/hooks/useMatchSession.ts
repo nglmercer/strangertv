@@ -7,6 +7,7 @@ import { notifyMatch, playMatchSound } from '../utils/notify'
 import { GROUP_VISIBILITY, MATCH_MODE, PEER_LEFT_REASON, QUALITY_TIER, SERVER_ERROR_CODE, SignalKind, TIMING_MS, WS_MESSAGE_TYPE } from '../../shared/constants'
 import { isMatchNotifyEnabled, isMatchSoundEnabled } from '../utils/storage'
 import { messagesApi } from '../api'
+import { useDenoiser } from './useDenoiser'
 import { useMatchSocket } from './useMatchSocket'
 import { useMedia } from './useMedia'
 import { useWebRTC } from './useWebRTC'
@@ -117,7 +118,8 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
   const isInvitingToGroupRef = useRef(false)
   const groupInviteTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const media = useMedia()
+  const denoiser = useDenoiser()
+  const media = useMedia({ denoiseOn: denoiser.enabled })
   const mediaRef = useRef(media)
   mediaRef.current = media
 
@@ -129,6 +131,15 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
   const webrtc = useWebRTC(onSignalOut)
   const webrtcRef = useRef(webrtc)
   webrtcRef.current = webrtc
+
+  /**
+   * The stream actually handed to peer connections: raw video + denoised
+   * audio while noise reduction is on, the raw mic otherwise (or when the
+   * worklet path fails). The local preview always keeps the raw stream.
+   */
+  const publishStream = useCallback((raw: MediaStream) => denoiser.toPublishStream(raw), [denoiser])
+  const publishRef = useRef(publishStream)
+  publishRef.current = publishStream
 
   const beginMatchRef = useRef<() => Promise<boolean>>(async () => false)
   const stopRef = useRef<() => void>(() => undefined)
@@ -239,7 +250,8 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
           return
         }
       }
-      await webrtcRef.current.createPeer(stream, remoteVideo.current, role === 'offerer')
+      const published = await publishRef.current(stream)
+      await webrtcRef.current.createPeer(published, remoteVideo.current, role === 'offerer')
     },
     onPeerLeft: (reason) => {
       console.debug('[match] onPeerLeft', { reason, finding: findingRef.current, matched: matchedRef.current, callSec: callSecondsRef.current })
@@ -279,7 +291,11 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     },
     onSignal: (payload, fromPeerId) => {
       if (!acceptingSignalsRef.current) return
-      void webrtcRef.current.handleSignal(payload, mediaRef.current.streamRef.current, remoteVideo.current, fromPeerId)
+      void (async () => {
+        const raw = mediaRef.current.streamRef.current
+        const stream = raw ? await publishRef.current(raw) : null
+        await webrtcRef.current.handleSignal(payload, stream, remoteVideo.current, fromPeerId)
+      })()
     },
     onChat: (text, time) => setChat((m) => [...m, { text, time, mine: false }]),
     onStats: (onl, wait) => {
@@ -450,8 +466,9 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
           return
         }
       }
+      const published = await publishRef.current(stream)
       await webrtcRef.current.createMeshPeers(
-        stream,
+        published,
         peers.map((p) => ({ peerId: p.peerId, userId: p.userId, role: p.role })),
         peerId,
       )
@@ -521,6 +538,8 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
   const beginMatch = useCallback(async (): Promise<boolean> => {
     try {
       const stream = await media.ensureStream()
+      // Warm the denoiser while queueing so the first publish is instant.
+      void publishStream(stream).catch(() => undefined)
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = stream
       setChat([])
@@ -539,13 +558,15 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
       setFinding(false)
       return false
     }
-  }, [media, match, onStatus, authUserId])
+  }, [media, match, onStatus, authUserId, publishStream])
 
   beginMatchRef.current = beginMatch
 
   const beginGroupMatch = useCallback(async (visibility: GroupVisibility, groupPrefs: MatchPreferences): Promise<boolean> => {
     try {
       const stream = await media.ensureStream()
+      // Warm the denoiser while queueing so the first publish is instant.
+      void publishStream(stream).catch(() => undefined)
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = stream
       setMatchMode(MATCH_MODE.group)
@@ -560,7 +581,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
       setFinding(false)
       return false
     }
-  }, [media, match, onStatus])
+  }, [media, match, onStatus, publishStream])
 
   const startGroupQueue = useCallback(() => {
     if (groupRoomId) {
@@ -656,23 +677,36 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     [chatText, matched, match],
   )
 
-  const bumpStream = useCallback(async () => {
-    const s = await media.ensureStream()
+  const bumpStream = useCallback(async (force?: boolean) => {
+    const s = await media.ensureStream({ force })
     setStreamTick((n) => n + 1)
     if (localVideo.current) localVideo.current.srcObject = s
-    webrtc.replaceTracks(s)
+    webrtc.replaceTracks(await publishStream(s))
     return s
-  }, [media, webrtc])
+  }, [media, publishStream, webrtc])
 
   const changeDevice = useCallback(
     async (kind: 'video' | 'audio', id: string) => {
       const s = await media.switchDevice(kind, id)
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = s
-      webrtc.replaceTracks(s)
+      webrtc.replaceTracks(await publishStream(s))
       return s
     },
-    [media, webrtc],
+    [media, publishStream, webrtc],
+  )
+
+  const setDenoiseEnabled = useCallback(
+    async (on: boolean) => {
+      denoiser.setEnabled(on)
+      // Flip the browser's own suppression the other way so only one stack runs.
+      await media.setBrowserNoiseSuppression(!on)
+      const raw = media.streamRef.current
+      if (raw) {
+        webrtc.replaceTracks(await publishStream(raw))
+      }
+    },
+    [denoiser, media, publishStream, webrtc],
   )
 
   return {
@@ -713,6 +747,10 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     sendChat,
     bumpStream,
     changeDevice,
+    publishStream,
+    denoiseSupported: denoiser.supported,
+    denoiseEnabled: denoiser.enabled,
+    setDenoiseEnabled,
     matchMode,
     groupRoomId,
     groupVisibility,

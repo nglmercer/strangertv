@@ -37,6 +37,9 @@ export function PreferencesModal({
   cameraOn,
   onToggleMute,
   onToggleCamera,
+  denoiseSupported,
+  denoiseEnabled,
+  onToggleDenoise,
   initialTab,
   isAnonymous,
   onClose,
@@ -65,6 +68,9 @@ export function PreferencesModal({
   cameraOn: boolean
   onToggleMute: () => void
   onToggleCamera: () => void
+  denoiseSupported: boolean
+  denoiseEnabled: boolean
+  onToggleDenoise: () => void
   initialTab?: PrefsTabId
   isAnonymous: boolean
   onClose: () => void
@@ -121,6 +127,9 @@ export function PreferencesModal({
           cameraOn={cameraOn}
           onToggleMute={onToggleMute}
           onToggleCamera={onToggleCamera}
+          denoiseSupported={denoiseSupported}
+          denoiseEnabled={denoiseEnabled}
+          onToggleDenoise={onToggleDenoise}
         />
       )}
       {tab === PREFS_TAB.language && <LocalePrefsTab t={t} locale={locale} setLocale={setLocale} />}

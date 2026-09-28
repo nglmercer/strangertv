@@ -19,6 +19,8 @@ layout, security rules) lives in
 | `npm run test:integration` | Live HTTP API tests only |
 | `npm run test:e2e` | Playwright end-to-end |
 | `npm run test:all` | check + generated + rust + build + suites + e2e |
+| `npm run build:wasm` | Rebuild the vendored nnnoiseless denoiser WASM (needs `wasm-pack`) |
+| `npm run test:denoise` | Node smoke test: the committed WASM actually denoises |
 | `npm run loadtest` | WebSocket matchmaking stress |
 | `npm run smoke` | Post-deploy HTTP smoke |
 | `npm run backup` | Local SQLite backup |

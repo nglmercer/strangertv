@@ -4,6 +4,7 @@ import { AudioLevelMeter } from '../utils/audioLevels'
 import { deviceName } from '../utils/deviceLabels'
 import { mediaErrorHelp, mediaErrorMessage, type MediaErrorCode } from '../utils/mediaErrors'
 import { Icon, icons } from './icons'
+import { DenoiseToggle } from './DenoiseToggle'
 import { Select } from './Select'
 
 type Devices = { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
@@ -65,6 +66,9 @@ export function MediaSettings({
   cameraOn,
   onToggleMute,
   onToggleCamera,
+  denoiseSupported,
+  denoiseEnabled,
+  onToggleDenoise,
   onRetry,
   onRefresh,
   forceDevicePickers = false,
@@ -85,6 +89,9 @@ export function MediaSettings({
   cameraOn: boolean
   onToggleMute: () => void
   onToggleCamera: () => void
+  denoiseSupported: boolean
+  denoiseEnabled: boolean
+  onToggleDenoise: () => void
   onRetry: () => void
   onRefresh: () => void
   /** Always show cam/mic selectors (Preferences). Default: only on conflict. */
@@ -209,6 +216,8 @@ export function MediaSettings({
           <i style={{ width: `${Math.min(100, Math.round(level * 130))}%` }} />
         </span>
       )}
+
+      <DenoiseToggle t={t} supported={denoiseSupported} enabled={denoiseEnabled} onToggle={onToggleDenoise} />
 
       <div class="device-actions">
         <button type="button" class="device-btn" disabled={acquiring} onClick={onRetry}>

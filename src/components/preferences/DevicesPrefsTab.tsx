@@ -22,6 +22,9 @@ export function DevicesPrefsTab({
   cameraOn,
   onToggleMute,
   onToggleCamera,
+  denoiseSupported,
+  denoiseEnabled,
+  onToggleDenoise,
 }: {
   t: Messages
   devices: { video: MediaDeviceInfo[]; audio: MediaDeviceInfo[] }
@@ -41,6 +44,9 @@ export function DevicesPrefsTab({
   cameraOn: boolean
   onToggleMute: () => void
   onToggleCamera: () => void
+  denoiseSupported: boolean
+  denoiseEnabled: boolean
+  onToggleDenoise: () => void
 }) {
   useEffect(() => {
     // Reuses a live stream when there is one, so opening this tab mid-call
@@ -70,6 +76,9 @@ export function DevicesPrefsTab({
         cameraOn={cameraOn}
         onToggleMute={onToggleMute}
         onToggleCamera={onToggleCamera}
+        denoiseSupported={denoiseSupported}
+        denoiseEnabled={denoiseEnabled}
+        onToggleDenoise={onToggleDenoise}
         onRetry={() => void ensureStream(true).catch(() => undefined)}
         onRefresh={() => void refreshDevices()}
         forceDevicePickers

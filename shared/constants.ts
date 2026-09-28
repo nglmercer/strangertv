@@ -25,6 +25,7 @@ export const STORAGE_KEYS = {
   devicesReady: 'stranger-devices-ready',
   videoDevice: 'stranger-video-device-id',
   audioDevice: 'stranger-audio-device-id',
+  denoise: 'stranger-denoise',
   uiSettings: 'stranger-ui-settings',
 } as const
 
