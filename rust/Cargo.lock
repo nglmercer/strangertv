@@ -351,7 +351,7 @@ dependencies = [
  "http 1.5.0",
  "jsonwebtoken",
  "libsql",
- "password-hash",
+ "password-hash 0.6.1",
  "reqwest",
  "scrypt",
  "secrecy",
@@ -1894,6 +1894,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "password-hash"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aab41826031698d6ffcd9cff78ef56ef998e39dc7e5067cdfebe373842d4723b"
+
+[[package]]
 name = "pastey"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2508,7 +2514,7 @@ version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0516a385866c09368f0b5bcd1caff3366aace790fcd46e2bb032697bb172fd1f"
 dependencies = [
- "password-hash",
+ "password-hash 0.5.0",
  "pbkdf2",
  "salsa20",
  "sha2",
