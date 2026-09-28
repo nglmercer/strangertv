@@ -84,7 +84,7 @@ Endpoints: [Operations](./operations.md).
 
 | Variable | Purpose |
 |----------|---------|
-| `FEATURE_ANONYMOUS_MATCH` | Allow matching without an account (default off — anonymous users have no server-verifiable age; see [Safety](./safety.md)) |
+| `FEATURE_ANONYMOUS_MATCH` | Allow matching without an account (default on — guests match from forced default filters in the guest pool; see [Safety](./safety.md)) |
 | `FEATURE_GUEST_REPORTS` | Allow reports without an account |
 | `FEATURE_QUALITY_TELEMETRY` | Collect call-quality telemetry |
 | `FEATURE_REQUIRE_EMAIL_VERIFIED` | Require verified email for matching |

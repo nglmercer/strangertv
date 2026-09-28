@@ -6,10 +6,12 @@ import {
   type Gender,
   type GroupVisibility,
   type MatchMode,
+  type MatchPool,
   type MatchPreferences,
   type MatchScope,
 } from '../../shared/types'
-import { DEFAULT_MATCH_MODE, DEFAULT_MATCH_SCOPE, GENDER, GENDERS } from '../../shared/constants'
+import { DEFAULT_MATCH_MODE, DEFAULT_MATCH_POOL, DEFAULT_MATCH_SCOPE, GENDER, GENDERS, MATCH_POOL } from '../../shared/constants'
+import type { PublicUser } from '../api'
 import { countryLabel, formatMessage, interestLabel, matchLangLabel, type Messages } from '../i18n'
 import {
   getStartWizardStep,
@@ -24,6 +26,7 @@ export function StartMatchModal({
   t,
   prefs,
   setPrefs,
+  user,
   stream,
   streamVersion,
   ensureStream,
@@ -47,6 +50,7 @@ export function StartMatchModal({
   t: Messages
   prefs: MatchPreferences
   setPrefs: (p: MatchPreferences) => void
+  user: PublicUser | null
   stream: MediaStream | null
   streamVersion: number
   ensureStream: (force?: boolean) => Promise<MediaStream>
@@ -183,9 +187,22 @@ export function StartMatchModal({
 
       {step === 2 && (
         <>
+          {!user && <p class="form-info">{t.anonFiltersLocked}</p>}
+          {user && (
+            <label>
+              {t.matchPool}
+              <select
+                value={prefs.matchPool ?? DEFAULT_MATCH_POOL}
+                onChange={(e) => setPrefs({ ...prefs, matchPool: e.currentTarget.value as MatchPool })}
+              >
+                <option value={MATCH_POOL.all}>{t.matchPoolAll}</option>
+                <option value={MATCH_POOL.registered}>{t.matchPoolRegistered}</option>
+              </select>
+            </label>
+          )}
           <label>
             {t.country}
-            <select value={prefs.country} onChange={(e) => setPrefs({ ...prefs, country: e.currentTarget.value })}>
+            <select value={prefs.country} disabled={!user} onChange={(e) => setPrefs({ ...prefs, country: e.currentTarget.value })}>
               {COUNTRY_CODES.map((code) => (
                 <option value={code} key={code}>
                   {countryLabel(t, code)}
@@ -195,7 +212,7 @@ export function StartMatchModal({
           </label>
           <label>
             {t.matchLanguage}
-            <select value={prefs.language} onChange={(e) => setPrefs({ ...prefs, language: e.currentTarget.value })}>
+            <select value={prefs.language} disabled={!user} onChange={(e) => setPrefs({ ...prefs, language: e.currentTarget.value })}>
               {MATCH_LANGUAGE_CODES.map((code) => (
                 <option value={code} key={code}>
                   {matchLangLabel(t, code)}
@@ -207,6 +224,7 @@ export function StartMatchModal({
             {t.lookingFor}
             <select
               value={prefs.lookingFor}
+              disabled={!user}
               onChange={(e) => setPrefs({ ...prefs, lookingFor: e.currentTarget.value as Gender })}
             >
               {GENDERS.map((g) => (
@@ -221,6 +239,7 @@ export function StartMatchModal({
               <button
                 type="button"
                 key={tag}
+                disabled={!user}
                 class={`chip ${prefs.interests.includes(tag) ? 'on' : ''}`}
                 onClick={() => {
                   const has = prefs.interests.includes(tag)

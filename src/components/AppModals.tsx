@@ -40,6 +40,8 @@ export function AppModals({
   setUiSettings,
   user,
   setUser,
+  points,
+  onOpenEconomy,
   profileNeeded,
   setProfileNeeded,
   showStart,
@@ -77,6 +79,8 @@ export function AppModals({
   setUiSettings: (s: UiSettings) => void
   user: PublicUser | null
   setUser: (u: PublicUser | null) => void
+  points: number | null
+  onOpenEconomy: () => void
   profileNeeded: boolean
   setProfileNeeded: (v: boolean) => void
   showStart: boolean
@@ -113,6 +117,7 @@ export function AppModals({
           t={t}
           prefs={prefs}
           setPrefs={setPrefs}
+          user={user}
           stream={media.stream}
           streamVersion={media.streamVersion}
           ensureStream={media.ensureStream}
@@ -168,6 +173,7 @@ export function AppModals({
           onToggleMute={media.onToggleMute}
           onToggleCamera={media.onToggleCamera}
           initialTab={prefsInitialTab}
+          isAnonymous={!user}
           onClose={() => {
             setPreferences(false)
             if (user) void authApi.savePreferences(prefs).catch(() => undefined)
@@ -193,9 +199,11 @@ export function AppModals({
         <SettingsModal
           t={t}
           user={user}
+          points={points}
           onClose={() => setSettings(false)}
           onDeleted={() => setUser(null)}
           onUserUpdate={setUser}
+          onOpenEconomy={onOpenEconomy}
         />
       )}
       {reportOpen && <ReportModal t={t} onClose={() => setReportOpen(false)} onSubmit={onReport} />}

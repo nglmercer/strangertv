@@ -449,9 +449,23 @@ export const MATCH_SCOPE = {
 
 export type MatchScope = (typeof MATCH_SCOPE)[keyof typeof MATCH_SCOPE]
 
+/**
+ * Who an authenticated user is willing to meet: everyone (including guests)
+ * or registered users only. Guests have no pool choice — they always match
+ * other guests, and meet an authenticated peer only when that peer's pool is
+ * open. Must stay identical to the generated `MatchPool` union.
+ */
+export const MATCH_POOL = {
+  all: 'all',
+  registered: 'registered',
+} as const
+
+export type MatchPool = (typeof MATCH_POOL)[keyof typeof MATCH_POOL]
+
 export const DEFAULT_MATCH_MODE = MATCH_MODE.solo
 export const DEFAULT_GROUP_VISIBILITY = GROUP_VISIBILITY.public
 export const DEFAULT_MATCH_SCOPE = MATCH_SCOPE.all
+export const DEFAULT_MATCH_POOL = MATCH_POOL.all
 
 // ---------------------------------------------------------------------------
 // Matchmaking room roles
@@ -628,6 +642,10 @@ export const TIMING_MS = {
   healthPoll: 15_000,
   /** Client bootstrap health poll interval. */
   healthPollClient: 20_000,
+  /** How long boot waits for the API before falling through to normal errors. */
+  apiBootWait: 60_000,
+  /** Interval between boot-time API reachability probes. */
+  apiBootRetry: 2_000,
 } as const
 
 // ---------------------------------------------------------------------------

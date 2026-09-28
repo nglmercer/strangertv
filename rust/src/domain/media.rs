@@ -325,8 +325,7 @@ mod tests {
             store_media(&db, 1, KIND_ICON, "image/jpeg", PIXEL_PNG).await,
             Err(MediaError::UnsupportedType(_))
         ));
-        let big = vec![0xFF, 0xD8, 0xFF, 0x00];
-        let mut big = big.repeat(MAX_ICON_BYTES / 4 + 1);
+        let mut big = [0xFF, 0xD8, 0xFF, 0x00].repeat(MAX_ICON_BYTES / 4 + 1);
         big.truncate(MAX_ICON_BYTES + 1);
         assert!(matches!(
             store_media(&db, 1, KIND_ICON, "image/jpeg", &big).await,

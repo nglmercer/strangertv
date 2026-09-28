@@ -13,15 +13,19 @@ type BlockRow = { id: number; email: string | null; createdAt: string | null }
 export function SettingsModal({
   t,
   user,
+  points,
   onClose,
   onDeleted,
   onUserUpdate,
+  onOpenEconomy,
 }: {
   t: Messages
   user: PublicUser
+  points: number | null
   onClose: () => void
   onDeleted: () => void
   onUserUpdate?: (u: PublicUser) => void
+  onOpenEconomy: () => void
 }) {
   const [error, setError] = useState('')
   const [confirmUi, confirm] = useConfirm(t)
@@ -113,6 +117,16 @@ export function SettingsModal({
         </p>
       )}
       {info && <p class="form-info">{info}</p>}
+
+      <section class="acct-section" aria-label={t.points}>
+        <h3>{t.points}</h3>
+        <p class="muted-inline">
+          {t.pointsBalance}: {points ?? '…'}
+        </p>
+        <button type="button" class="match full" onClick={onOpenEconomy}>
+          {t.managePoints}
+        </button>
+      </section>
 
       <section class="acct-section" aria-label={t.notifications}>
         <h3>{t.notifications}</h3>

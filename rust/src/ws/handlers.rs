@@ -924,18 +924,31 @@ async fn join(
         .await
         .unwrap_or(false)
     {
+        crate::log_warn!("matchmaking.join_rejected", { "reason": "banned" });
+        crate::infra::metrics::inc("matchmaking_join_rejected_banned", 1);
         send(hub, socket, &err("banned", "Access denied."));
         return;
     }
     let authenticated = resolve_ws_user(state, ctx, token.as_deref()).await;
     if !state.config.features.anonymous_match && authenticated.is_none() {
+        crate::log_warn!("matchmaking.join_rejected", { "reason": "anonymous_disabled" });
+        crate::infra::metrics::inc("matchmaking_join_rejected_anonymous_disabled", 1);
         send(hub, socket, &err("auth_required", "Sign in to match."));
         return;
     }
-    let Some(preferences) = crate::matchmaking::core::normalize_preferences(raw_preferences) else {
+    let Some(mut preferences) = crate::matchmaking::core::normalize_preferences(raw_preferences)
+    else {
         send(hub, socket, &err("bad_prefs", "Invalid preferences."));
         return;
     };
+    if authenticated.is_none() {
+        crate::matchmaking::core::force_guest_preferences(&mut preferences);
+        crate::infra::logger::log(
+            "debug",
+            "matchmaking.guest_prefs_forced",
+            serde_json::json!({}),
+        );
+    }
     // Group mode has its own entry point; taking it here would put a group
     // lobby into the solo queue.
     if preferences.mode == MatchMode::Group {
@@ -957,6 +970,8 @@ async fn join(
             .await
             .unwrap_or(false)
         {
+            crate::log_warn!("matchmaking.join_rejected", { "reason": "banned", "userId": user.id });
+            crate::infra::metrics::inc("matchmaking_join_rejected_banned", 1);
             send(hub, socket, &err("banned", "Access denied."));
             return;
         }

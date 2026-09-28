@@ -287,16 +287,16 @@ mod tests {
             .verify("password12", &phc)
             .await
             .expect("PHC verification");
-        assert_eq!(phc_result.valid, true);
-        assert_eq!(phc_result.needs_rehash, false);
+        assert!(phc_result.valid);
+        assert!(!phc_result.needs_rehash);
 
         let legacy = include_str!("../../tests/fixtures/node-password-hash.txt");
         let legacy_result = composite
             .verify("password12", legacy.trim())
             .await
             .expect("legacy verification");
-        assert_eq!(legacy_result.valid, true);
-        assert_eq!(legacy_result.needs_rehash, true);
+        assert!(legacy_result.valid);
+        assert!(legacy_result.needs_rehash);
     }
 
     #[test]

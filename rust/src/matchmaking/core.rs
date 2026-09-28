@@ -20,8 +20,8 @@ use crate::matchmaking::sockets::{Hub, SocketId};
 use crate::matchmaking::state::*;
 use crate::matchmaking::QueueStats;
 use crate::proto::{
-    Gender, GroupMatchPeer, GroupVisibility, MatchPreferences, MatchScope, RelationshipStatus, Role,
-    ServerMessage, Side,
+    Gender, GroupMatchPeer, GroupVisibility, MatchPool, MatchPreferences, MatchScope,
+    RelationshipStatus, Role, ServerMessage, Side,
 };
 
 pub const PEER_LEFT_DISCONNECT: &str = "disconnect";
@@ -168,6 +168,24 @@ fn preferences_compatible(pa: &MatchPreferences, pb: &MatchPreferences) -> bool 
         && gender_ok(pb.looking_for, pa.gender)
 }
 
+/// A missing id — or the `0` the merged group rooms record for guests — both
+/// mean "unauthenticated".
+fn is_guest(user_id: Option<i64>) -> bool {
+    matches!(user_id, None | Some(0))
+}
+
+/// Pool half of compatibility: guests always match each other, meet an
+/// authenticated peer only when that peer's pool is open, and two
+/// authenticated users always pass.
+fn pool_ok(a: &QueuePeer, b: &QueuePeer) -> bool {
+    match (is_guest(a.user_id), is_guest(b.user_id)) {
+        (true, true) => true,
+        (true, false) => b.preferences.match_pool == MatchPool::All,
+        (false, true) => a.preferences.match_pool == MatchPool::All,
+        (false, false) => true,
+    }
+}
+
 impl EngineState {
     fn is_blocked_pair(&self, a: Option<i64>, b: Option<i64>) -> bool {
         let (Some(a), Some(b)) = (a.filter(|x| *x != 0), b.filter(|x| *x != 0)) else {
@@ -216,6 +234,9 @@ impl EngineState {
             return false;
         }
         if !a.preferences.allow_match_with_same_users && self.is_recent_pair(a, b) {
+            return false;
+        }
+        if !pool_ok(a, b) {
             return false;
         }
         preferences_compatible(&a.preferences, &b.preferences)
@@ -271,7 +292,25 @@ pub fn normalize_preferences(raw: &serde_json::Value) -> Option<MatchPreferences
             Some("group") => MatchScope::Group,
             _ => MatchScope::All,
         },
+        // Open pool by default: authenticated users meet anyone unless they
+        // narrow to registered-only. Guests ignore their own value.
+        match_pool: match raw.get("matchPool").and_then(|v| v.as_str()) {
+            Some("registered") => MatchPool::Registered,
+            _ => MatchPool::All,
+        },
     })
+}
+
+/// Guests match from a fixed default set: identity filters are a
+/// registered-user feature, so anything a guest sends for them is dropped.
+/// Scope and rematch behavior are kept — they steer queueing, not identity.
+pub fn force_guest_preferences(preferences: &mut MatchPreferences) {
+    preferences.country = DEFAULT_COUNTRY.to_string();
+    preferences.language = DEFAULT_LANGUAGE.to_string();
+    preferences.gender = Gender::Any;
+    preferences.looking_for = Gender::Any;
+    preferences.interests.clear();
+    preferences.match_pool = MatchPool::All;
 }
 
 #[cfg(test)]
@@ -289,6 +328,7 @@ mod tests {
             allow_match_with_same_users: true,
             mode: crate::proto::MatchMode::Solo,
             match_scope: MatchScope::All,
+            match_pool: MatchPool::All,
         }
     }
 
@@ -336,6 +376,7 @@ mod tests {
         assert_eq!(p.gender, Gender::Any);
         assert!(p.allow_match_with_same_users, "absent means true");
         assert_eq!(p.match_scope, MatchScope::All);
+        assert_eq!(p.match_pool, MatchPool::All, "the pool is open by default");
         assert!(p.interests.is_empty());
 
         let p = normalize_preferences(&json!({
@@ -343,6 +384,7 @@ mod tests {
             "interests": ["a","b","c","d","e","f","g","h","i","j","k","l"],
             "gender": "nonsense",
             "matchScope": "group",
+            "matchPool": "registered",
             "allowMatchWithSameUsers": false,
         }))
         .unwrap();
@@ -350,6 +392,7 @@ mod tests {
         assert_eq!(p.interests.len(), 10, "interests are capped at 10");
         assert_eq!(p.gender, Gender::Any, "an unknown gender falls back");
         assert_eq!(p.match_scope, MatchScope::Group);
+        assert_eq!(p.match_pool, MatchPool::Registered);
         assert!(!p.allow_match_with_same_users);
     }
 
@@ -358,6 +401,29 @@ mod tests {
         assert!(normalize_preferences(&json!(null)).is_none());
         assert!(normalize_preferences(&json!("string")).is_none());
         assert!(normalize_preferences(&json!(42)).is_none());
+    }
+
+    #[test]
+    fn guest_preferences_keep_only_queueing_choices() {
+        let mut p = normalize_preferences(&json!({
+            "country": "PE",
+            "language": "es",
+            "gender": "male",
+            "lookingFor": "female",
+            "interests": ["music"],
+            "matchScope": "solo",
+            "allowMatchWithSameUsers": false,
+        }))
+        .unwrap();
+        force_guest_preferences(&mut p);
+        assert_eq!(p.country, "any");
+        assert_eq!(p.language, "any");
+        assert_eq!(p.gender, Gender::Any);
+        assert_eq!(p.looking_for, Gender::Any);
+        assert!(p.interests.is_empty());
+        assert_eq!(p.match_pool, MatchPool::All);
+        assert_eq!(p.match_scope, MatchScope::Solo, "scope is kept");
+        assert!(!p.allow_match_with_same_users, "rematch choice is kept");
     }
 }
 
@@ -1354,6 +1420,7 @@ fn aggregate_group_preferences(st: &EngineState, room_id: &str) -> Option<MatchP
         allow_match_with_same_users: true,
         mode: crate::proto::MatchMode::Group,
         match_scope: group.scope,
+        match_pool: group.preferences.match_pool,
     })
 }
 
@@ -1409,6 +1476,7 @@ mod engine_tests {
             allow_match_with_same_users: true,
             mode: MatchMode::Solo,
             match_scope: MatchScope::All,
+            match_pool: MatchPool::All,
         }
     }
 
@@ -1547,6 +1615,69 @@ mod engine_tests {
             .join_queue(b, with(|p| p.match_scope = MatchScope::Solo), Some(2), None, "sb".into())
             .await;
         assert_eq!(engine.queue_stats().await.waiting, 2);
+    }
+
+    #[tokio::test]
+    async fn two_guests_match_each_other() {
+        let (engine, hub) = engine().await;
+        let (a, _ra) = socket(&hub);
+        let (b, _rb) = socket(&hub);
+
+        engine.join_queue(a, prefs(), None, None, "sa".into()).await;
+        engine.join_queue(b, prefs(), None, None, "sb".into()).await;
+        assert_eq!(engine.partner_of(a).await, Some(b));
+    }
+
+    #[tokio::test]
+    async fn an_open_pool_user_matches_a_guest() {
+        let (engine, hub) = engine().await;
+        let (authed, _ra) = socket(&hub);
+        let (guest, _rg) = socket(&hub);
+
+        engine
+            .join_queue(authed, prefs(), Some(1), None, "sa".into())
+            .await;
+        engine.join_queue(guest, prefs(), None, None, "sg".into()).await;
+        assert_eq!(engine.partner_of(authed).await, Some(guest));
+    }
+
+    #[tokio::test]
+    async fn a_registered_only_user_never_meets_a_guest() {
+        let (engine, hub) = engine().await;
+        let (authed, _ra) = socket(&hub);
+        let (guest, _rg) = socket(&hub);
+        let registered_only = with(|p| p.match_pool = MatchPool::Registered);
+
+        engine
+            .join_queue(authed, registered_only, Some(1), None, "sa".into())
+            .await;
+        engine.join_queue(guest, prefs(), None, None, "sg".into()).await;
+        assert_eq!(engine.queue_stats().await.waiting, 2);
+        assert_eq!(engine.partner_of(authed).await, None);
+
+        // The guest is matchable — just not with the registered-only user.
+        let (guest2, _rg2) = socket(&hub);
+        engine
+            .join_queue(guest2, prefs(), None, None, "sg2".into())
+            .await;
+        assert_eq!(engine.partner_of(guest).await, Some(guest2));
+        assert_eq!(engine.partner_of(authed).await, None);
+    }
+
+    #[tokio::test]
+    async fn two_registered_only_users_still_match() {
+        let (engine, hub) = engine().await;
+        let (a, _ra) = socket(&hub);
+        let (b, _rb) = socket(&hub);
+        let registered_only = || with(|p| p.match_pool = MatchPool::Registered);
+
+        engine
+            .join_queue(a, registered_only(), Some(1), None, "sa".into())
+            .await;
+        engine
+            .join_queue(b, registered_only(), Some(2), None, "sb".into())
+            .await;
+        assert_eq!(engine.partner_of(a).await, Some(b));
     }
 
     #[tokio::test]

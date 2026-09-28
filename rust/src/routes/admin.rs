@@ -228,7 +228,7 @@ fn csv_escape(v: &Value) -> String {
         other => other.to_string(),
     };
     let s = match s.chars().next() {
-        Some(c) if matches!(c, '=' | '+' | '-' | '@' | '\t' | '\r') => format!("'{s}"),
+        Some('=' | '+' | '-' | '@' | '\t' | '\r') => format!("'{s}"),
         _ => s,
     };
     if s.contains('"') || s.contains(',') || s.contains('\n') {

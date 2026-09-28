@@ -49,6 +49,12 @@ str_enum!(GroupRole { Admin => "admin", Member => "member" });
 str_enum!(GroupVisibility { Public => "public", Private => "private" });
 str_enum!(MatchMode { Solo => "solo", Group => "group" });
 str_enum!(MatchScope { All => "all", Solo => "solo", Group => "group" });
+str_enum!(
+    /// Who an authenticated user is willing to meet. Guests have no pool
+    /// choice of their own: they always match other guests, and meet an
+    /// authenticated peer only when that peer's pool is `All`.
+    MatchPool { All => "all", Registered => "registered" }
+);
 str_enum!(Side { Local => "local", Remote => "remote" });
 
 str_enum!(ReportReason {
@@ -116,6 +122,7 @@ pub struct MatchPreferences {
     pub allow_match_with_same_users: bool,
     pub mode: MatchMode,
     pub match_scope: MatchScope,
+    pub match_pool: MatchPool,
 }
 
 /// Participant info in a group match room.

@@ -54,6 +54,12 @@ export type GroupMatchParticipant = {
   country?: string
 }
 
+/** A matchmaking rejection that needs an explanatory banner, not just a status line. */
+export type MatchBlocked = {
+  code: string
+  message: string
+}
+
 export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessage, onActivityState, onActivityPresence, onActivityEnded, onActivityLaunched, onSocialEvent, onGroupInvite, onGroupInviteAccepted, onGroupInviteDeclined, onPresenceList, onPresenceChange, onInsufficientFunds }: Options) {
   const [finding, setFinding] = useState(false)
   const [matched, setMatched] = useState(false)
@@ -78,6 +84,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
   const [groupParticipants, setGroupParticipants] = useState<GroupMatchParticipant[]>([])
   const [groupPeers, setGroupPeers] = useState<GroupMatchPeer[]>([])
   const [pendingGroupInvite, setPendingGroupInvite] = useState<{ roomId: string; host: PublicUser } | null>(null)
+  const [blocked, setBlocked] = useState<MatchBlocked | null>(null)
 
   const localVideo = useRef<HTMLVideoElement>(null)
   const remoteVideo = useRef<HTMLVideoElement>(null)
@@ -147,8 +154,11 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     groupRoomIdRef.current = null
   }
 
+  const clearBlocked = useCallback(() => setBlocked(null), [])
+
   const match = useMatchSocket({
     onWaiting: (position, onl) => {
+      setBlocked(null)
       // A group room whose members are already connected to each other stays in
       // the queue while it looks for an opposing side. Keep the live tiles and
       // only refresh the queue info — tearing them down would drop the call.
@@ -181,6 +191,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
         matchRef.current?.leave()
         return
       }
+      setBlocked(null)
       acceptingSignalsRef.current = true
       console.debug('[match] onMatched', { roomId: id, role, peerUserId: meta?.peerUserId, relationship: meta?.relationship })
       setRoomId(id)
@@ -278,6 +289,17 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     onError: (code, message) => {
       onStatus(message)
       setFinding(false)
+      console.warn('[match] matchmaking rejected', { code, message })
+      if (
+        code === SERVER_ERROR_CODE.banned ||
+        code === SERVER_ERROR_CODE.authRequired ||
+        code === SERVER_ERROR_CODE.ageRestricted ||
+        code === SERVER_ERROR_CODE.emailUnverified
+      ) {
+        setBlocked({ code, message })
+      } else {
+        setBlocked(null)
+      }
       if (code === SERVER_ERROR_CODE.insufficientFunds) onInsufficientFunds?.()
     },
     // Reporting or blocking takes us out of the room for good — including a
@@ -396,6 +418,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
         matchRef.current?.leave()
         return
       }
+      setBlocked(null)
       acceptingSignalsRef.current = true
       console.debug('[match] group-match:matched', { roomId: id, role, peerId, peerCount: peers.length })
       setRoomId(id)
@@ -501,9 +524,13 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = stream
       setChat([])
+      setBlocked(null)
       setFinding(true)
       setMatched(false)
       onStatus(trRef.current.finding)
+      if (authUserId == null) {
+        console.debug('[match] joining queue as guest (default filters, guest pool)')
+      }
       match.join(prefsRef.current)
       return true
     } catch {
@@ -512,7 +539,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
       setFinding(false)
       return false
     }
-  }, [media, match, onStatus])
+  }, [media, match, onStatus, authUserId])
 
   beginMatchRef.current = beginMatch
 
@@ -522,6 +549,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
       setStreamTick((n) => n + 1)
       if (localVideo.current) localVideo.current.srcObject = stream
       setMatchMode(MATCH_MODE.group)
+      setBlocked(null)
       setFinding(true)
       onStatus(trRef.current.finding)
       match.groupMatchCreate(visibility, groupPrefs)
@@ -578,6 +606,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     const endedRoom = roomIdRef.current
     const duration = callSecondsRef.current
     isInvitingToGroupRef.current = false
+    setBlocked(null)
     match.leave()
     match.groupMatchLeave()
     webrtc.clear()
@@ -600,6 +629,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     webrtc.clear()
     if (remoteVideo.current) remoteVideo.current.srcObject = null
     setChat([])
+    setBlocked(null)
     setMatched(false)
     setSharedInterests([])
     setPeerCountry('')
@@ -694,5 +724,7 @@ export function useMatchSession({ authUserId, tr, prefs, onStatus, onGroupMessag
     pendingGroupInvite,
     acceptGroupInvite,
     declineGroupInvite,
+    blocked,
+    clearBlocked,
   }
 }

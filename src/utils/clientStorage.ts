@@ -1,5 +1,5 @@
-import type { Gender, MatchPreferences } from '../../shared/types'
-import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, GENDERS, STORAGE_KEYS } from '../../shared/constants'
+import type { Gender, MatchPool, MatchPreferences } from '../../shared/types'
+import { DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_POOL, GENDERS, MATCH_POOL, STORAGE_KEYS } from '../../shared/constants'
 import { parseInterests, parseJson } from '../../shared/json'
 import { type PublicUser, get, getBool, getFlag, set, setBool, setFlag } from './storage'
 
@@ -121,11 +121,13 @@ export function applyUserToClient(user: PublicUser): {
 
   let lookingFor: Gender = DEFAULT_GENDER
   let allowMatchWithSameUsers = true
+  let matchPool: MatchPool = DEFAULT_MATCH_POOL
   const stored = get(storageKeys.prefs)
   if (stored) {
     const parsed = parseJson<MatchPreferences | null>(stored, null)
     lookingFor = asGender(parsed?.lookingFor)
     allowMatchWithSameUsers = parsed?.allowMatchWithSameUsers ?? true
+    matchPool = parsed?.matchPool === MATCH_POOL.registered ? MATCH_POOL.registered : DEFAULT_MATCH_POOL
   }
 
   const prefs: MatchPreferences = {
@@ -137,6 +139,7 @@ export function applyUserToClient(user: PublicUser): {
     allowMatchWithSameUsers,
     mode: 'solo',
     matchScope: 'all',
+    matchPool,
   }
 
   return { profileComplete, prefs }

@@ -38,6 +38,7 @@ export function PreferencesModal({
   onToggleMute,
   onToggleCamera,
   initialTab,
+  isAnonymous,
   onClose,
 }: {
   t: Messages
@@ -65,6 +66,7 @@ export function PreferencesModal({
   onToggleMute: () => void
   onToggleCamera: () => void
   initialTab?: PrefsTabId
+  isAnonymous: boolean
   onClose: () => void
 }) {
   const [tab, setTab] = useState<PrefsTabId>(() => initialTab ?? (errorCode ? PREFS_TAB.devices : PREFS_TAB.match))
@@ -97,7 +99,7 @@ export function PreferencesModal({
         ))}
       </div>
 
-      {tab === PREFS_TAB.match && <MatchPrefsTab t={t} prefs={prefs} setPrefs={setPrefs} />}
+      {tab === PREFS_TAB.match && <MatchPrefsTab t={t} prefs={prefs} setPrefs={setPrefs} isAnonymous={isAnonymous} />}
       {tab === PREFS_TAB.view && <ViewPrefsTab t={t} uiSettings={uiSettings} setUiSettings={setUiSettings} />}
       {tab === PREFS_TAB.devices && (
         <DevicesPrefsTab

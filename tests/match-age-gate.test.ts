@@ -83,8 +83,9 @@ describe('matchmaking age gate', () => {
   let underage!: Registration
   let unknownAge!: Registration
 
-  // FEATURE_ANONYMOUS_MATCH is deliberately unset: the default (off) is
-  // what this suite holds the server to.
+  // Anonymous matching is explicitly off here: this suite holds the server
+  // to the disabled-flag behavior (the default is on — see
+  // match-anon-pool.test.ts).
   const serverEnv = () => ({
     PORT: String(PORT),
     ADMIN_KEY: 'age-gate-admin',
@@ -92,6 +93,7 @@ describe('matchmaking age gate', () => {
     REGISTER_RATE_LIMIT: '1000',
     BETTER_AUTH_SECRET: SECRET,
     TURSO_DATABASE_URL: databaseUrl,
+    FEATURE_ANONYMOUS_MATCH: 'false',
   })
 
   const register = async (tag: string): Promise<Registration> => {

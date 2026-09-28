@@ -148,9 +148,12 @@ impl Config {
             static_dir: env::var("STATIC_DIR").unwrap_or_default(),
             log_level: env::var("LOG_LEVEL").unwrap_or_else(|_| "info".into()),
             features: Features {
-                // Off by default: anonymous users have no server-verifiable
-                // age, and video matchmaking is 18+.
-                anonymous_match: bool_env("FEATURE_ANONYMOUS_MATCH", false),
+                // On by default: guests may match, but only within the guest
+                // pool unless an authenticated user opens their pool to them.
+                // Guests match from forced default filters (see
+                // `force_guest_preferences`); identity filters stay a
+                // registered-user feature.
+                anonymous_match: bool_env("FEATURE_ANONYMOUS_MATCH", true),
                 guest_reports: bool_env("FEATURE_GUEST_REPORTS", true),
                 quality_telemetry: bool_env("FEATURE_QUALITY_TELEMETRY", true),
                 require_email_verified: bool_env("FEATURE_REQUIRE_EMAIL_VERIFIED", false),

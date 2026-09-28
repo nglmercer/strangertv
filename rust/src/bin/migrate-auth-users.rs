@@ -220,8 +220,8 @@ async fn has_column(conn: &libsql::Connection, table: &str, wanted: &str) -> any
     Ok(false)
 }
 
-async fn source_rows<'a>(
-    conn: &'a libsql::Connection,
+async fn source_rows(
+    conn: &libsql::Connection,
     options: &Options,
     has_email_verified: bool,
 ) -> anyhow::Result<libsql::Rows> {

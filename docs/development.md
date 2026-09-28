@@ -26,6 +26,15 @@ layout, security rules) lives in
 Make targets: `make dev`, `make build`, `make ci`, `make docker`,
 `make docker-turn`. See [Makefile](../Makefile).
 
+## Dev startup
+
+`npm run dev` starts Vite immediately while the API still compiles (~30s on
+first build, and again on every Rust save under `cargo watch`). Until
+`server.listen` appears, expect Vite proxy `ECONNREFUSED` errors in the
+`[web]` pane — they stop on their own once the API is up. Boot-time client
+requests (session, public config, ICE) wait up to 60s for the API instead of
+failing, so a page loaded in that window recovers without a reload.
+
 ## Checks before a PR
 
 ```bash

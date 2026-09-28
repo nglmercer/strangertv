@@ -17,20 +17,20 @@ export function ControlDeck({
   finding,
   matched,
   isGroupMatch,
+  isAnonymous,
   lookingLabel,
   onStart,
   onStop,
   onNext,
   onChangeCountry,
   onChangeLookingFor,
-  points,
-  onOpenEconomy,
 }: {
   t: Messages
   prefs: MatchPreferences
   finding: boolean
   matched: boolean
   isGroupMatch: boolean
+  isAnonymous: boolean
   lookingLabel: string
   onStart: () => void
   onStop: () => void
@@ -38,8 +38,6 @@ export function ControlDeck({
   onOpenPrefs?: () => void
   onChangeCountry: (country: string) => void
   onChangeLookingFor: (gender: Gender) => void
-  points?: number | null
-  onOpenEconomy?: () => void
 }) {
   const isActive = finding || matched
   const [copied, setCopied] = useState(false)
@@ -93,9 +91,10 @@ export function ControlDeck({
         onChange={onChangeCountry}
         searchable
         variant="deck"
+        disabled={isAnonymous}
         triggerIcon={<Flag code={prefs.country} size={26} />}
         triggerLabel={countryLabel(t, prefs.country)}
-        triggerTitle={`${t.country}: ${countryLabel(t, prefs.country)}`}
+        triggerTitle={isAnonymous ? t.anonFiltersLocked : `${t.country}: ${countryLabel(t, prefs.country)}`}
       />
       <Select
         t={t}
@@ -107,10 +106,11 @@ export function ControlDeck({
           icon: genderIcon(g),
         }))}
         variant="deck"
+        disabled={isAnonymous}
         onChange={(next: string) => onChangeLookingFor(next as Gender)}
         triggerIcon={<Icon d={genderIcon(prefs.lookingFor)} size={24} />}
         triggerLabel={lookingLabel}
-        triggerTitle={`${t.lookingFor}: ${lookingLabel}`}
+        triggerTitle={isAnonymous ? t.anonFiltersLocked : `${t.lookingFor}: ${lookingLabel}`}
       />
       <button
         type="button"
@@ -124,20 +124,6 @@ export function ControlDeck({
         </span>
         <small>{copied ? t.sharePrefsCopied : t.sharePrefs}</small>
       </button>
-      {onOpenEconomy && (
-        <button
-          type="button"
-          class="deck-card deck-share"
-          onClick={onOpenEconomy}
-          title={t.points}
-          aria-label={t.points}
-        >
-          <span class="deck-emoji" aria-hidden="true">
-            <Icon d={icons.star} size={18} />
-          </span>
-          <small>{points ?? '…'}</small>
-        </button>
-      )}
     </div>
   )
 }

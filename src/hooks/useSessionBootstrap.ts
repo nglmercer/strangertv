@@ -4,6 +4,7 @@ import {
   clearSession,
   fetchHealth,
   fetchIceServers,
+  fetchPublicConfig,
   getToken,
   setSession,
   setStoredUser,
@@ -13,6 +14,7 @@ import { detectLocale, t as translate } from '../i18n'
 import { TIMING_MS, URL_PARAM } from '../../shared/constants'
 import type { MatchPreferences } from '../../shared/types'
 import { readSharedPrefs, sanitizeSharedPrefs } from '../utils/sharePrefs'
+import { waitForApi } from '../utils/waitForApi'
 
 type Options = {
   setUser: (u: PublicUser | null) => void
@@ -36,8 +38,11 @@ export function useSessionBootstrap({
 }: Options) {
   const [appVersion, setAppVersion] = useState('')
   const [sharedPrefs, setSharedPrefs] = useState<Partial<MatchPreferences> | null>(null)
+  /** Whether guests may queue. Null until the public config answers. */
+  const [anonymousMatchEnabled, setAnonymousMatchEnabled] = useState<boolean | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     const params = new URLSearchParams(location.search)
     const reset = params.get(URL_PARAM.reset)
     if (reset) {
@@ -66,21 +71,6 @@ export function useSessionBootstrap({
       history.replaceState({}, '', location.pathname)
     }
     const verify = params.get(URL_PARAM.verify)
-    if (verify) {
-      void authApi
-        .verifyEmail(verify)
-        .then(() => {
-          setStatus(translate(detectLocale()).emailVerified)
-          history.replaceState({}, '', location.pathname)
-          // Cookie sessions hold no bearer, so refresh unconditionally: the
-          // call simply fails when nobody is signed in.
-          void authApi
-            .me()
-            .then((r) => setUser(r.user))
-            .catch(() => undefined)
-        })
-        .catch(() => setStatus(translate(detectLocale()).emailVerifyFailed))
-    }
     const raw = readSharedPrefs()
     if (raw) {
       const cleaned = sanitizeSharedPrefs(raw)
@@ -88,41 +78,77 @@ export function useSessionBootstrap({
       history.replaceState({}, '', location.pathname)
     }
 
-    void authApi
-      .me()
-      .then((r) => {
-        // Persist the profile but keep any in-memory legacy bearer: in
-        // legacy-only mode it is the sole credential and must survive.
-        setStoredUser(r.user)
-        setUser(r.user)
+    // Boot requests wait for the API instead of failing while it is still
+    // compiling or restarting (dev `cargo watch`, deploys). Without the gate
+    // a page loaded in that window sticks in a logged-out state until the
+    // user reloads. Past the deadline the calls run anyway and their normal
+    // error handling applies.
+    const boot = async () => {
+      const health = await waitForApi(fetchHealth, {
+        timeoutMs: TIMING_MS.apiBootWait,
+        retryMs: TIMING_MS.apiBootRetry,
+        isCancelled: () => cancelled,
       })
-      .catch(() => {
-        if (!getToken()) {
-          setUser(null)
-          return
-        }
-        // Legacy compat path only: cookie sessions never hold a bearer, so a
-        // present one means a legacy session worth attempting to refresh.
-        void authApi
-          .refresh()
-          .then((r) => {
-            setSession(r.token, r.user)
-            setUser(r.user)
-          })
-          .catch(() => {
-            clearSession()
-            setUser(null)
-          })
-      })
+      if (!health) return
 
-    void fetchHealth().then((h) => {
-      if (h.ok) {
-        setOnline(h.online)
-        setWaitingCount(h.waiting)
-        if (h.version) setAppVersion(h.version)
+      if (verify) {
+        void authApi
+          .verifyEmail(verify)
+          .then(() => {
+            setStatus(translate(detectLocale()).emailVerified)
+            history.replaceState({}, '', location.pathname)
+            // Cookie sessions hold no bearer, so refresh unconditionally: the
+            // call simply fails when nobody is signed in.
+            void authApi
+              .me()
+              .then((r) => setUser(r.user))
+              .catch(() => undefined)
+          })
+          .catch(() => setStatus(translate(detectLocale()).emailVerifyFailed))
       }
-    })
-    void fetchIceServers().catch(() => undefined)
+
+      void authApi
+        .me()
+        .then((r) => {
+          // Persist the profile but keep any in-memory legacy bearer: in
+          // legacy-only mode it is the sole credential and must survive.
+          setStoredUser(r.user)
+          setUser(r.user)
+        })
+        .catch(() => {
+          if (!getToken()) {
+            setUser(null)
+            return
+          }
+          // Legacy compat path only: cookie sessions never hold a bearer, so a
+          // present one means a legacy session worth attempting to refresh.
+          void authApi
+            .refresh()
+            .then((r) => {
+              setSession(r.token, r.user)
+              setUser(r.user)
+            })
+            .catch(() => {
+              clearSession()
+              setUser(null)
+            })
+        })
+
+      if (health.ok) {
+        setOnline(health.online)
+        setWaitingCount(health.waiting)
+        if (health.version) setAppVersion(health.version)
+      }
+      void fetchPublicConfig()
+        .then((c) => {
+          if (typeof c.features?.anonymousMatch === 'boolean') {
+            setAnonymousMatchEnabled(c.features.anonymousMatch)
+          }
+        })
+        .catch(() => undefined)
+      void fetchIceServers().catch(() => undefined)
+    }
+    void boot()
 
     const iv = window.setInterval(() => {
       void fetchHealth().then((h) => {
@@ -132,7 +158,10 @@ export function useSessionBootstrap({
         }
       })
     }, TIMING_MS.healthPollClient)
-    return () => clearInterval(iv)
+    return () => {
+      cancelled = true
+      clearInterval(iv)
+    }
   }, [
     setUser,
     setAuth,
@@ -143,5 +172,5 @@ export function useSessionBootstrap({
     setWaitingCount,
   ])
 
-  return { appVersion, sharedPrefs }
+  return { appVersion, sharedPrefs, anonymousMatchEnabled }
 }

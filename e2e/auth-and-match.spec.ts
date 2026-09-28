@@ -91,7 +91,7 @@ test('two authenticated adults match over websocket', async ({ request }) => {
   b.ws.close()
 })
 
-test('anonymous queue join is rejected', async () => {
+test('anonymous queue join is allowed by default', async () => {
   const port = process.env.E2E_PORT ?? '8797'
   const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`)
   const msg = await new Promise<{ type: string; code?: string }>((resolve, reject) => {
@@ -113,8 +113,9 @@ test('anonymous queue join is rejected', async () => {
       reject(new Error('ws error'))
     }
   })
-  expect(msg.type).toBe('error')
-  expect(msg.code).toBe('auth_required')
+  // Guests queue from forced default filters; the disabled-flag rejection is
+  // covered by the match-age-gate integration suite instead.
+  expect(msg.type).toBe('queue:waiting')
   ws.close()
 })
 

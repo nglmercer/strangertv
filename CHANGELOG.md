@@ -4,6 +4,8 @@
 
 ### Changed
 - Modularized main web client: hooks (`useMatchSession`, `useSessionBootstrap`) + UI components (`TopBar`, `VideoStage`, `CallBar`, `ControlDeck`, `ChatPanel`, `AppFooter`, `AppModals`)
+- Anonymous matchmaking is allowed by default: guests match each other from forced default filters, and registered users choose the pool (`matchPool: "all" | "registered"`)
+- Points moved from the match deck into the Account modal; banned/disabled matchmaking now shows an explanatory banner with server logs
 
 ### Added
 - Gzip compression, `.dockerignore`, WS signal status in header

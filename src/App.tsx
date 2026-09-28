@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { route } from 'preact-router'
 import type { GroupVisibility, Locale, MatchMode, MatchPreferences, PublicUser as SharedPublicUser, ReportReason } from '../shared/types'
-import { PREFS_TAB, PrefsTab, GENDER, STORAGE_KEYS } from '../shared/constants'
+import { PREFS_TAB, PrefsTab, GENDER, SERVER_ERROR_CODE, STORAGE_KEYS } from '../shared/constants'
 import { SocialPage } from './pages/SocialPage'
 //import { getFlag, setFlag } from './utils/storage'
 import { mergePrefs } from './utils/sharePrefs'
@@ -14,6 +14,7 @@ import { ChatPanel } from './components/ChatPanel'
 import { ControlDeck } from './components/ControlDeck'
 import { EconomyPanel } from './components/EconomyPanel'
 import { FriendManager } from './components/FriendManager'
+import { MatchBlockedBanner } from './components/MatchBlockedBanner'
 import { OfflineBanner } from './components/OfflineBanner'
 import type { PageId } from './components/StaticPages'
 import { VideoStage } from './components/VideoStage'
@@ -191,7 +192,7 @@ export function App(_props: AppProps) {
       .catch(() => setPoints(null))
   }, [user])
 
-  const { appVersion, sharedPrefs } = useSessionBootstrap({
+  const { appVersion, sharedPrefs, anonymousMatchEnabled } = useSessionBootstrap({
     setUser: applyUser,
     setAuth,
     setResetToken: setResetTokenFromUrl,
@@ -200,6 +201,18 @@ export function App(_props: AppProps) {
     setOnline: session.setOnline,
     setWaitingCount: session.setWaitingCount,
   })
+
+  // An identity change invalidates any previous rejection: a guest who signs
+  // in (or vice versa) must not keep seeing the stale banner.
+  useEffect(() => {
+    session.clearBlocked()
+  }, [user, session.clearBlocked])
+
+  const matchBlocked =
+    session.blocked ??
+    (!user && anonymousMatchEnabled === false
+      ? { code: SERVER_ERROR_CODE.authRequired, message: tr.anonymousMatchDisabled }
+      : null)
   const [showSharedPrefs, setShowSharedPrefs] = useState(Boolean(sharedPrefs))
 
   useEffect(() => {
@@ -406,6 +419,15 @@ export function App(_props: AppProps) {
       ) : (
         <main class="app">
           <OfflineBanner label={tr.offline} />
+          <MatchBlockedBanner
+            t={tr}
+            blocked={matchBlocked}
+            showSignIn={!user}
+            onSignIn={() => {
+              setAuth(true)
+              setAuthActive(true)
+            }}
+          />
           <NotificationCenter
             t={tr}
             fixed
@@ -535,6 +557,7 @@ export function App(_props: AppProps) {
               finding={session.finding}
               matched={session.matched}
               isGroupMatch={isGroupMatch}
+              isAnonymous={!user}
               lookingLabel={lookingLabel}
               onStart={onStartClick}
               onStop={session.stop}
@@ -549,8 +572,6 @@ export function App(_props: AppProps) {
               onChangeLookingFor={(lookingFor) => {
                 setPrefs({ ...prefs, lookingFor })
               }}
-              points={points}
-              onOpenEconomy={user ? () => setEconomyOpen(true) : undefined}
             />
             <ChatPanel
               t={tr}
@@ -579,6 +600,8 @@ export function App(_props: AppProps) {
         setUiSettings={setUiSettings}
         user={user}
         setUser={applyUser}
+        points={points}
+        onOpenEconomy={() => setEconomyOpen(true)}
         profileNeeded={profileNeeded}
         setProfileNeeded={setProfileNeeded}
         showStart={showStart}

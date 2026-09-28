@@ -8,9 +8,9 @@
  * as a `tsc` error rather than a runtime surprise.
  *
  */
-import type { MatchMode, GroupVisibility, MatchScope } from './constants'
+import type { MatchMode, GroupVisibility, MatchScope, MatchPool } from './constants'
 
-export type { MatchMode, GroupVisibility, MatchScope }
+export type { MatchMode, GroupVisibility, MatchScope, MatchPool }
 
 // --- Generated wire contract (rust/src/proto) ------------------------------
 export type { Gender } from './generated/Gender'

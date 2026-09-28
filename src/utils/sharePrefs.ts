@@ -54,6 +54,7 @@ export function mergePrefs(
     allowMatchWithSameUsers: defaults.allowMatchWithSameUsers,
     mode: shared.mode ?? defaults.mode,
     matchScope: shared.matchScope ?? defaults.matchScope,
+    matchPool: shared.matchPool ?? defaults.matchPool,
   }
 }
 

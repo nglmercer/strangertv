@@ -1,5 +1,5 @@
 import type { Gender, MatchPreferences, Friend, Follow, FollowStateDTO, Invitation, Message, MediaKind, MediaMetaDTO, MediaUploadDTO, Group, GroupMember, GroupMessage, GroupInvite, ProfileDocDTO, ProfileLinkDTO, ProfileSectionDTO, UserFollowsDTO, ActivityEntry, ActivityInstance, ActivityParticipantEntry } from '../shared/types'
-import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_MODE, DEFAULT_MATCH_SCOPE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
+import { API_ROUTES, DEFAULT_COUNTRY, DEFAULT_GENDER, DEFAULT_LANGUAGE, DEFAULT_MATCH_MODE, DEFAULT_MATCH_POOL, DEFAULT_MATCH_SCOPE, HTTP_HEADERS, MIME_TYPE, STORAGE_KEYS, STUN_SERVERS } from '../shared/constants'
 import {
   type PublicUser,
   clearSession,
@@ -226,7 +226,11 @@ export async function fetchHealth() {
 /** Server capabilities the UI branches on. Falls back to "off" when absent. */
 export async function fetchPublicConfig() {
   try {
-    return await api<{ googleAuth?: boolean; turnConfigured?: boolean }>(API_ROUTES.configPublic)
+    return await api<{
+      googleAuth?: boolean
+      turnConfigured?: boolean
+      features?: { anonymousMatch?: boolean; qualityTelemetry?: boolean }
+    }>(API_ROUTES.configPublic)
   } catch {
     return { googleAuth: false, turnConfigured: false }
   }
@@ -248,6 +252,7 @@ export function loadPrefs(): MatchPreferences {
     allowMatchWithSameUsers: true,
     mode: DEFAULT_MATCH_MODE,
     matchScope: DEFAULT_MATCH_SCOPE,
+    matchPool: DEFAULT_MATCH_POOL,
     ...stored,
   }
 }
