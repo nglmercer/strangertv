@@ -129,8 +129,26 @@ impl BetterAuthState {
         Self::connect(config, &database_url).await
     }
 
+    /// Development/test convenience: apply the Better Auth schema when it is
+    /// missing, so `cargo run` issues cookie sessions without a manual
+    /// `migrate-auth` step. Without this, a fresh dev database silently falls
+    /// back to legacy memory-only sessions, which die on page refresh and
+    /// surface as `GET /api/v1/auth/me → 401` with no cookie and no bearer.
+    /// Production stays explicit (container entrypoint or pipeline) to keep
+    /// multi-replica DDL out of the request path. Returns true when the
+    /// migration ran.
+    pub async fn ensure_dev_schema(&self, is_prod: bool) -> anyhow::Result<bool> {
+        if is_prod || self.schema_ready().await {
+            return Ok(false);
+        }
+        self.apply_migrations().await?;
+        Ok(true)
+    }
+
     /// Apply Better Auth's core schema and secondary-storage table. This is
-    /// intentionally explicit and is not called by `connect` or server main.
+    /// intentionally explicit and is not called by `connect` or server main
+    /// in production; non-production startup goes through
+    /// [`Self::ensure_dev_schema`].
     pub async fn apply_migrations(&self) -> anyhow::Result<()> {
         self.adapter
             .apply_migrations(&self.context.migration_plan())
@@ -609,6 +627,35 @@ mod tests {
         drop(state);
         drop(legacy_conn);
         drop(legacy_database);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[tokio::test]
+    async fn dev_startup_applies_a_missing_auth_schema_but_production_stays_explicit() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!("stranger-better-auth-devschema-{suffix}.db"));
+        let url = format!("file:{}", path.display());
+        let mut config = Config::from_env();
+        config.better_auth_secret = "test-secret-that-is-at-least-32-bytes-long".into();
+        let state = BetterAuthState::connect_with(&config, &url, "")
+            .await
+            .expect("Better Auth connection");
+        assert!(!state.schema_ready().await);
+
+        // Production never self-migrates: multi-replica DDL stays with the
+        // entrypoint/pipeline, and the schema is still missing afterwards.
+        assert!(!state.ensure_dev_schema(true).await.expect("prod check"));
+        assert!(!state.schema_ready().await);
+
+        // Development applies the missing schema once, then reports no-op.
+        assert!(state.ensure_dev_schema(false).await.expect("dev migrate"));
+        assert!(state.schema_ready().await);
+        assert!(!state.ensure_dev_schema(false).await.expect("dev no-op"));
+
+        drop(state);
         let _ = std::fs::remove_file(path);
     }
 }

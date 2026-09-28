@@ -74,9 +74,12 @@ Notes on behavior:
 
 ## Better Auth schema migration
 
-The server connects Better Auth during startup but never applies its schema.
-Run the explicit migration command once against the deployment database before
-starting the new server, and repeat it safely when needed:
+The server connects Better Auth during startup. Production never applies its
+schema — run the explicit migration command once against the deployment
+database before starting the new server, and repeat it safely when needed.
+Non-production startup (`cargo run`, `npm run dev`) applies a missing schema
+automatically and logs `better_auth.dev_schema_applied`, so a fresh dev
+database issues cookie sessions with no manual step:
 
 ```bash
 BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
@@ -111,12 +114,14 @@ job instead:
 docker compose run --rm stranger migrate-auth
 ```
 
-The server binary itself still never applies auth DDL. Password sign-in
-tolerates a missing schema and falls back to the legacy path, so a gap here is
-easy to miss; Google sign-in cannot, because it keeps its OAuth state in
-Better Auth's key/value table. When the schema is absent the server logs
-`oauth.google_schema_missing` at startup and the sign-in endpoint answers 503
-rather than failing obscurely.
+The production server binary itself still never applies auth DDL. Password
+sign-in tolerates a missing schema and falls back to the legacy path, so a
+gap here is easy to miss; Google sign-in cannot, because it keeps its OAuth
+state in Better Auth's key/value table. When the schema is absent the server
+logs `oauth.google_schema_missing` at startup and the sign-in endpoint
+answers 503 rather than failing obscurely. (In development the schema is
+auto-applied, and legacy sessions are memory-only: without the schema, a
+page refresh wipes the only credential and `GET /api/v1/auth/me` 401s.)
 
 For a large database, review a bounded import before applying it and continue
 with numeric ID checkpoints:

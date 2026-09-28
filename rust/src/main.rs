@@ -134,8 +134,22 @@ async fn main() {
             std::process::exit(1);
         }
     };
+    // Non-production self-heals a missing auth schema (fresh `cargo run` with
+    // no manual `migrate-auth` step). A failure here must never break dev
+    // boot: the legacy session fallback keeps in-page sign-in working, so
+    // log loudly and continue.
+    match better_auth.ensure_dev_schema(config.is_prod).await {
+        Ok(true) => log_info!("better_auth.dev_schema_applied", {
+            "schemaMigration": "auto-dev"
+        }),
+        Ok(false) => {}
+        Err(err) => log_error!("better_auth.dev_schema_failed", {
+            "message": err.to_string(),
+            "hint": "Run: npm run migrate:auth (legacy in-memory sessions still work until refresh)"
+        }),
+    }
     log_info!("better_auth.ready", {
-        "schemaMigration": "explicit",
+        "schemaMigration": if config.is_prod { "explicit" } else { "auto-dev" },
         "sessionDays": 14
     });
 
