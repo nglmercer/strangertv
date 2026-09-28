@@ -11,7 +11,7 @@ license = "MIT"
 rust-version = "1.88"
 
 [workspace.dependencies]
-aes-gcm = "0.10"
+aes-gcm = "0.11"
 axum = "0.8"
 async-trait = "0.1"
 base64 = "0.22"
