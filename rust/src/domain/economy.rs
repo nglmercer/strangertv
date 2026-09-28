@@ -11,12 +11,14 @@
 use libsql::{params, Connection};
 
 use crate::constants::{
-    ECONOMY_AD_COOLDOWN_SECS, ECONOMY_AD_DAILY_CAP, ECONOMY_AD_REWARD, ECONOMY_START_BALANCE,
+    ECONOMY_AD_COOLDOWN_SECS, ECONOMY_AD_DAILY_CAP, ECONOMY_AD_REWARD, ECONOMY_DAILY_REWARD,
+    ECONOMY_START_BALANCE,
 };
 
 pub const REASON_SIGNUP_GRANT: &str = "signup_grant";
 pub const REASON_MATCH_SPEND: &str = "match_spend";
 pub const REASON_AD_REWARD: &str = "ad_reward";
+pub const REASON_DAILY_REWARD: &str = "daily_reward";
 pub const REASON_GIFT_SEND: &str = "gift_send";
 pub const REASON_GIFT_RECEIVE: &str = "gift_receive";
 pub const REASON_ADMIN_ADJUST: &str = "admin_adjust";
@@ -239,6 +241,45 @@ pub async fn claim_ad(conn: &Connection, user_id: i64) -> anyhow::Result<AdOutco
         new_balance,
         next_claim_at: now + ECONOMY_AD_COOLDOWN_SECS,
     })
+}
+
+/// Daily login reward: grants `ECONOMY_DAILY_REWARD` once per user per UTC
+/// day. Returns true when this call granted. Auth routes call this on every
+/// session establishment (register, login, refresh, `me`) — the per-day
+/// check makes repeats no-ops, so a best-effort call needs no coordination.
+///
+/// The day check lives inside the guarded `INSERT`: a SELECT-then-INSERT
+/// would let concurrent logins double-grant, and login is trivially
+/// parallelizable by a script.
+pub async fn grant_daily_if_owed(conn: &Connection, user_id: i64) -> anyhow::Result<bool> {
+    let tx = conn.transaction().await?;
+    let inserted = tx
+        .execute(
+            "INSERT INTO point_ledger (user_id, delta, reason)
+             SELECT ?, ?, ? WHERE NOT EXISTS (
+               SELECT 1 FROM point_ledger
+               WHERE user_id = ? AND reason = ? AND date(created_at) = date('now')
+             )",
+            params![
+                user_id,
+                ECONOMY_DAILY_REWARD,
+                REASON_DAILY_REWARD,
+                user_id,
+                REASON_DAILY_REWARD
+            ],
+        )
+        .await?;
+    if inserted == 0 {
+        tx.rollback().await?;
+        return Ok(false);
+    }
+    tx.execute(
+        "UPDATE users SET points_balance = points_balance + ? WHERE id = ?",
+        params![ECONOMY_DAILY_REWARD, user_id],
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(true)
 }
 
 /// Manual admin adjustment, positive or negative. Penalties intentionally
@@ -499,6 +540,61 @@ mod tests {
         assert_eq!(
             balance(db.conn(), from).await.expect("balance"),
             ECONOMY_START_BALANCE - 25
+        );
+
+        drop(db);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn daily_ad_budget_is_500_points() {
+        assert_eq!(ECONOMY_AD_REWARD, 10);
+        assert_eq!(ECONOMY_AD_DAILY_CAP, 50);
+        assert_eq!(ECONOMY_AD_REWARD * ECONOMY_AD_DAILY_CAP, 500);
+    }
+
+    #[tokio::test]
+    async fn daily_reward_grants_once_per_utc_day() {
+        let (db, path) = test_db().await;
+        let user = add_user(db.conn(), "daily@example.com").await;
+
+        assert!(
+            grant_daily_if_owed(db.conn(), user)
+                .await
+                .expect("first grant")
+        );
+        assert_eq!(
+            balance(db.conn(), user).await.expect("balance"),
+            ECONOMY_DAILY_REWARD
+        );
+        // A second session the same day grants nothing.
+        assert!(
+            !grant_daily_if_owed(db.conn(), user)
+                .await
+                .expect("repeat")
+        );
+        assert_eq!(
+            balance(db.conn(), user).await.expect("balance"),
+            ECONOMY_DAILY_REWARD
+        );
+
+        // Yesterday's grant does not block today's.
+        db.conn()
+            .execute(
+                "UPDATE point_ledger SET created_at = datetime('now', '-1 day')
+                 WHERE user_id = ? AND reason = ?",
+                params![user, REASON_DAILY_REWARD],
+            )
+            .await
+            .expect("backdate");
+        assert!(
+            grant_daily_if_owed(db.conn(), user)
+                .await
+                .expect("next day")
+        );
+        assert_eq!(
+            balance(db.conn(), user).await.expect("balance"),
+            ECONOMY_DAILY_REWARD * 2
         );
 
         drop(db);

@@ -543,4 +543,5 @@ As conversas não são privadas em relação ao seu par; trate estranhos com cui
   matchBlockedEmail: 'Verificação de e-mail necessária',
   anonymousMatchDisabled: 'O emparelhamento anônimo está desativado neste servidor. Entre para emparelhar.',
   managePoints: 'Gerenciar pontos',
+  dailyRewardGranted: 'Recompensa diária resgatada',
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import {
   authApi,
   clearSession,
@@ -24,6 +24,7 @@ type Options = {
   setStatus: (s: string) => void
   setOnline: (n: number) => void
   setWaitingCount: (n: number) => void
+  onDailyReward?: () => void
 }
 
 /** One-time boot: deep links, session refresh, health poll, ICE warm-up. */
@@ -35,11 +36,15 @@ export function useSessionBootstrap({
   setStatus,
   setOnline,
   setWaitingCount,
+  onDailyReward,
 }: Options) {
   const [appVersion, setAppVersion] = useState('')
   const [sharedPrefs, setSharedPrefs] = useState<Partial<MatchPreferences> | null>(null)
   /** Whether guests may queue. Null until the public config answers. */
   const [anonymousMatchEnabled, setAnonymousMatchEnabled] = useState<boolean | null>(null)
+  // Boot runs once; the ref keeps the callback fresh without re-running it.
+  const onDailyRewardRef = useRef(onDailyReward)
+  onDailyRewardRef.current = onDailyReward
 
   useEffect(() => {
     let cancelled = false
@@ -114,6 +119,7 @@ export function useSessionBootstrap({
           // legacy-only mode it is the sole credential and must survive.
           setStoredUser(r.user)
           setUser(r.user)
+          if (r.dailyGranted) onDailyRewardRef.current?.()
         })
         .catch(() => {
           if (!getToken()) {

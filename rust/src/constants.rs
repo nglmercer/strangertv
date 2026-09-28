@@ -26,7 +26,9 @@ pub const ECONOMY_MATCH_COST: i64 = 5;
 pub const ECONOMY_AD_REWARD: i64 = 10;
 /// Seconds between ad claims per user.
 pub const ECONOMY_AD_COOLDOWN_SECS: i64 = 60;
-/// Max ad claims per user per UTC day.
-pub const ECONOMY_AD_DAILY_CAP: i64 = 5;
+/// Max ad claims per user per UTC day: 50 claims × 10 pts = 500 pts/day.
+pub const ECONOMY_AD_DAILY_CAP: i64 = 50;
+/// Points per daily login-reward claim (once per user per UTC day).
+pub const ECONOMY_DAILY_REWARD: i64 = 50;
 /// Max leaderboard rows served.
 pub const ECONOMY_LEADERBOARD_MAX: i64 = 50;

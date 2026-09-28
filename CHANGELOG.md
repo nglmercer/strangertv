@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Changed
+- Daily ad budget ×10: 50 claims/day at 10 pts (500 pts/day max)
+- Daily login reward: +50 points credited automatically once per UTC day
 - Modularized main web client: hooks (`useMatchSession`, `useSessionBootstrap`) + UI components (`TopBar`, `VideoStage`, `CallBar`, `ControlDeck`, `ChatPanel`, `AppFooter`, `AppModals`)
 - Anonymous matchmaking is allowed by default: guests match each other from forced default filters, and registered users choose the pool (`matchPool: "all" | "registered"`)
 - Points moved from the match deck into the Account modal; banned/disabled matchmaking now shows an explanatory banner with server logs

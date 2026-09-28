@@ -9,9 +9,10 @@ hold or spend points — the matchmaking gate rejects them before any charge.
 | Event | Delta |
 |---|---|
 | Signup grant (new accounts + one-time backfill) | +100 |
+| Daily login reward (automatic, 1/day UTC) | +50 |
 | Solo `queue:join` / `room:next` attempt | −5 |
 | Group-match create (both entry points) | −5 |
-| Ad claim | +10, 60s cooldown, 5/day cap (UTC) |
+| Ad claim | +10, 60s cooldown, 50/day cap (UTC) |
 | Gift received / sent | +N / −N |
 | Admin adjustment | ±N, no floor (penalties bite through zero) |
 
@@ -38,10 +39,17 @@ queue-spam lever).
 - Ad claims are server-capped attestations; the client shows a short
   placeholder view before claiming. Clocks and caps come from SQLite, so
   farming is bounded. A real ad-provider SDK is future work.
+- The daily reward credits automatically on the first session establishment
+  of the UTC day (register, login, token refresh, or `GET /auth/me`, which
+  the client calls on every boot). The grant is a guarded single-statement
+  `INSERT`, so concurrent logins cannot double-claim; failures are logged
+  and never fail auth. Registration day counts: a new account gets the
+  signup grant plus that day's reward.
 
 ## Client
 
-Balance chip in the control deck (logged-in users), `EconomyPanel` for
+Balance in the Account modal (logged-in users), `EconomyPanel` for
 earn/gift/leaderboard/history, and an insufficient-funds hook in
 `useMatchSession` that opens the panel. The panel persists `nextClaimAt`
-from grant responses for its cooldown countdown.
+from grant responses for its cooldown countdown; a granted daily reward
+shows a toast on boot (`dailyGranted` on `GET /auth/me`).

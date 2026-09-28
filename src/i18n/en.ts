@@ -544,6 +544,7 @@ Conversations are not private from your peer; treat strangers carefully.`,
   matchBlockedEmail: 'Email verification required',
   anonymousMatchDisabled: 'Anonymous matchmaking is disabled on this server. Sign in to match.',
   managePoints: 'Manage points',
+  dailyRewardGranted: 'Daily login reward claimed',
 }
 
 export type Messages = {

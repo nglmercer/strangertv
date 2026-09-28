@@ -383,6 +383,10 @@ async fn register(
         rollback_signup(&state, user_id, Some(&token), better_auth_result.as_ref()).await;
         return Err(ApiError::from(error));
     }
+    // Registration is the first login of the day: the daily reward is
+    // independent of the one-time signup grant. Best-effort, unlike the
+    // signup grant — a perk must never roll back an account.
+    grant_daily_reward(&state, user_id).await;
 
     let verify_token = match create_email_verification_token(&state, user_id).await {
         Ok(token) => token,
@@ -627,6 +631,7 @@ async fn better_auth_login_inner(
     let user = user_from_id(&state.db, user_id)
         .await
         .map_err(ApiError::from)?;
+    grant_daily_reward(state, user_id).await;
     inc("auth_login_better_auth_success", 1);
     if legacy_better_auth_hash {
         inc("auth_password_legacy_verified", 1);
@@ -792,6 +797,7 @@ async fn login(
     let user = user_from_token(&state.db, Some(&token))
         .await
         .map_err(ApiError::from)?;
+    grant_daily_reward(&state, user_id).await;
     inc("auth_password_legacy_verified", 1);
     inc("auth_session_legacy_fallback", 1);
     inc("auth_session_legacy_issued", 1);
@@ -917,6 +923,7 @@ async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> ApiResult
         let token = create_session(&state.db, user_id)
             .await
             .map_err(ApiError::from)?;
+        grant_daily_reward(&state, user_id).await;
         inc("auth_refresh_better_auth", 1);
         inc("auth_session_better_auth", 1);
         inc("auth_session_legacy_issued", 1);
@@ -938,6 +945,10 @@ async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> ApiResult
     let user = user_from_token(&state.db, Some(&next))
         .await
         .map_err(ApiError::from)?;
+    let user_id = user.as_ref().map(|u| u.id).unwrap_or(0);
+    if user_id != 0 {
+        grant_daily_reward(&state, user_id).await;
+    }
     inc("auth_session_legacy_fallback", 1);
     inc("auth_session_legacy_issued", 1);
     inc("legacy_session_fallback", 1);
@@ -953,12 +964,31 @@ async fn refresh(State(state): State<AppState>, headers: HeaderMap) -> ApiResult
         .into_response())
 }
 
+/// Best-effort daily login reward. A ledger failure must never fail auth,
+/// so errors are logged and swallowed — the next session establishment
+/// retries, and the per-day check keeps repeats no-ops.
+async fn grant_daily_reward(state: &AppState, user_id: i64) -> bool {
+    match crate::domain::economy::grant_daily_if_owed(state.db.conn(), user_id).await {
+        Ok(granted) => {
+            if granted {
+                crate::infra::metrics::inc("economy_daily_granted", 1);
+            }
+            granted
+        }
+        Err(error) => {
+            crate::log_error!("economy.daily_grant_failed", { "userId": user_id, "message": error.to_string() });
+            false
+        }
+    }
+}
+
 async fn me(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Value>> {
     let user = resolve_authenticated_user_row(&headers, &state)
         .await
         .map_err(ApiError::from)?
         .ok_or_else(ApiError::unauthorized)?;
-    Ok(Json(json!({ "user": public_user(&user) })))
+    let daily_granted = grant_daily_reward(&state, user.id).await;
+    Ok(Json(json!({ "user": public_user(&user), "dailyGranted": daily_granted })))
 }
 
 async fn preferences(
@@ -2096,6 +2126,7 @@ async fn oauth_google_complete_impl(
         rollback_new_legacy_user(&state, user_id).await;
         return Err(ApiError::from(error));
     }
+    grant_daily_reward(&state, user_id).await;
 
     let profile = better_auth::OAuthUserProfile {
         provider_account_id: pending.provider_account_id.clone(),

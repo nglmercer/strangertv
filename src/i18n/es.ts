@@ -543,4 +543,5 @@ Las conversaciones no son privadas frente a tu pareja; trata a los desconocidos 
   matchBlockedEmail: 'Verificación de correo requerida',
   anonymousMatchDisabled: 'El emparejamiento anónimo está desactivado en este servidor. Inicia sesión para emparejar.',
   managePoints: 'Gestionar puntos',
+  dailyRewardGranted: 'Recompensa diaria reclamada',
 }

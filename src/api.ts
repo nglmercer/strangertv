@@ -126,7 +126,7 @@ export const authApi = {
   login: (body: { email: string; password: string }) =>
     api<{ user: PublicUser; token: string; session?: 'better-auth' | 'legacy' }>(API_ROUTES.authLogin, { method: 'POST', body: JSON.stringify(body) }),
   logout: () => api<{ ok: boolean }>(API_ROUTES.authLogout, { method: 'POST' }),
-  me: () => api<{ user: PublicUser }>(API_ROUTES.authMe),
+  me: () => api<{ user: PublicUser; dailyGranted?: boolean }>(API_ROUTES.authMe),
   refresh: () => api<{ token: string; user: PublicUser }>(API_ROUTES.authRefresh, { method: 'POST' }),
   savePreferences: (prefs: Partial<MatchPreferences>) =>
     api<{ user: PublicUser }>(API_ROUTES.authPreferences, { method: 'PATCH', body: JSON.stringify(prefs) }),

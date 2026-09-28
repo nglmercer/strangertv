@@ -200,6 +200,7 @@ export function App(_props: AppProps) {
     setStatus,
     setOnline: session.setOnline,
     setWaitingCount: session.setWaitingCount,
+    onDailyReward: () => showToast(tr.dailyRewardGranted, 'success'),
   })
 
   // An identity change invalidates any previous rejection: a guest who signs
